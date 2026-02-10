@@ -1,0 +1,867 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>SyncView</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        :root {
+            --bg-body: #000;
+            --bg-map: #0b0e11;
+            --bg-surface: #2a2a2c;
+            --bg-panel: rgba(26, 26, 27, 0.98);
+
+            --bg-overlay-strong: rgba(0, 0, 0, 0.85);
+            --bg-overlay-med: rgba(0, 0, 0, 0.7);
+            --bg-overlay-light: rgba(0, 0, 0, 0.3);
+            --bg-overlay-hover: rgba(0, 0, 0, 0.5);
+
+            --text-main: #f9fafb;
+            --text-muted: #ccc;
+            --text-inv: #000;
+            --text-white: #fff;
+
+            --border-main: #333538;
+            --border-strong: rgba(255, 255, 255, 0.2);
+            --border-med: rgba(255, 255, 255, 0.1);
+            --border-faint: rgba(255, 255, 255, 0.05);
+
+            --accent: #3b82f6;
+            --accent-yellow: #fbbf24;
+            --danger: #ef4444;
+            --danger-soft: rgba(239, 68, 68, 0.15);
+            --danger-border: rgba(239, 68, 68, 0.3);
+
+            /* Border Radius */
+            --radius: 0.5rem;
+            --radius-full: 50%;
+
+            /* Compatibility */
+            --bg: #1a1a1b;
+            --border: var(--border-main);
+            --text: var(--text-main);
+            --panel: var(--bg-panel);
+            --ovl-yellow: var(--accent-yellow);
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-body);
+            color: var(--text);
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .map-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            width: 100vw;
+            position: relative;
+        }
+
+        .map-wrapper {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+            min-height: 0;
+        }
+
+        /* Advanced Search UI */
+        .search-wrapper {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            z-index: 1000;
+            display: flex;
+            align-items: flex-start;
+            pointer-events: none;
+        }
+
+        .lens-btn {
+            width: 36px;
+            height: 36px;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-white);
+            pointer-events: auto;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            flex-shrink: 0;
+            z-index: 2;
+        }
+
+        .lens-btn:hover {
+            border-color: var(--accent);
+        }
+
+        .lens-btn.active {
+            background: var(--bg-panel);
+            border: 1px solid var(--danger-border);
+            color: var(--danger);
+            transform: rotate(90deg);
+        }
+
+        .search-container {
+            position: relative;
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            margin-left: -1px;
+        }
+
+        .search-box {
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-left: none;
+            border-radius: 0 var(--radius) var(--radius) 0;
+            color: var(--text-white);
+            height: 36px;
+            padding: 0 15px 0 25px;
+            font-size: 13px;
+            outline: none;
+            backdrop-filter: blur(8px);
+            width: 0;
+            opacity: 0;
+            transform: translateX(-20px);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 1;
+        }
+
+        .search-box.expanded {
+            width: 220px;
+            opacity: 1;
+            transform: translateX(0);
+        }
+
+        .suggestions {
+            position: absolute;
+            top: 36px;
+            left: 0;
+            right: 0;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-top: none;
+            border-radius: 0 0 var(--radius) var(--radius);
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            z-index: 5;
+            backdrop-filter: blur(12px);
+            box-shadow: 0 4px 12px var(--bg-overlay-hover);
+        }
+
+        .suggestions.visible {
+            display: block;
+        }
+
+        .suggestion-item {
+            padding: 8px 12px;
+            font-size: 12px;
+            color: var(--text-muted);
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-faint);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .suggestion-item:hover {
+            background: var(--accent);
+            color: var(--text-white);
+        }
+
+        /* Divisor UI */
+        .divisor-area {
+            position: relative;
+            height: 2px;
+            background: var(--bg-body);
+            width: 100%;
+            z-index: 1500;
+            flex-shrink: 0;
+            border-top: 1px solid var(--border-strong);
+        }
+
+        /* Stats Panel */
+        .floating-stats {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: none;
+            z-index: 2001;
+        }
+
+        .floating-stats.visible {
+            display: block;
+        }
+
+        .panel-container {
+            display: flex;
+            align-items: stretch;
+            gap: 4px;
+        }
+
+        .unified-panel {
+            background: var(--bg-panel);
+            backdrop-filter: blur(10px);
+            border: 1.5px solid var(--bg-body);
+            border-radius: var(--radius);
+            box-shadow: 0 4px 15px var(--bg-overlay-hover);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            min-width: 110px;
+            text-align: center;
+        }
+
+        .stat-val-box {
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 800;
+        }
+
+        #top-val-box {
+            border-bottom: 1px solid var(--border-med);
+        }
+
+        .diff-lateral {
+            background: var(--bg-panel);
+            border: 1.5px solid var(--bg-body);
+            border-radius: var(--radius);
+            padding: 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .diff-badge {
+            color: var(--text-white);
+            font-size: 12px;
+            font-weight: 900;
+        }
+
+        .map-instance {
+            width: 100%;
+            height: 100%;
+            background: var(--bg-map);
+            cursor: crosshair;
+        }
+
+        .map-label {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: var(--bg-panel);
+            padding: 4px 8px;
+            border-radius: var(--radius);
+            font-size: 10px;
+            font-weight: 800;
+            border: 1px solid var(--border-med);
+            color: var(--text-white);
+            text-transform: uppercase;
+            pointer-events: none;
+        }
+
+        /* Dashboard UI */
+        #dashboard {
+            position: fixed;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 2000;
+            background: var(--panel);
+            backdrop-filter: blur(15px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 8px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            width: 92%;
+            max-width: 440px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+        }
+
+        .nav-row {
+            display: flex;
+            align-items: stretch;
+            gap: 8px;
+            height: 38px;
+        }
+
+        /* Custom Dropdown */
+        /* Custom Dropdown */
+        .custom-select {
+            position: relative;
+            width: 110px;
+            flex-shrink: 0;
+        }
+
+        .select-trigger {
+            height: 100%;
+            background: var(--bg-tool);
+            color: var(--text-main);
+            border: none;
+            border-radius: var(--radius);
+            font-size: 12px;
+            font-weight: 600;
+            padding: 0 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .select-trigger:hover {
+            background: var(--bg-overlay-hover);
+            color: var(--text-white);
+        }
+
+        .select-options {
+            position: absolute;
+            bottom: calc(100% + 6px);
+            left: 0;
+            width: 100%;
+            background: var(--panel);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border-main);
+            border-radius: var(--radius);
+            padding: 4px;
+            display: none;
+            z-index: 2100;
+            box-shadow: 0 4px 20px var(--bg-overlay-hover);
+        }
+
+        .select-options.open {
+            display: block;
+        }
+
+        .option {
+            padding: 6px 10px;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            border-radius: var(--radius);
+            color: var(--text-muted);
+            transition: all 0.2s;
+        }
+
+        .option:hover {
+            background: var(--accent);
+            color: var(--text-white);
+        }
+
+        .tool-group {
+            display: flex;
+            background: var(--bg-tool);
+            border-radius: var(--radius);
+            padding: 2px;
+            flex: 1;
+        }
+
+        .tool-btn {
+            background: transparent;
+            border: none;
+            color: var(--text);
+            border-radius: var(--radius);
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            flex: 1;
+            opacity: 0.6;
+            transition: all 0.2s;
+        }
+
+        .tool-btn.active {
+            background: var(--accent);
+            color: white;
+            opacity: 1;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .clear-btn {
+            background: var(--danger-soft);
+            color: var(--danger);
+            border: 1px solid var(--danger-border);
+            padding: 0 14px;
+            border-radius: var(--radius);
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            cursor: pointer;
+        }
+
+        .clear-btn:active {
+            background: var(--danger);
+            color: white;
+        }
+
+        /* Context Menu */
+        #ctx-menu {
+            position: fixed;
+            display: none;
+            z-index: 5000;
+            background: var(--bg-surface);
+            border: 1px solid var(--border-main);
+            border-radius: var(--radius);
+            padding: 4px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        }
+
+        .ctx-item {
+            padding: 6px 12px;
+            font-size: 12px;
+            color: var(--danger);
+            font-weight: 600;
+            cursor: pointer;
+            border-radius: var(--radius);
+        }
+
+        .ctx-item:hover {
+            background: var(--danger-soft);
+        }
+
+        /* Markers */
+        .handle {
+            background: var(--text-white);
+            border: 2px solid var(--accent);
+            border-radius: var(--radius-full);
+            box-shadow: 0 0 5px var(--bg-overlay-light);
+        }
+
+        .ghost-handle {
+            background: var(--bg-body);
+            border: 2px solid var(--accent-yellow);
+            border-radius: var(--radius-full);
+            box-shadow: 0 0 5px var(--bg-overlay-light);
+        }
+
+        @media (min-width: 768px) {
+            .map-container {
+                flex-direction: row;
+            }
+
+            .divisor-area {
+                width: 2px;
+                height: 100%;
+                border-top: none;
+                border-left: 1px solid var(--border-strong);
+            }
+
+            #dashboard {
+                bottom: 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="map-container">
+        <div class="map-wrapper">
+            <div class="search-wrapper">
+                <div class="lens-btn" id="lens1" onclick="toggleSearch(1)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </div>
+                <div class="search-container">
+                    <input type="text" id="search1" class="search-box" placeholder="Search Map 1..." autocomplete="off">
+                    <div id="results1" class="suggestions"></div>
+                </div>
+            </div>
+            <div id="map1" class="map-instance"></div>
+            <div class="map-label" id="label1">Map 1</div>
+        </div>
+        <div class="divisor-area">
+            <div id="floating-stats" class="floating-stats">
+                <div class="panel-container">
+                    <div class="unified-panel">
+                        <div class="stat-val-box" id="top-val-box"><span id="top-val">0.00</span></div>
+                        <div class="stat-val-box" id="bottom-val-box"><span id="bottom-val">0.00</span></div>
+                    </div>
+                    <div class="diff-lateral"><span class="diff-badge" id="diff-val">--</span></div>
+                </div>
+            </div>
+        </div>
+        <div class="map-wrapper">
+            <div class="search-wrapper">
+                <div class="lens-btn" id="lens2" onclick="toggleSearch(2)">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                </div>
+                <div class="search-container">
+                    <input type="text" id="search2" class="search-box" placeholder="Search Map 2..." autocomplete="off">
+                    <div id="results2" class="suggestions"></div>
+                </div>
+            </div>
+            <div id="map2" class="map-instance"></div>
+            <div class="map-label" id="label2">Map 2</div>
+        </div>
+    </div>
+
+    <div id="dashboard">
+        <div class="nav-row">
+            <!-- Custom Dropdown -->
+            <div class="custom-select" id="layerDropdown">
+                <div class="select-trigger" id="layerTrigger">
+                    <span id="triggerText">Hybrid</span>
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+                        stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 9l6 6 6-6" />
+                    </svg>
+                </div>
+                <div class="select-options" id="layerOptions">
+                    <div class="option" data-value="hybrid">Hybrid</div>
+                    <div class="option" data-value="streets">Streets</div>
+                    <div class="option" data-value="satellite">Satellite</div>
+                </div>
+            </div>
+
+            <div class="tool-group">
+                <button class="tool-btn" id="btn-none" onclick="setMode('none')">Pan</button>
+                <button class="tool-btn active" id="btn-dist" onclick="setMode('dist')">Ruler</button>
+                <button class="tool-btn" id="btn-area" onclick="setMode('area')">Area</button>
+            </div>
+            <button class="clear-btn" onclick="clearAll()">Clear</button>
+        </div>
+
+    </div>
+    <div id="ctx-menu">
+        <div class="ctx-item" onclick="delPoint()">Delete Point</div>
+    </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Tile Definitions
+        const tiles = {
+            hybrid: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            streets: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        };
+        const hybridRef = 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
+
+        const map1 = L.map('map1', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], 12);
+        const map2 = L.map('map2', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], 12);
+
+        let l1 = L.tileLayer(tiles.hybrid).addTo(map1);
+        let l2 = L.tileLayer(tiles.hybrid).addTo(map2);
+        let h1 = L.tileLayer(hybridRef, { opacity: 0.9 }).addTo(map1);
+        let h2 = L.tileLayer(hybridRef, { opacity: 0.9 }).addTo(map2);
+
+        // Sync Logic
+        const syncZoom = (e) => {
+            const source = e.target;
+            const target = source === map1 ? map2 : map1;
+            if (Math.abs(target.getZoom() - source.getZoom()) > 0.01) {
+                target.setZoom(source.getZoom(), { animate: false });
+            }
+        };
+        map1.on('zoom', syncZoom); map2.on('zoom', syncZoom);
+
+        // Search Logic with Suggestions
+        let searchTimeout = null;
+
+        function toggleSearch(idx) {
+            const input = document.getElementById('search' + idx);
+            const lens = document.getElementById('lens' + idx);
+            const list = document.getElementById('results' + idx);
+
+            if (input.classList.contains('expanded')) {
+                input.value = '';
+                input.classList.remove('expanded');
+                lens.classList.remove('active');
+                list.classList.remove('visible');
+                lens.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+            } else {
+                input.classList.add('expanded');
+                lens.classList.add('active');
+                lens.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+                input.focus();
+            }
+        }
+
+        async function fetchSuggestions(idx, query) {
+            if (query.length < 3) {
+                document.getElementById('results' + idx).classList.remove('visible');
+                return;
+            }
+
+            try {
+                const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+                const data = await resp.json();
+                const list = document.getElementById('results' + idx);
+
+                if (data && data.length > 0) {
+                    list.innerHTML = '';
+                    data.forEach(item => {
+                        const div = document.createElement('div');
+                        div.className = 'suggestion-item';
+                        div.innerText = item.display_name;
+                        div.onclick = () => {
+                            const targetMap = idx === 1 ? map1 : map2;
+                            targetMap.setView([item.lat, item.lon], 14);
+                            list.classList.remove('visible');
+                            document.getElementById('search' + idx).value = item.display_name;
+                        };
+                        list.appendChild(div);
+                    });
+                    list.classList.add('visible');
+                } else {
+                    list.classList.remove('visible');
+                }
+            } catch (err) {
+                console.error("Fetch failed", err);
+            }
+        }
+
+        const setupSearchEvents = (idx) => {
+            const input = document.getElementById('search' + idx);
+            input.addEventListener('input', (e) => {
+                clearTimeout(searchTimeout);
+                searchTimeout = setTimeout(() => fetchSuggestions(idx, e.target.value), 150);
+            });
+            input.addEventListener('keypress', async (e) => {
+                if (e.key === 'Enter') {
+                    const query = e.target.value;
+                    const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
+                    const data = await resp.json();
+                    if (data?.[0]) {
+                        const targetMap = idx === 1 ? map1 : map2;
+                        targetMap.setView([data[0].lat, data[0].lon], 14);
+                        document.getElementById('results' + idx).classList.remove('visible');
+                    }
+                }
+            });
+        };
+
+        setupSearchEvents(1);
+        setupSearchEvents(2);
+
+        // Custom Dropdown Logic
+        const trigger = document.getElementById('layerTrigger');
+        const options = document.getElementById('layerOptions');
+        const triggerText = document.getElementById('triggerText');
+        trigger.onclick = () => options.classList.toggle('open');
+        document.querySelectorAll('.option').forEach(opt => {
+            opt.onclick = () => {
+                const val = opt.getAttribute('data-value');
+                triggerText.innerText = opt.innerText;
+                options.classList.remove('open');
+
+                l1.setUrl(tiles[val]);
+                l2.setUrl(tiles[val]);
+                if (val === 'hybrid') {
+                    h1.addTo(map1);
+                    h2.addTo(map2);
+                } else {
+                    h1.remove();
+                    h2.remove();
+                }
+            };
+        });
+        window.onclick = (e) => {
+            if (!e.target.closest('#layerDropdown')) options.classList.remove('open');
+            if (!e.target.closest('.search-wrapper')) {
+                document.querySelectorAll('.suggestions').forEach(s => s.classList.remove('visible'));
+            }
+            if (!e.target.closest('#ctx-menu')) hideCtx();
+        };
+
+        // Graphics & Measurement State
+        const shapes = {
+            sRefBg: L.polyline([], { color: 'var(--text-inv)', weight: 6, opacity: 0.8 }),
+            sRef: L.polyline([], { color: 'var(--accent)', weight: 3 }),
+            sOvlBg: L.polyline([], { color: 'var(--text-inv)', weight: 6, opacity: 0.8 }),
+            sOvl: L.polyline([], { color: 'var(--accent-yellow)', weight: 3 }),
+            aRefBg: L.polygon([], { color: 'var(--text-inv)', weight: 6, opacity: 0.8, fill: false }),
+            aRef: L.polygon([], { color: 'var(--accent)', weight: 3, fillOpacity: 0.2 }),
+            aOvlBg: L.polygon([], { color: 'var(--text-inv)', weight: 6, opacity: 0.8, fill: false }),
+            aOvl: L.polygon([], { color: 'var(--accent-yellow)', weight: 3, fillOpacity: 0.3 })
+        };
+
+        let mode = 'dist';
+        let verticesRef = [], verticesOvl = [], markersRef = [], markersOvl = [];
+        let refMap = null, ovlMap = null, mercAnchorRef = null, mercAnchorOvl = null;
+
+        const toMerc = (ll) => L.Projection.Mercator.project(ll);
+        const fromMerc = (p) => L.Projection.Mercator.unproject(p);
+
+        function setMode(m) {
+            mode = m;
+            document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.id === 'btn-' + m));
+            document.querySelectorAll('.map-instance').forEach(div => div.style.cursor = m === 'none' ? 'grab' : 'crosshair');
+            update();
+        }
+
+        // Context Menu Logic
+        let ctxMarker = null;
+        const ctxMenu = document.getElementById('ctx-menu');
+
+        function showCtx(e, m) {
+            L.DomEvent.stopPropagation(e);
+            ctxMarker = m;
+            ctxMenu.style.display = 'block';
+            ctxMenu.style.left = e.originalEvent.clientX + 'px';
+            ctxMenu.style.top = e.originalEvent.clientY + 'px';
+        }
+
+        function delPoint() {
+            if (!ctxMarker || !refMap) return;
+            const i = markersRef.indexOf(ctxMarker);
+            if (i > -1) {
+                verticesRef.splice(i, 1); verticesOvl.splice(i, 1);
+                refMap.removeLayer(markersRef[i]); ovlMap.removeLayer(markersOvl[i]);
+                markersRef.splice(i, 1); markersOvl.splice(i, 1);
+                update();
+            }
+            hideCtx();
+        }
+
+        function hideCtx() { ctxMenu.style.display = 'none'; ctxMarker = null; }
+
+        function update() {
+            const pRef = verticesRef.map(v => v.latlng);
+            const pOvl = verticesOvl.map(v => v.latlng);
+            const hasPoints = pRef.length > 0;
+
+            document.getElementById('floating-stats').classList.toggle('visible', hasPoints);
+
+            Object.values(shapes).forEach(s => { if (s._map) s.remove(); });
+
+            if (hasPoints && refMap && ovlMap) {
+                const isArea = mode === 'area';
+                if (isArea) {
+                    shapes.aRefBg.addTo(refMap).setLatLngs(pRef);
+                    shapes.aRef.addTo(refMap).setLatLngs(pRef);
+                    shapes.aOvlBg.addTo(ovlMap).setLatLngs(pOvl);
+                    shapes.aOvl.addTo(ovlMap).setLatLngs(pOvl);
+                } else {
+                    shapes.sRefBg.addTo(refMap).setLatLngs(pRef);
+                    shapes.sRef.addTo(refMap).setLatLngs(pRef);
+                    shapes.sOvlBg.addTo(ovlMap).setLatLngs(pOvl);
+                    shapes.sOvl.addTo(ovlMap).setLatLngs(pOvl);
+                }
+
+                markersOvl.forEach((m, i) => { if (pOvl[i]) m.setLatLng(pOvl[i]); });
+
+                if (pRef.length >= (isArea ? 3 : 2)) {
+                    const vRef = isArea ? getArea(pRef) : getDist(pRef);
+                    const vOvl = isArea ? getArea(pOvl) : getDist(pOvl);
+
+                    // Top value = map1, Bottom value = map2
+                    const isMap1Ref = refMap === map1;
+                    const topVal = isMap1Ref ? vRef : vOvl;
+                    const bottomVal = isMap1Ref ? vOvl : vRef;
+                    const topColor = isMap1Ref ? 'var(--accent)' : 'var(--ovl-yellow)';
+                    const bottomColor = isMap1Ref ? 'var(--ovl-yellow)' : 'var(--accent)';
+
+                    document.getElementById('top-val').innerText = fmt(topVal, mode);
+                    document.getElementById('top-val').style.color = topColor;
+                    document.getElementById('bottom-val').innerText = fmt(bottomVal, mode);
+                    document.getElementById('bottom-val').style.color = bottomColor;
+
+                    const ratio = vRef > 0 ? vOvl / vRef : 1;
+                    const diff = (Math.abs(ratio - 1) * 100).toFixed(1);
+                    const diffColor = vRef > vOvl ? 'var(--accent)' : 'var(--ovl-yellow)';
+                    document.getElementById('diff-val').innerText = `${diff}%`;
+                    document.getElementById('diff-val').style.color = diffColor;
+                }
+            }
+        }
+
+        function getArea(ll) {
+            let a = 0; const R = 6378137;
+            for (let i = 0; i < ll.length; i++) {
+                const p1 = ll[i], p2 = ll[(i + 1) % ll.length];
+                a += (p2.lng - p1.lng) * (Math.PI / 180) * (2 + Math.sin(p1.lat * Math.PI / 180) + Math.sin(p2.lat * Math.PI / 180));
+            }
+            return Math.abs(a * R * R / 2);
+        }
+        function getDist(ll) { let d = 0; for (let i = 0; i < ll.length - 1; i++) d += ll[i].distanceTo(ll[i + 1]); return d; }
+        function fmt(v, t) { if (t === 'area') return v >= 1e6 ? (v / 1e6).toFixed(2) + ' km²' : v.toFixed(0) + ' m²'; return v >= 1000 ? (v / 1000).toFixed(2) + ' km' : v.toFixed(0) + ' m'; }
+
+        function handleMapClick(e, src) {
+            if (mode === 'none') return;
+            hideCtx();
+
+            if (!refMap) {
+                refMap = src; ovlMap = src === map1 ? map2 : map1;
+                mercAnchorRef = toMerc(refMap.getCenter()); mercAnchorOvl = toMerc(ovlMap.getCenter());
+                document.getElementById('label1').innerText = refMap === map1 ? "Ref" : "Ovl";
+                document.getElementById('label2').innerText = refMap === map2 ? "Ref" : "Ovl";
+            }
+            if (src !== refMap) return;
+
+            const mPos = toMerc(e.latlng);
+            const ghostLL = fromMerc(L.point(mercAnchorOvl.x + (mPos.x - mercAnchorRef.x), mercAnchorOvl.y + (mPos.y - mercAnchorRef.y)));
+
+            const mR = L.marker(e.latlng, { icon: L.divIcon({ className: 'handle', iconSize: [12, 12] }), draggable: true }).addTo(refMap);
+            const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [12, 12] }), draggable: true }).addTo(ovlMap);
+
+            mR.on('contextmenu', (e) => showCtx(e, mR));
+            mR.on('click', L.DomEvent.stopPropagation);
+
+            mR.on('drag', (de) => {
+                const i = markersRef.indexOf(mR);
+                verticesRef[i].latlng = de.target.getLatLng();
+                const nP = toMerc(verticesRef[i].latlng);
+                verticesOvl[i].latlng = fromMerc(L.point(mercAnchorOvl.x + (nP.x - mercAnchorRef.x), mercAnchorOvl.y + (nP.y - mercAnchorRef.y)));
+                update();
+            });
+
+            let dSM = null, oMs = [];
+            mO.on('dragstart', (de) => { dSM = toMerc(de.target.getLatLng()); oMs = verticesOvl.map(v => toMerc(v.latlng)); });
+            mO.on('drag', (de) => {
+                const cM = toMerc(de.target.getLatLng());
+                const dx = cM.x - dSM.x, dy = cM.y - dSM.y;
+                verticesOvl.forEach((v, idx) => v.latlng = fromMerc(L.point(oMs[idx].x + dx, oMs[idx].y + dy)));
+                const i = markersOvl.indexOf(mO);
+                const vOM = toMerc(verticesOvl[i].latlng), vRM = toMerc(verticesRef[i].latlng);
+                mercAnchorOvl.x = vOM.x - (vRM.x - mercAnchorRef.x);
+                mercAnchorOvl.y = vOM.y - (vRM.y - mercAnchorRef.y);
+                update();
+            });
+
+            verticesRef.push({ latlng: e.latlng });
+            verticesOvl.push({ latlng: ghostLL });
+            markersRef.push(mR);
+            markersOvl.push(mO);
+            update();
+        }
+
+        map1.on('click', (e) => handleMapClick(e, map1));
+        map2.on('click', (e) => handleMapClick(e, map2));
+
+        function clearAll() {
+            if (refMap) { markersRef.forEach(m => refMap.removeLayer(m)); markersOvl.forEach(m => ovlMap.removeLayer(m)); }
+            verticesRef = []; verticesOvl = []; markersRef = []; markersOvl = [];
+            refMap = null; ovlMap = null;
+            document.getElementById('label1').innerText = "Map 1"; document.getElementById('label2').innerText = "Map 2";
+            update();
+        }
+    </script>
+</body>
+
+</html>
