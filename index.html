@@ -565,18 +565,26 @@
         const map1 = L.map('map1', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], 12);
         const map2 = L.map('map2', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], 12);
 
-        let l1 = L.tileLayer(tiles.hybrid).addTo(map1);
-        let l2 = L.tileLayer(tiles.hybrid).addTo(map2);
-        let h1 = L.tileLayer(hybridRef, { opacity: 0.9 }).addTo(map1);
-        let h2 = L.tileLayer(hybridRef, { opacity: 0.9 }).addTo(map2);
+        let l1 = L.tileLayer(tiles.hybrid, { fadeAnimation: false }).addTo(map1);
+        let l2 = L.tileLayer(tiles.hybrid, { fadeAnimation: false }).addTo(map2);
+        let h1 = L.tileLayer(hybridRef, { opacity: 0.9, fadeAnimation: false }).addTo(map1);
+        let h2 = L.tileLayer(hybridRef, { opacity: 0.9, fadeAnimation: false }).addTo(map2);
 
-        // Sync Logic
+        // Sync Logic - debounced to prevent flicker, with flag to prevent feedback loops
+        let zoomTimeout = null;
+        let isSyncing = false;
         const syncZoom = (e) => {
-            const source = e.target;
-            const target = source === map1 ? map2 : map1;
-            if (Math.abs(target.getZoom() - source.getZoom()) > 0.01) {
-                target.setZoom(source.getZoom(), { animate: false });
-            }
+            if (isSyncing) return;
+            clearTimeout(zoomTimeout);
+            zoomTimeout = setTimeout(() => {
+                const source = e.target;
+                const target = source === map1 ? map2 : map1;
+                if (Math.abs(target.getZoom() - source.getZoom()) > 0.01) {
+                    isSyncing = true;
+                    target.setZoom(source.getZoom(), { animate: false });
+                    isSyncing = false;
+                }
+            }, 50);
         };
         map1.on('zoom', syncZoom); map2.on('zoom', syncZoom);
 
