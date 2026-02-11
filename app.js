@@ -27,6 +27,21 @@ function b64UrlDecodeUtf8(b64u) {
     return new TextDecoder().decode(bytes);
 }
 
+function b64UrlEncodeBytes(bytes) {
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function b64UrlDecodeBytes(b64u) {
+    const b64 = String(b64u).replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const bin = atob(padded);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return bytes;
+}
+
 function clamp(n, min, max) {
     const x = Number(n);
     if (!Number.isFinite(x)) return min;
@@ -51,6 +66,18 @@ function safeLatLngLike(arr) {
     const lng = Number(arr[1]);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
     return [clamp(lat, -85.05112878, 85.05112878), clamp(lng, -180, 180)];
+}
+
+function encodeMapType(mapType) {
+    if (mapType === 'streets') return 1;
+    if (mapType === 'satellite') return 2;
+    return 0;
+}
+
+function decodeMapType(code) {
+    if (code === 1) return 'streets';
+    if (code === 2) return 'satellite';
+    return 'hybrid';
 }
 
 function encodeAppState() {
@@ -81,18 +108,82 @@ function encodeAppState() {
         mapType: currentMapType
     };
 
-    return b64UrlEncodeUtf8(JSON.stringify(state));
+    const ptsCount = Array.isArray(state.pts) ? state.pts.length : 0;
+    const buf = new ArrayBuffer(24 + ptsCount * 8);
+    const dv = new DataView(buf);
+    let o = 0;
+
+    dv.setUint8(o, 1); o += 1;
+    dv.setUint16(o, clamp(Math.round(Number(state.z) * 100), 0, 2200), true); o += 2;
+
+    const m1lat = clamp(Math.round(Number(state.m1[0]) * 1e6), -85051129, 85051129);
+    const m1lng = clamp(Math.round(Number(state.m1[1]) * 1e6), -180000000, 180000000);
+    const m2lat = clamp(Math.round(Number(state.m2[0]) * 1e6), -85051129, 85051129);
+    const m2lng = clamp(Math.round(Number(state.m2[1]) * 1e6), -180000000, 180000000);
+
+    dv.setInt32(o, m1lat, true); o += 4;
+    dv.setInt32(o, m1lng, true); o += 4;
+    dv.setInt32(o, m2lat, true); o += 4;
+    dv.setInt32(o, m2lng, true); o += 4;
+
+    dv.setUint8(o, state.mode === 'area' ? 1 : 0); o += 1;
+    dv.setUint8(o, clamp(Math.round(Number(state.ref)), 0, 2)); o += 1;
+    dv.setUint8(o, encodeMapType(state.mapType)); o += 1;
+    dv.setUint16(o, clamp(ptsCount, 0, 65535), true); o += 2;
+
+    for (let i = 0; i < ptsCount; i++) {
+        const p = state.pts[i];
+        const ll = safeLatLngLike(p);
+        const plat = ll ? ll[0] : 0;
+        const plng = ll ? ll[1] : 0;
+        dv.setInt32(o, Math.round(plat * 1e6), true); o += 4;
+        dv.setInt32(o, Math.round(plng * 1e6), true); o += 4;
+    }
+
+    return b64UrlEncodeBytes(new Uint8Array(buf));
 }
 
 function decodeAppState(hash) {
     const raw = String(hash || '').replace(/^#/, '');
     if (!raw) return null;
     try {
-        const json = b64UrlDecodeUtf8(raw);
-        const obj = JSON.parse(json);
-        if (!obj || typeof obj !== 'object') return null;
-        if (obj.v !== 1) return null;
-        return obj;
+        const bytes = b64UrlDecodeBytes(raw);
+        const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+        let o = 0;
+
+        if (dv.byteLength < 24) return null;
+        const v = dv.getUint8(o); o += 1;
+        if (v !== 1) return null;
+
+        const z = dv.getUint16(o, true) / 100; o += 2;
+        const m1lat = dv.getInt32(o, true) / 1e6; o += 4;
+        const m1lng = dv.getInt32(o, true) / 1e6; o += 4;
+        const m2lat = dv.getInt32(o, true) / 1e6; o += 4;
+        const m2lng = dv.getInt32(o, true) / 1e6; o += 4;
+        const modeCode = dv.getUint8(o); o += 1;
+        const ref = dv.getUint8(o); o += 1;
+        const mapTypeCode = dv.getUint8(o); o += 1;
+        const ptsCount = dv.getUint16(o, true); o += 2;
+
+        if (dv.byteLength !== 24 + ptsCount * 8) return null;
+
+        const pts = [];
+        for (let i = 0; i < ptsCount; i++) {
+            const plat = dv.getInt32(o, true) / 1e6; o += 4;
+            const plng = dv.getInt32(o, true) / 1e6; o += 4;
+            pts.push([plat, plng]);
+        }
+
+        return {
+            v: 1,
+            z,
+            m1: [m1lat, m1lng],
+            m2: [m2lat, m2lng],
+            mode: modeCode === 1 ? 'area' : 'dist',
+            ref: ref,
+            pts,
+            mapType: decodeMapType(mapTypeCode)
+        };
     } catch (_) {
         return null;
     }
