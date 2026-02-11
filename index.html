@@ -565,8 +565,8 @@
             </div>
 
             <div class="tool-group">
-                <button class="tool-btn" id="btn-none" onclick="setMode('none')">Pan</button>
-                <button class="tool-btn active" id="btn-dist" onclick="setMode('dist')">Ruler</button>
+                <button class="tool-btn active" id="btn-none" onclick="setMode('none')">Pan</button>
+                <button class="tool-btn" id="btn-dist" onclick="setMode('dist')">Ruler</button>
                 <button class="tool-btn" id="btn-area" onclick="setMode('area')">Area</button>
             </div>
             <button class="clear-btn" onclick="clearAll()">Clear</button>
@@ -735,7 +735,7 @@
             aOvl: L.polygon([], { color: 'var(--accent-yellow)', weight: 3, fillOpacity: 0.3 })
         };
 
-        let mode = 'dist';
+        let mode = 'none';
         let verticesRef = [], verticesOvl = [], markersRef = [], markersOvl = [];
         let refMap = null, ovlMap = null, mercAnchorRef = null, mercAnchorOvl = null;
 
