@@ -34,6 +34,7 @@ map1.on('zoom', syncZoom); map2.on('zoom', syncZoom);
 
 // Search Logic with Suggestions
 let searchTimeout = null;
+const searchCache = new Map(); // Cache for search results
 
 function toggleSearch(idx) {
     const lens = document.getElementById('lens' + idx);
@@ -61,39 +62,53 @@ async function fetchSuggestions(idx, query) {
         return;
     }
 
+    // Check cache first
+    const cacheKey = query.toLowerCase();
+    if (searchCache.has(cacheKey)) {
+        displaySuggestions(idx, searchCache.get(cacheKey));
+        return;
+    }
+
     try {
         const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
         const data = await resp.json();
         const list = document.getElementById('results' + idx);
 
         if (data && data.length > 0) {
-            list.innerHTML = '';
-            data.forEach(item => {
-                const div = document.createElement('div');
-                div.className = 'suggestion-item';
-                div.innerText = item.display_name;
-                div.onclick = () => {
-                    const targetMap = idx === 1 ? map1 : map2;
-                    targetMap.setView([item.lat, item.lon], 14);
-                    list.classList.remove('visible');
-                    document.getElementById('search' + idx).value = item.display_name;
-                };
-                list.appendChild(div);
-            });
-            list.classList.add('visible');
+            // Cache the results
+            searchCache.set(cacheKey, data);
+            displaySuggestions(idx, data);
         } else {
-            list.classList.remove('visible');
+            document.getElementById('results' + idx).classList.remove('visible');
         }
     } catch (err) {
         console.error("Fetch failed", err);
     }
 }
 
+function displaySuggestions(idx, data) {
+    const list = document.getElementById('results' + idx);
+    list.innerHTML = '';
+    data.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'suggestion-item';
+        div.innerText = item.display_name;
+        div.onclick = () => {
+            const targetMap = idx === 1 ? map1 : map2;
+            targetMap.setView([item.lat, item.lon], 14);
+            list.classList.remove('visible');
+            toggleSearch(idx); // Close search input
+        };
+        list.appendChild(div);
+    });
+    list.classList.add('visible');
+}
+
 const setupSearchEvents = (idx) => {
     const input = document.getElementById('search' + idx);
     input.addEventListener('input', (e) => {
         clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => fetchSuggestions(idx, e.target.value), 150);
+        searchTimeout = setTimeout(() => fetchSuggestions(idx, e.target.value), 100);
     });
     input.addEventListener('keypress', async (e) => {
         if (e.key === 'Enter') {
@@ -104,6 +119,7 @@ const setupSearchEvents = (idx) => {
                 const targetMap = idx === 1 ? map1 : map2;
                 targetMap.setView([data[0].lat, data[0].lon], 14);
                 document.getElementById('results' + idx).classList.remove('visible');
+                toggleSearch(idx); // Close search input
             }
         }
     });

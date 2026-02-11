@@ -85,7 +85,7 @@ body {
     pointer-events: auto;
     background: var(--bg-panel);
     border: 1px solid var(--border);
-    border-radius: var(--radius-full);
+    border-radius: var(--radius);
     height: 36px;
     padding: 0;
     overflow: hidden;
@@ -193,7 +193,7 @@ body {
     max-height: 200px;
     overflow-y: auto;
     display: none;
-    z-index: 5;
+    z-index: 2000;
     backdrop-filter: blur(12px);
     box-shadow: 0 4px 12px var(--bg-overlay-hover);
 }
@@ -465,6 +465,40 @@ body {
      line-height: 1.1;
      opacity: 0.95;
  }
+
+/* Mobile-specific search positioning */
+@media (max-width: 767px) {
+    /* First map search button - just above divisor line */
+    .map-wrapper:first-child .search-wrapper {
+        top: auto;
+        bottom: 12px;
+        transform: none;
+    }
+    
+    /* Second map search button - just below divisor line */
+    .map-wrapper:last-child .search-wrapper {
+        top: 12px;
+        transform: none;
+    }
+    
+    /* First map suggestions - open upward */
+    .map-wrapper:first-child .suggestions {
+        bottom: 100%;
+        top: auto;
+        border-bottom: none;
+        border-top: 1px solid var(--border);
+        border-radius: var(--radius) var(--radius) 0 0;
+    }
+    
+    /* Second map suggestions - open downward (normal) */
+    .map-wrapper:last-child .suggestions {
+        top: 100%;
+        bottom: auto;
+        border-top: none;
+        border-bottom: 1px solid var(--border);
+        border-radius: 0 0 var(--radius) var(--radius);
+    }
+}
 
 @media (min-width: 768px) {
     .map-container {
