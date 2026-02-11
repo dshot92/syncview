@@ -10,6 +10,9 @@
    sodipodi:docname="icon.svg"
    inkscape:version="1.4.3 (0d15f75042, 2025-12-25)"
    xml:space="preserve"
+   inkscape:export-filename="icon.png"
+   inkscape:export-xdpi="96"
+   inkscape:export-ydpi="96"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -23,9 +26,9 @@
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#d1d1d1"
      inkscape:document-units="px"
-     inkscape:zoom="1.1766699"
-     inkscape:cx="307.22296"
-     inkscape:cy="233.71041"
+     inkscape:zoom="0.58833494"
+     inkscape:cx="-347.59112"
+     inkscape:cy="79.886467"
      inkscape:window-width="2560"
      inkscape:window-height="1052"
      inkscape:window-x="0"
@@ -67,7 +70,13 @@
        hide_knots="false" /></defs><g
      inkscape:label="bg"
      inkscape:groupmode="layer"
-     id="layer1"><path
+     id="layer1"><ellipse
+       style="fill:white;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:11.1973;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:none;stroke-opacity:1;paint-order:stroke fill markers"
+       id="path103"
+       cy="255.10684"
+       cx="255.93321"
+       rx="254.0677"
+       ry="253.24161" /><path
        d="m 209.17969,281.42773 -75.63672,2.44532 50.90039,164.65039 65.00391,-33.64649 z"
        style="fill-rule:evenodd;stroke-width:12.848;stroke-linecap:round;stroke-linejoin:round;paint-order:stroke fill markers"
        id="path102" /><path
