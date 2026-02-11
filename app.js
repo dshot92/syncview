@@ -354,9 +354,16 @@ window.addEventListener('hashchange', () => {
 function getSharableLink() {
     const encoded = encodeAppState();
     const base = location.href.split('#')[0];
-    // Ensure we have a cache-busting query param for OG previews
-    const withCache = base.includes('?') ? base : base + '?v=4';
-    return withCache + '#' + encoded;
+    
+    // Parse existing URL to preserve query parameters
+    const url = new URL(base);
+    
+    // Ensure cache-busting parameter is present for OG previews
+    if (!url.searchParams.has('v')) {
+        url.searchParams.set('v', '4');
+    }
+    
+    return url.toString() + '#' + encoded;
 }
 
 function showToast(msg) {
