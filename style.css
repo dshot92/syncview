@@ -191,28 +191,7 @@ body.share-overlay-open {
 }
 
 .search-clear-btn {
-    grid-area: clear;
-    width: 28px;
-    height: 28px;
-    background: transparent;
-    border: none;
-    border-radius: var(--radius);
-    cursor: pointer;
     display: none;
-    place-items: center;
-    color: var(--text-muted);
-    margin-right: 4px;
-    transition: all 0.2s;
-    padding: 0;
-}
-
-.search-clear-btn:hover {
-    background: var(--hover-bg-subtle);
-    color: var(--hover-text);
-}
-
-.search-box:not(:placeholder-shown) ~ .search-clear-btn {
-    display: flex;
 }
 
 .suggestions {
