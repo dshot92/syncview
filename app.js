@@ -177,12 +177,20 @@ function setLocationFromDevice(mapIndex) {
 const trigger = document.getElementById('layerTrigger');
 const options = document.getElementById('layerOptions');
 const triggerText = document.getElementById('triggerText');
-trigger.onclick = () => options.classList.toggle('open');
+
+trigger.onclick = () => {
+    options.classList.toggle('open');
+    const arrow = trigger.querySelector('svg');
+    arrow.style.transform = options.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0deg)';
+};
+
 document.querySelectorAll('.option').forEach(opt => {
     opt.onclick = () => {
         const val = opt.getAttribute('data-value');
         triggerText.innerText = opt.innerText;
+        
         options.classList.remove('open');
+        trigger.querySelector('svg').style.transform = 'rotate(0deg)';
 
         l1.setUrl(tiles[val]);
         l2.setUrl(tiles[val]);
