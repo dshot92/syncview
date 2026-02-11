@@ -739,6 +739,7 @@ body {
     pointer-events: auto;
     cursor: pointer;
     transition: all 0.2s;
+    touch-action: none;
 }
 
 .measurement-label:hover {

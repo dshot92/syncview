@@ -203,6 +203,9 @@ function applyDecodedState(state) {
                 const mR = L.marker(ll, { icon: L.divIcon({ className: 'handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(refMap);
                 const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(ovlMap);
 
+                bindHandleInteractionLock(mR);
+                bindHandleInteractionLock(mO);
+
                 mR.on('contextmenu', (e) => showCtx(e, mR));
                 mR.on('click', L.DomEvent.stopPropagation);
 
@@ -711,6 +714,9 @@ let hasStartedDragging = false;
 let originalMercAnchorRef = null;
 let originalMercAnchorOvl = null;
 
+let mapsDisabledForLabelDrag = false;
+let mapInteractionLockCount = 0;
+
 const toMerc = (ll) => L.Projection.Mercator.project(ll);
 const fromMerc = (p) => L.Projection.Mercator.unproject(p);
 
@@ -848,8 +854,8 @@ function update() {
             }).addTo(ovlMap);
 
             // Add drag handlers for movement
-            measureLabelRef.on('mousedown', (e) => startLabelDrag(e, 'ref', measureLabelRef));
-            measureLabelOvl.on('mousedown', (e) => startLabelDrag(e, 'ovl', measureLabelOvl));
+            bindMeasurementLabelDrag(measureLabelRef, 'ref');
+            bindMeasurementLabelDrag(measureLabelOvl, 'ovl');
         }
     }
 }
@@ -989,6 +995,9 @@ function handleMapClick(e, src) {
     const mR = L.marker(e.latlng, { icon: L.divIcon({ className: 'handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(refMap);
     const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(ovlMap);
 
+    bindHandleInteractionLock(mR);
+    bindHandleInteractionLock(mO);
+
     mR.on('contextmenu', (e) => showCtx(e, mR));
     mR.on('click', L.DomEvent.stopPropagation);
 
@@ -1085,6 +1094,9 @@ function insertIntermediatePoint(index, latlng, src) {
     const mR = L.marker(latlng, { icon: L.divIcon({ className: 'handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(refMap);
     const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(ovlMap);
 
+    bindHandleInteractionLock(mR);
+    bindHandleInteractionLock(mO);
+
     mR.on('contextmenu', (e) => showCtx(e, mR));
     mR.on('click', L.DomEvent.stopPropagation);
 
@@ -1124,6 +1136,161 @@ function insertIntermediatePoint(index, latlng, src) {
 map1.on('click', (e) => handleMapClick(e, map1));
 map2.on('click', (e) => handleMapClick(e, map2));
 
+function getLatLngFromDomEvent(map, ev) {
+    if (!map || !ev) return null;
+    const src = (ev.touches && ev.touches[0]) ? ev.touches[0]
+        : (ev.changedTouches && ev.changedTouches[0]) ? ev.changedTouches[0]
+        : ev;
+    const containerPoint = map.mouseEventToContainerPoint(src);
+    return map.containerPointToLatLng(containerPoint);
+}
+
+function bindMeasurementLabelDrag(marker, labelType) {
+    if (!marker) return;
+    const el = marker.getElement ? marker.getElement() : marker._icon;
+    if (!el) return;
+
+    const handler = (ev) => startLabelDrag(ev, labelType, marker);
+    el.addEventListener('pointerdown', handler, { passive: false });
+    el.addEventListener('touchstart', handler, { passive: false });
+    el.addEventListener('mousedown', handler);
+}
+
+function bindHandleInteractionLock(marker) {
+    if (!marker) return;
+    const el = marker.getElement ? marker.getElement() : marker._icon;
+    if (!el) return;
+
+    const stop = (ev) => {
+        if (ev && ev.preventDefault) ev.preventDefault();
+        if (ev && ev.stopPropagation) ev.stopPropagation();
+    };
+
+    const down = (ev) => {
+        stop(ev);
+        lockMapInteractions();
+
+        // Pointer capture ensures we still receive pointerup even if finger leaves the handle
+        if (ev && typeof ev.pointerId === 'number' && el.setPointerCapture) {
+            try { el.setPointerCapture(ev.pointerId); } catch (_) { /* ignore */ }
+        }
+
+        // Failsafe unlock in case the element never receives an "up" (common on mobile)
+        const unlockOnce = (endEv) => {
+            stop(endEv);
+            unlockMapInteractions();
+        };
+        if (ev && typeof ev.pointerId === 'number') {
+            document.addEventListener('pointerup', unlockOnce, { passive: false, once: true });
+            document.addEventListener('pointercancel', unlockOnce, { passive: false, once: true });
+        } else {
+            document.addEventListener('mouseup', unlockOnce, { once: true });
+            document.addEventListener('touchend', unlockOnce, { passive: false, once: true });
+            document.addEventListener('touchcancel', unlockOnce, { passive: false, once: true });
+        }
+
+        // Global fallback: if somehow the above fails, unlock on the next global pointer/touch end
+        const globalUnlockOnce = () => unlockMapInteractions();
+        document.addEventListener('pointerup', globalUnlockOnce, { once: true });
+        document.addEventListener('touchend', globalUnlockOnce, { once: true });
+        document.addEventListener('mouseup', globalUnlockOnce, { once: true });
+    };
+
+    // Only bind the "down" events; unlock is handled by the document-level failsafes above
+    el.addEventListener('pointerdown', down, { passive: false });
+    el.addEventListener('touchstart', down, { passive: false });
+    el.addEventListener('mousedown', down);
+}
+
+function lockMapInteractions() {
+    mapInteractionLockCount += 1;
+    if (mapInteractionLockCount !== 1) return;
+    disableMapsForLabelDrag();
+}
+
+function unlockMapInteractions() {
+    mapInteractionLockCount = Math.max(0, mapInteractionLockCount - 1);
+    if (mapInteractionLockCount !== 0) return;
+    enableMapsAfterLabelDrag();
+}
+
+function resetMapInteractionLocks() {
+    mapInteractionLockCount = 0;
+    enableMapsAfterLabelDrag();
+}
+
+window.addEventListener('blur', resetMapInteractionLocks);
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') resetMapInteractionLocks();
+});
+window.addEventListener('pagehide', resetMapInteractionLocks);
+
+// Last-resort safety: unlock on any global pointer/touch end if somehow we're still locked
+document.addEventListener('pointerup', () => {
+    if (mapInteractionLockCount > 0) {
+        setTimeout(() => {
+            if (mapInteractionLockCount > 0) {
+                console.warn('MapInteractionLock: forcing unlock after global pointerup');
+                resetMapInteractionLocks();
+            }
+        }, 0);
+    }
+}, { passive: true });
+document.addEventListener('touchend', () => {
+    if (mapInteractionLockCount > 0) {
+        setTimeout(() => {
+            if (mapInteractionLockCount > 0) {
+                console.warn('MapInteractionLock: forcing unlock after global touchend');
+                resetMapInteractionLocks();
+            }
+        }, 0);
+    }
+}, { passive: true });
+document.addEventListener('mouseup', () => {
+    if (mapInteractionLockCount > 0) {
+        setTimeout(() => {
+            if (mapInteractionLockCount > 0) {
+                console.warn('MapInteractionLock: forcing unlock after global mouseup');
+                resetMapInteractionLocks();
+            }
+        }, 0);
+    }
+}, { passive: true });
+
+function disableMapsForLabelDrag() {
+    if (!refMap || !ovlMap || mapsDisabledForLabelDrag) return;
+    mapsDisabledForLabelDrag = true;
+    refMap.dragging.disable();
+    ovlMap.dragging.disable();
+    refMap.touchZoom.disable();
+    ovlMap.touchZoom.disable();
+    refMap.doubleClickZoom.disable();
+    ovlMap.doubleClickZoom.disable();
+    refMap.scrollWheelZoom.disable();
+    ovlMap.scrollWheelZoom.disable();
+    refMap.boxZoom.disable();
+    ovlMap.boxZoom.disable();
+    refMap.keyboard.disable();
+    ovlMap.keyboard.disable();
+}
+
+function enableMapsAfterLabelDrag() {
+    if (!refMap || !ovlMap || !mapsDisabledForLabelDrag) return;
+    mapsDisabledForLabelDrag = false;
+    if (refMap.dragging && refMap.dragging.enable) refMap.dragging.enable();
+    if (ovlMap.dragging && ovlMap.dragging.enable) ovlMap.dragging.enable();
+    if (refMap.touchZoom && refMap.touchZoom.enable) refMap.touchZoom.enable();
+    if (ovlMap.touchZoom && ovlMap.touchZoom.enable) ovlMap.touchZoom.enable();
+    if (refMap.doubleClickZoom && refMap.doubleClickZoom.enable) refMap.doubleClickZoom.enable();
+    if (ovlMap.doubleClickZoom && ovlMap.doubleClickZoom.enable) ovlMap.doubleClickZoom.enable();
+    if (refMap.scrollWheelZoom && refMap.scrollWheelZoom.enable) refMap.scrollWheelZoom.enable();
+    if (ovlMap.scrollWheelZoom && ovlMap.scrollWheelZoom.enable) ovlMap.scrollWheelZoom.enable();
+    if (refMap.boxZoom && refMap.boxZoom.enable) refMap.boxZoom.enable();
+    if (ovlMap.boxZoom && ovlMap.boxZoom.enable) ovlMap.boxZoom.enable();
+    if (refMap.keyboard && refMap.keyboard.enable) refMap.keyboard.enable();
+    if (ovlMap.keyboard && ovlMap.keyboard.enable) ovlMap.keyboard.enable();
+}
+
 function clearAll() {
     if (refMap) { markersRef.forEach(m => refMap.removeLayer(m)); markersOvl.forEach(m => ovlMap.removeLayer(m)); }
     if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
@@ -1158,9 +1325,10 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 function startLabelDrag(e, labelType, labelMarker) {
     if (!refMap || !ovlMap || verticesRef.length === 0) return;
-    
-    L.DomEvent.preventDefault(e);
-    L.DomEvent.stopPropagation(e);
+
+    const originalEvent = e && e.originalEvent ? e.originalEvent : e;
+    if (originalEvent && originalEvent.preventDefault) originalEvent.preventDefault();
+    if (originalEvent && originalEvent.stopPropagation) originalEvent.stopPropagation();
     
     isMovingAllPoints = true;
     activeMoveLabel = labelType;
@@ -1174,7 +1342,10 @@ function startLabelDrag(e, labelType, labelMarker) {
     
     // Get the starting point from mouse position
     const map = labelType === 'ref' ? refMap : ovlMap;
-    moveStartPoint = map.mouseEventToLatLng(e.originalEvent);
+    moveStartPoint = getLatLngFromDomEvent(map, originalEvent);
+
+    // Prevent Leaflet from starting a pan on touch immediately
+    lockMapInteractions();
     
     // Add visual feedback to labels
     if (measureLabelRef) {
@@ -1187,10 +1358,14 @@ function startLabelDrag(e, labelType, labelMarker) {
     // Add global mouse event listeners
     document.addEventListener('mousemove', handleLabelDrag);
     document.addEventListener('mouseup', handleLabelDragEnd);
+    document.addEventListener('touchmove', handleLabelDrag, { passive: false });
+    document.addEventListener('touchend', handleLabelDragEnd);
+    document.addEventListener('touchcancel', handleLabelDragEnd);
+    document.addEventListener('pointermove', handleLabelDrag, { passive: false });
+    document.addEventListener('pointerup', handleLabelDragEnd);
+    document.addEventListener('pointercancel', handleLabelDragEnd);
     
-    const labelName = labelType === 'ref' ? 'reference' : 'overlay';
-    showToast(`Dragging to move ${labelName} points`);
-}
+    }
 
 function handleLabelDrag(e) {
     if (!isMovingAllPoints || !moveStartPoint || !draggedLabel) return;
@@ -1199,30 +1374,11 @@ function handleLabelDrag(e) {
     e.preventDefault();
     e.stopPropagation();
     
-    // Disable map controls only on first movement
-    if (!hasStartedDragging) {
-        hasStartedDragging = true;
-        // Disable map dragging and panning on both maps
-        refMap.dragging.disable();
-        ovlMap.dragging.disable();
-        refMap.touchZoom.disable();
-        ovlMap.touchZoom.disable();
-        refMap.doubleClickZoom.disable();
-        ovlMap.doubleClickZoom.disable();
-        refMap.scrollWheelZoom.disable();
-        ovlMap.scrollWheelZoom.disable();
-        refMap.boxZoom.disable();
-        ovlMap.boxZoom.disable();
-        refMap.keyboard.disable();
-        ovlMap.keyboard.disable();
-        
-        // Also prevent any map click/touch events during drag
-        refMap.off('click mousedown touchstart');
-        ovlMap.off('click mousedown touchstart');
-    }
+    // Track that movement happened
+    if (!hasStartedDragging) hasStartedDragging = true;
     
     const map = activeMoveLabel === 'ref' ? refMap : ovlMap;
-    const currentPoint = map.mouseEventToLatLng(e);
+    const currentPoint = getLatLngFromDomEvent(map, e);
     const deltaX = currentPoint.lng - moveStartPoint.lng;
     const deltaY = currentPoint.lat - moveStartPoint.lat;
 
@@ -1291,30 +1447,18 @@ function handleLabelDragEnd(e) {
     // Remove global event listeners
     document.removeEventListener('mousemove', handleLabelDrag);
     document.removeEventListener('mouseup', handleLabelDragEnd);
+    document.removeEventListener('touchmove', handleLabelDrag);
+    document.removeEventListener('touchend', handleLabelDragEnd);
+    document.removeEventListener('touchcancel', handleLabelDragEnd);
+    document.removeEventListener('pointermove', handleLabelDrag);
+    document.removeEventListener('pointerup', handleLabelDragEnd);
+    document.removeEventListener('pointercancel', handleLabelDragEnd);
     
     // Check if dragging actually occurred before resetting flags
     const didActuallyDrag = hasStartedDragging;
     
     // Re-enable map controls only if dragging had started
-    if (didActuallyDrag) {
-        // Re-enable map dragging and all controls on both maps
-        refMap.dragging.enable();
-        ovlMap.dragging.enable();
-        refMap.touchZoom.enable();
-        ovlMap.touchZoom.enable();
-        refMap.doubleClickZoom.enable();
-        ovlMap.doubleClickZoom.enable();
-        refMap.scrollWheelZoom.enable();
-        ovlMap.scrollWheelZoom.enable();
-        refMap.boxZoom.enable();
-        ovlMap.boxZoom.enable();
-        refMap.keyboard.enable();
-        ovlMap.keyboard.enable();
-        
-        // Restore map event listeners
-        map1.on('click', (e) => handleMapClick(e, map1));
-        map2.on('click', (e) => handleMapClick(e, map2));
-    }
+    unlockMapInteractions();
     
     // Remove visual feedback
     if (measureLabelRef) {
@@ -1339,7 +1483,6 @@ function handleLabelDragEnd(e) {
     
     if (didActuallyDrag) {
         scheduleUrlUpdate();
-        showToast(`${movedType} points moved successfully`);
     }
 }
 
