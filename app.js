@@ -1167,36 +1167,60 @@ function bindHandleInteractionLock(marker) {
     };
 
     const down = (ev) => {
-        stop(ev);
-        lockMapInteractions();
-
-        // Pointer capture ensures we still receive pointerup even if finger leaves the handle
-        if (ev && typeof ev.pointerId === 'number' && el.setPointerCapture) {
-            try { el.setPointerCapture(ev.pointerId); } catch (_) { /* ignore */ }
+        // Do NOT preventDefault immediately; wait to see if it’s a drag vs long-press
+        let prevented = false;
+        let moved = false;
+        let startX = 0, startY = 0;
+        if (ev.touches && ev.touches[0]) {
+            startX = ev.touches[0].clientX;
+            startY = ev.touches[0].clientY;
+        } else if (ev.clientX !== undefined) {
+            startX = ev.clientX;
+            startY = ev.clientY;
         }
 
-        // Failsafe unlock in case the element never receives an "up" (common on mobile)
-        const unlockOnce = (endEv) => {
-            stop(endEv);
-            unlockMapInteractions();
+        const move = (me) => {
+            const dx = Math.abs((me.touches && me.touches[0] ? me.touches[0].clientX : me.clientX) - startX);
+            const dy = Math.abs((me.touches && me.touches[0] ? me.touches[0].clientY : me.clientY) - startY);
+            if (!moved && (dx > 5 || dy > 5)) {
+                moved = true;
+                // First movement: lock interactions and prevent default to stop map pan
+                lockMapInteractions();
+                stop(me);
+                prevented = true;
+            }
         };
-        if (ev && typeof ev.pointerId === 'number') {
-            document.addEventListener('pointerup', unlockOnce, { passive: false, once: true });
-            document.addEventListener('pointercancel', unlockOnce, { passive: false, once: true });
-        } else {
-            document.addEventListener('mouseup', unlockOnce, { once: true });
-            document.addEventListener('touchend', unlockOnce, { passive: false, once: true });
-            document.addEventListener('touchcancel', unlockOnce, { passive: false, once: true });
-        }
 
-        // Global fallback: if somehow the above fails, unlock on the next global pointer/touch end
-        const globalUnlockOnce = () => unlockMapInteractions();
-        document.addEventListener('pointerup', globalUnlockOnce, { once: true });
-        document.addEventListener('touchend', globalUnlockOnce, { once: true });
-        document.addEventListener('mouseup', globalUnlockOnce, { once: true });
+        // Short timer to lock interactions in case there’s no movement (still a drag intent)
+        const timer = setTimeout(() => {
+            if (!moved && !prevented) {
+                lockMapInteractions();
+                prevented = true;
+            }
+        }, 120);
+
+        const up = (ue) => {
+            clearTimeout(timer);
+            if (moved || prevented) {
+                unlockMapInteractions();
+            }
+            // If we never prevented default, allow contextmenu/long-press to proceed
+        };
+
+        // Bind move/up/cancel listeners
+        if (ev && typeof ev.pointerId === 'number') {
+            document.addEventListener('pointermove', move, { passive: false });
+            document.addEventListener('pointerup', up, { passive: false, once: true });
+            document.addEventListener('pointercancel', up, { passive: false, once: true });
+        } else {
+            document.addEventListener('mousemove', move, { passive: false });
+            document.addEventListener('mouseup', up, { once: true });
+            document.addEventListener('touchmove', move, { passive: false });
+            document.addEventListener('touchend', up, { passive: false, once: true });
+            document.addEventListener('touchcancel', up, { passive: false, once: true });
+        }
     };
 
-    // Only bind the "down" events; unlock is handled by the document-level failsafes above
     el.addEventListener('pointerdown', down, { passive: false });
     el.addEventListener('touchstart', down, { passive: false });
     el.addEventListener('mousedown', down);
