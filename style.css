@@ -39,8 +39,13 @@
     --divisor-width: 4px;
     --point-border: 2px;
     --point-outline: 2px;
+    
+    /* Grid Template Areas */
+    --grid-desktop: "map1 divisor map2";
+    --grid-mobile: "map1" "divisor" "map2";
 }
 
+/* Main Layout Grid */
 body {
     margin: 0;
     padding: 0;
@@ -49,20 +54,45 @@ body {
     color: var(--text-main);
     overflow: hidden;
     height: 100vh;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-areas: 
+        "main"
+        "dashboard";
+    grid-template-rows: 1fr auto;
+    grid-template-columns: 1fr;
 }
 
+body.share-overlay-open {
+    grid-template-areas: 
+        "overlay"
+        "overlay";
+}
+
+/* Map Container Grid */
 .map-container {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-areas: var(--grid-desktop);
+    grid-template-columns: 1fr var(--divisor-width) 1fr;
+    grid-template-rows: 1fr;
     height: 100vh;
     width: 100vw;
     position: relative;
+    grid-area: main;
+}
+
+.map-wrapper:first-child {
+    grid-area: map1;
+}
+
+.divisor-area {
+    grid-area: divisor;
+}
+
+.map-wrapper:last-child {
+    grid-area: map2;
 }
 
 .map-wrapper {
-    flex: 1;
     position: relative;
     overflow: hidden;
     min-height: 0;
@@ -70,12 +100,15 @@ body {
 
 
 /* Advanced Search UI */
+/* Search Grid Layout */
 .search-wrapper {
     position: absolute;
     top: 12px;
     left: 12px;
     z-index: 1000;
-    display: inline-flex;
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    grid-template-areas: "lens container";
     align-items: center;
     pointer-events: auto;
     background: var(--bg-opaque);
@@ -95,19 +128,18 @@ body {
 }
 
 .lens-btn {
+    grid-area: lens;
     width: 36px;
     height: 36px;
     background: transparent;
     border: none;
     border-radius: 0;
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     color: var(--text-white);
     pointer-events: auto;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    flex-shrink: 0;
     z-index: 2;
     padding: 0;
 }
@@ -119,16 +151,19 @@ body {
 
 
 .search-container {
+    grid-area: container;
     position: relative;
     pointer-events: auto;
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "input clear";
     align-items: center;
-    flex: 1;
     overflow: visible;
     height: 100%;
 }
 
 .search-box {
+    grid-area: input;
     background: transparent;
     border: none;
     border-radius: 0;
@@ -140,7 +175,6 @@ body {
     backdrop-filter: none;
     width: 100%;
     box-sizing: border-box;
-    flex: 1;
 }
 
 .search-box::placeholder {
@@ -148,6 +182,7 @@ body {
 }
 
 .search-clear-btn {
+    grid-area: clear;
     width: 28px;
     height: 28px;
     background: transparent;
@@ -155,10 +190,8 @@ body {
     border-radius: var(--radius);
     cursor: pointer;
     display: none;
-    align-items: center;
-    justify-content: center;
+    place-items: center;
     color: var(--text-muted);
-    flex-shrink: 0;
     margin-right: 4px;
     transition: all 0.2s;
     padding: 0;
@@ -210,7 +243,7 @@ body {
     color: var(--hover-text);
 }
 
-/* Location Button */
+/* Location Button Grid */
 .location-btn {
     position: absolute;
     top: 54px;
@@ -222,9 +255,8 @@ body {
     border-radius: var(--radius);
     color: var(--text-white);
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     z-index: 1000;
     transition: all 0.2s;
     padding: 0;
@@ -245,14 +277,11 @@ body {
     50% { opacity: 0.5; }
 }
 
-/* Divisor UI */
+/* Divisor Grid */
 .divisor-area {
     position: relative;
-    height: var(--divisor-width);
     background: var(--bg-body);
-    width: 100%;
     z-index: 1500;
-    flex-shrink: 0;
     border-top: 1px solid var(--border);
 }
 
@@ -279,8 +308,9 @@ body {
     pointer-events: none;
 }
 
-/* Dashboard UI */
+/* Dashboard Grid */
 #dashboard {
+    grid-area: dashboard;
     position: fixed;
     bottom: 16px;
     left: 50%;
@@ -291,8 +321,8 @@ body {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 8px;
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-areas: "nav";
     gap: 8px;
     width: 92%;
     max-width: 440px;
@@ -300,17 +330,20 @@ body {
 }
 
 .nav-row {
-    display: flex;
+    grid-area: nav;
+    display: grid;
+    grid-template-areas: "dropdown tools share";
+    grid-template-columns: 38px 1fr 38px;
     align-items: stretch;
     gap: 12px;
     height: 38px;
 }
 
-/* Custom Dropdown */
+/* Custom Dropdown Grid */
 .custom-select {
+    grid-area: dropdown;
     position: relative;
     width: 38px;
-    flex-shrink: 0;
 }
 
 .select-trigger {
@@ -321,21 +354,14 @@ body {
     border-radius: var(--radius);
     font-size: 12px;
     font-weight: 600;
-    padding: 0 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    padding: 0;
+    display: grid;
+    place-items: center;
     cursor: pointer;
     transition: background 0.2s;
 }
 
-.select-trigger span {
-    flex: 1;
-    text-align: left;
-}
-
 .select-trigger svg {
-    flex-shrink: 0;
     transition: transform 0.2s;
 }
 
@@ -391,12 +417,14 @@ body {
 }
 
 .tool-group {
-    display: flex;
+    grid-area: tools;
+    display: grid;
+    grid-template-areas: "dist area";
+    grid-template-columns: 1fr 1fr;
     background: var(--bg-opaque);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 2px;
-    flex: 1;
     position: relative;
     backdrop-filter: none;
     opacity: 1;
@@ -429,19 +457,22 @@ body {
     cursor: pointer;
     font-size: 12px;
     font-weight: 600;
-    flex: 1;
     opacity: 0.7;
     transition: opacity 0.2s, color 0.2s;
     position: relative;
     z-index: 1;
     padding: 0;
+    display: grid;
+    place-items: center;
 }
 
 .tool-btn:first-child {
+    grid-area: dist;
     border-radius: var(--radius) 0 0 var(--radius);
 }
 
 .tool-btn:last-child {
+    grid-area: area;
     border-radius: 0 var(--radius) var(--radius) 0;
 }
 
@@ -458,7 +489,7 @@ body {
 .clear-btn {
     background: var(--danger);
     color: var(--text-white);
-    border: 1px solid var(--danger);
+    border: 1px solid #ffffff;
     padding: 0;
     width: 38px;
     height: 38px;
@@ -468,9 +499,8 @@ body {
     text-transform: uppercase;
     cursor: pointer;
     transition: var(--hover-transition);
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
+    display: grid;
+    place-items: center;
     visibility: hidden;
     opacity: 0;
 }
@@ -483,7 +513,7 @@ body {
 .clear-btn:hover {
     background: var(--danger);
     color: var(--text-white);
-    border-color: var(--danger);
+    border-color: #ffffff;
 }
 
 .clear-btn:active {
@@ -498,13 +528,12 @@ body {
     width: 36px;
     height: 36px;
     background: var(--danger);
-    border: 1px solid var(--danger);
+    border: 1px solid #ffffff;
     border-radius: var(--radius);
     color: var(--text-white);
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: grid;
+    place-items: center;
     z-index: 1000;
     transition: all 0.2s;
     padding: 0;
@@ -520,27 +549,26 @@ body {
 .clear-btn-map:hover {
     background: var(--danger);
     color: var(--text-white);
-    border-color: var(--danger);
+    border-color: #ffffff;
 }
 
 .clear-btn-map:active {
     transform: scale(0.95);
 }
 
- .share-btn {
-     background: var(--bg-opaque);
-     color: var(--text-main);
-     border: 1px solid var(--border);
-     padding: 0;
-     width: 38px;
-     height: 38px;
-     border-radius: var(--radius);
-     cursor: pointer;
-     transition: var(--hover-transition);
-     display: inline-flex;
-     align-items: center;
-     justify-content: center;
-     flex-shrink: 0;
+.share-btn {
+    grid-area: share;
+    background: var(--bg-opaque);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    padding: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--hover-transition);
+    display: grid;
+    place-items: center;
  }
 
  .share-btn:hover {
@@ -586,42 +614,66 @@ body {
  }
 
  .overlay {
-     position: fixed;
-     inset: 0;
-     z-index: 6500;
-     background: rgba(0, 0, 0, 0.55);
-     backdrop-filter: blur(6px);
-     display: flex;
-     align-items: center;
-     justify-content: center;
-     padding: 16px;
+    grid-area: overlay;
+    position: fixed;
+    inset: 0;
+    z-index: 6500;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(6px);
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+ }
+
+ .overlay.visible {
+    opacity: 1;
+    visibility: visible;
  }
 
  .overlay-card {
-     width: 100%;
-     max-width: 420px;
-     background: rgba(18, 18, 20, 0.96);
-     border: 1px solid rgba(255, 255, 255, 0.14);
-     border-radius: 16px;
-     box-shadow: 0 18px 48px rgba(0, 0, 0, 0.7);
-     overflow: hidden;
+    display: grid;
+    grid-template-areas: 
+        "header"
+        "grid"
+        "copy";
+    grid-template-rows: auto 1fr auto;
+    width: 100%;
+    max-width: 420px;
+    background: rgba(18, 18, 20, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    border-radius: 16px;
+    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.7);
+    overflow: hidden;
+    transform: scale(0.9) translateY(20px);
+    transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+ }
+
+ .overlay.visible .overlay-card {
+    transform: scale(1) translateY(0);
  }
 
  .overlay-header {
-     display: flex;
+    grid-area: header;
+     display: grid;
+     grid-template-areas: "title close";
+     grid-template-columns: 1fr auto;
      align-items: center;
-     justify-content: space-between;
      padding: 12px 12px 10px 14px;
      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
  }
 
  .overlay-title {
+     grid-area: title;
      font-size: 13px;
      font-weight: 900;
      letter-spacing: 0.02em;
  }
 
  .overlay-close {
+     grid-area: close;
      width: 34px;
      height: 34px;
      background: transparent;
@@ -629,9 +681,8 @@ body {
      border-radius: 12px;
      color: var(--text-main);
      cursor: pointer;
-     display: inline-flex;
-     align-items: center;
-     justify-content: center;
+     display: grid;
+     place-items: center;
      transition: var(--hover-transition);
  }
 
@@ -642,10 +693,30 @@ body {
  }
 
  .share-grid {
+    grid-area: grid;
      display: grid;
-     grid-template-columns: repeat(2, 1fr);
+     grid-template-areas: 
+         "twitter facebook"
+         "linkedin email";
+     grid-template-columns: 1fr 1fr;
      gap: 10px;
      padding: 14px;
+ }
+
+ .share-action[data-sharer="twitter"] {
+    grid-area: twitter;
+ }
+
+ .share-action[data-sharer="facebook"] {
+    grid-area: facebook;
+ }
+
+ .share-action[data-sharer="linkedin"] {
+    grid-area: linkedin;
+ }
+
+ .share-action[data-sharer="email"] {
+    grid-area: email;
  }
 
  .share-action {
@@ -658,6 +729,8 @@ body {
      font-weight: 800;
      cursor: pointer;
      transition: var(--hover-transition);
+     display: grid;
+     place-items: center;
  }
 
  .share-action:hover {
@@ -667,13 +740,16 @@ body {
 }
 
  .share-copy {
+    grid-area: copy;
      padding: 0 14px 14px 14px;
      display: grid;
+     grid-template-areas: "button input";
      grid-template-columns: 110px 1fr;
      gap: 10px;
  }
 
  .share-copy-btn {
+     grid-area: button;
      height: 40px;
      border-radius: 12px;
      border: 1px solid var(--hover-border);
@@ -683,6 +759,8 @@ body {
      font-weight: 900;
      cursor: pointer;
      transition: var(--hover-transition);
+     display: grid;
+     place-items: center;
  }
 
  .share-copy-btn:hover {
@@ -691,6 +769,7 @@ body {
  }
 
  .share-link {
+     grid-area: input;
      height: 40px;
      border-radius: 12px;
      border: 1px solid rgba(255, 255, 255, 0.12);
@@ -699,6 +778,7 @@ body {
      font-size: 12px;
      padding: 0 10px;
      outline: none;
+     box-sizing: border-box;
  }
 
 /* Context Menu */
@@ -774,9 +854,14 @@ body {
     left: 0;
     top: 0;
     transform: translate(-50%, -50%);
+    display: grid;
+    place-items: center;
 }
 
 .measurement-label-inner {
+    display: grid;
+    grid-template-areas: "primary" "secondary";
+    gap: 2px;
     background: rgba(0, 0, 0, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-radius: 10px;
@@ -788,6 +873,7 @@ body {
 }
 
 .measurement-label-primary {
+    grid-area: primary;
     font-size: 13px;
     line-height: 1.1;
     color: #ffffff;
@@ -795,7 +881,7 @@ body {
 }
 
 .measurement-label-secondary {
-    margin-top: 2px;
+    grid-area: secondary;
     font-size: 11px;
     line-height: 1.1;
     color: #ffffff;
@@ -805,6 +891,18 @@ body {
 
 /* Mobile-specific search positioning */
 @media (max-width: 767px) {
+    .map-container {
+        grid-template-areas: var(--grid-mobile);
+        grid-template-columns: 1fr;
+        grid-template-rows: 1fr var(--divisor-width) 1fr;
+    }
+
+    .divisor-area {
+        width: 100%;
+        height: var(--divisor-width);
+        border-top: 1px solid var(--border);
+        border-left: none;
+    }
     /* First map search button - just above divisor line */
     .map-wrapper:first-child .search-wrapper {
         top: auto;
@@ -867,7 +965,6 @@ body {
     /* Ensure custom dropdown behaves consistently on mobile */
     .custom-select {
         width: 38px;
-        flex-shrink: 0;
     }
 
     .select-trigger {
@@ -878,21 +975,14 @@ body {
         border-radius: var(--radius);
         font-size: 12px;
         font-weight: 600;
-        padding: 0 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        padding: 0;
+        display: grid;
+        place-items: center;
         cursor: pointer;
         transition: background 0.2s;
     }
 
-    .select-trigger span {
-        flex: 1;
-        text-align: left;
-    }
-
     .select-trigger svg {
-        flex-shrink: 0;
         transition: transform 0.2s;
     }
 
@@ -961,11 +1051,13 @@ body {
 
 @media (min-width: 768px) {
     .map-container {
-        flex-direction: row;
+        grid-template-areas: var(--grid-desktop);
+        grid-template-columns: 1fr var(--divisor-width) 1fr;
+        grid-template-rows: 1fr;
     }
 
     .divisor-area {
-        width: 4px;
+        width: var(--divisor-width);
         height: 100%;
         border-top: none;
         border-left: 1px solid var(--border);

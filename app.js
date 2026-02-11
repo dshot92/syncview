@@ -275,8 +275,6 @@ function applyDecodedState(state) {
             ovlMap = refMap === map1 ? map2 : map1;
             mercAnchorRef = toMerc(refMap.getCenter());
             mercAnchorOvl = toMerc(ovlMap.getCenter());
-            document.getElementById('label1').innerText = refMap === map1 ? "Ref" : "Ovl";
-            document.getElementById('label2').innerText = refMap === map2 ? "Ref" : "Ovl";
 
             pts.forEach((p) => {
                 const llArr = safeLatLngLike(p);
@@ -439,7 +437,7 @@ function setShareMenuUrl(url) {
 }
 
 function handleShareAction() {
-    setTimeout(() => closeShareMenu(), 500); // Close overlay after a short delay
+    closeShareMenu(); // Close overlay immediately
 }
 
 function openShareMenu() {
@@ -449,8 +447,12 @@ function openShareMenu() {
     const link = getSharableLink();
     setShareMenuUrl(link);
 
-    overlay.style.display = 'flex';
+    overlay.style.display = 'grid';
+    document.body.classList.add('share-overlay-open');
+    
+    // Add visible class in next frame for transition
     requestAnimationFrame(() => {
+        overlay.classList.add('visible');
         const input = document.getElementById('share-link');
         if (input) input.focus({ preventScroll: true });
     });
@@ -459,7 +461,17 @@ function openShareMenu() {
 function closeShareMenu() {
     const overlay = document.getElementById('share-overlay');
     if (!overlay) return;
-    overlay.style.display = 'none';
+    
+    // Remove visible class to trigger transition
+    overlay.classList.remove('visible');
+    document.body.classList.remove('share-overlay-open');
+    
+    // Hide overlay after transition completes
+    setTimeout(() => {
+        if (!overlay.classList.contains('visible')) {
+            overlay.style.display = 'none';
+        }
+    }, 300); // Match transition duration
 }
 
 async function copyShareLink() {
@@ -472,8 +484,7 @@ async function copyShareLink() {
         try {
             await navigator.clipboard.writeText(link);
             flashShareCopied();
-            showToast('Link copied');
-            setTimeout(() => closeShareMenu(), 500); // Close overlay after showing toast
+            closeShareMenu(); // Close overlay immediately
             return;
         } catch (_) {
         }
@@ -487,15 +498,14 @@ async function copyShareLink() {
             const ok = document.execCommand && document.execCommand('copy');
             if (ok) {
                 flashShareCopied();
-                showToast('Link copied');
-                setTimeout(() => closeShareMenu(), 500); // Close overlay after showing toast
+                closeShareMenu(); // Close overlay immediately
                 return;
             }
         } catch (_) {
         }
     }
 
-    showToast('Select and copy the link');
+    // Select and copy the link
 }
 
 document.addEventListener('keydown', (e) => {
@@ -1127,8 +1137,6 @@ function handleMapClick(e, src) {
     if (!refMap) {
         refMap = src; ovlMap = src === map1 ? map2 : map1;
         mercAnchorRef = toMerc(refMap.getCenter()); mercAnchorOvl = toMerc(ovlMap.getCenter());
-        document.getElementById('label1').innerText = refMap === map1 ? "Ref" : "Ovl";
-        document.getElementById('label2').innerText = refMap === map2 ? "Ref" : "Ovl";
     }
     if (src !== refMap) return;
 
