@@ -922,6 +922,52 @@ function handleMapClick(e, src) {
     }
     if (src !== refMap) return;
 
+    // Check if click is near an existing line segment to create intermediate point
+    if (verticesRef.length >= 2) {
+        const clickPoint = e.latlng;
+        const tolerance = 15; // pixels tolerance for line detection
+        
+        for (let i = 0; i < verticesRef.length - 1; i++) {
+            const p1 = verticesRef[i].latlng;
+            const p2 = verticesRef[i + 1].latlng;
+            
+            // Calculate distance from click point to line segment in meters
+            const distance = pointToLineDistance(clickPoint, p1, p2) * 111320; // Convert degrees to meters
+            
+            // Convert to pixels using current zoom level
+            const zoom = src.getZoom();
+            const metersPerPixel = 156543.03392 * Math.cos(clickPoint.lat * Math.PI / 180) / Math.pow(2, zoom);
+            const pixelDistance = distance / metersPerPixel;
+            
+            if (pixelDistance < tolerance) {
+                // Find the closest point on the line segment
+                const closestPoint = closestPointOnLine(clickPoint, p1, p2);
+                
+                // Insert new point at this position
+                insertIntermediatePoint(i + 1, closestPoint, src);
+                return;
+            }
+        }
+        
+        // For area mode, also check the line from last to first point
+        if (mode === 'area' && verticesRef.length >= 3) {
+            const p1 = verticesRef[verticesRef.length - 1].latlng;
+            const p2 = verticesRef[0].latlng;
+            
+            const distance = pointToLineDistance(clickPoint, p1, p2) * 111320;
+            const zoom = src.getZoom();
+            const metersPerPixel = 156543.03392 * Math.cos(clickPoint.lat * Math.PI / 180) / Math.pow(2, zoom);
+            const pixelDistance = distance / metersPerPixel;
+            
+            if (pixelDistance < tolerance) {
+                const closestPoint = closestPointOnLine(clickPoint, p1, p2);
+                insertIntermediatePoint(verticesRef.length, closestPoint, src);
+                return;
+            }
+        }
+    }
+
+    // If not near a line, add new point as usual
     const mPos = toMerc(e.latlng);
     const ghostLL = fromMerc(L.point(mercAnchorOvl.x + (mPos.x - mercAnchorRef.x), mercAnchorOvl.y + (mPos.y - mercAnchorRef.y)));
 
@@ -958,6 +1004,104 @@ function handleMapClick(e, src) {
     verticesOvl.push({ latlng: ghostLL });
     markersRef.push(mR);
     markersOvl.push(mO);
+    update();
+    scheduleUrlUpdate();
+}
+
+function pointToLineDistance(point, lineStart, lineEnd) {
+    const A = point.lat - lineStart.lat;
+    const B = point.lng - lineStart.lng;
+    const C = lineEnd.lat - lineStart.lat;
+    const D = lineEnd.lng - lineStart.lng;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+
+    if (lenSq !== 0) param = dot / lenSq;
+
+    let xx, yy;
+
+    if (param < 0) {
+        xx = lineStart.lat;
+        yy = lineStart.lng;
+    } else if (param > 1) {
+        xx = lineEnd.lat;
+        yy = lineEnd.lng;
+    } else {
+        xx = lineStart.lat + param * C;
+        yy = lineStart.lng + param * D;
+    }
+
+    const dx = point.lat - xx;
+    const dy = point.lng - yy;
+
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function closestPointOnLine(point, lineStart, lineEnd) {
+    const A = point.lat - lineStart.lat;
+    const B = point.lng - lineStart.lng;
+    const C = lineEnd.lat - lineStart.lat;
+    const D = lineEnd.lng - lineStart.lng;
+
+    const dot = A * C + B * D;
+    const lenSq = C * C + D * D;
+    let param = -1;
+
+    if (lenSq !== 0) param = dot / lenSq;
+
+    if (param < 0) {
+        return lineStart;
+    } else if (param > 1) {
+        return lineEnd;
+    } else {
+        return L.latLng(
+            lineStart.lat + param * C,
+            lineStart.lng + param * D
+        );
+    }
+}
+
+function insertIntermediatePoint(index, latlng, src) {
+    const mPos = toMerc(latlng);
+    const ghostLL = fromMerc(L.point(mercAnchorOvl.x + (mPos.x - mercAnchorRef.x), mercAnchorOvl.y + (mPos.y - mercAnchorRef.y)));
+
+    const mR = L.marker(latlng, { icon: L.divIcon({ className: 'handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(refMap);
+    const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(ovlMap);
+
+    mR.on('contextmenu', (e) => showCtx(e, mR));
+    mR.on('click', L.DomEvent.stopPropagation);
+
+    mR.on('drag', (de) => {
+        const i = markersRef.indexOf(mR);
+        verticesRef[i].latlng = de.target.getLatLng();
+        const nP = toMerc(verticesRef[i].latlng);
+        verticesOvl[i].latlng = fromMerc(L.point(mercAnchorOvl.x + (nP.x - mercAnchorRef.x), mercAnchorOvl.y + (nP.y - mercAnchorRef.y)));
+        update();
+        scheduleUrlUpdate();
+    });
+
+    let dSM = null, oMs = [];
+    mO.on('dragstart', (de) => { dSM = toMerc(de.target.getLatLng()); oMs = verticesOvl.map(v => toMerc(v.latlng)); });
+    mO.on('drag', (de) => {
+        const cM = toMerc(de.target.getLatLng());
+        const dx = cM.x - dSM.x, dy = cM.y - dSM.y;
+        verticesOvl.forEach((v, idx) => v.latlng = fromMerc(L.point(oMs[idx].x + dx, oMs[idx].y + dy)));
+        const i = markersOvl.indexOf(mO);
+        const vOM = toMerc(verticesOvl[i].latlng), vRM = toMerc(verticesRef[i].latlng);
+        mercAnchorOvl.x = vOM.x - (vRM.x - mercAnchorRef.x);
+        mercAnchorOvl.y = vOM.y - (vRM.y - mercAnchorRef.y);
+        update();
+        scheduleUrlUpdate();
+    });
+
+    // Insert at the specified index
+    verticesRef.splice(index, 0, { latlng: latlng });
+    verticesOvl.splice(index, 0, { latlng: ghostLL });
+    markersRef.splice(index, 0, mR);
+    markersOvl.splice(index, 0, mO);
+    
     update();
     scheduleUrlUpdate();
 }
