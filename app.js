@@ -354,7 +354,9 @@ window.addEventListener('hashchange', () => {
 function getSharableLink() {
     const encoded = encodeAppState();
     const base = location.href.split('#')[0];
-    return base + '#' + encoded;
+    // Ensure we have a cache-busting query param for OG previews
+    const withCache = base.includes('?') ? base : base + '?v=3';
+    return withCache + '#' + encoded;
 }
 
 function showToast(msg) {
