@@ -13,6 +13,8 @@
     --text-inv: #000;
     --text-white: #fff;
 
+    --button-gap: 6px;
+
     --border: #4a4d52;
 
     --accent-blue: #3b82f6;
@@ -115,10 +117,6 @@ body {
     color: var(--hover-text);
 }
 
-.lens-btn.active {
-    color: var(--danger);
-    transform: rotate(90deg);
-}
 
 .search-container {
     position: relative;
@@ -240,10 +238,6 @@ body {
 
 .location-btn:active {
     transform: scale(0.95);
-}
-
-.location-btn.locating {
-    animation: pulse 1.5s ease-in-out infinite;
 }
 
 @keyframes pulse {
@@ -499,7 +493,7 @@ body {
 
 .clear-btn-map {
     position: absolute;
-    top: 96px;
+    top: calc(54px + 36px + var(--button-gap));
     left: 12px;
     width: 36px;
     height: 36px;
@@ -841,13 +835,13 @@ body {
     /* First map clear button - vertically next to location button without overlap (top map) */
     .map-wrapper:first-child .clear-btn-map {
         top: auto;
-        bottom: 96px;
+        bottom: calc(54px + 36px + var(--button-gap));
         left: 12px;
     }
 
     /* Second map clear button - vertically next to location button without overlap (bottom map) */
     .map-wrapper:last-child .clear-btn-map {
-        top: 96px;
+        top: calc(54px + 36px + var(--button-gap));
         bottom: auto;
         left: 12px;
     }

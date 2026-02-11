@@ -3,7 +3,7 @@ Sync View is a synchronized dual-map viewer for quickly comparing locations, dis
 
 Live demo: https://dshot92.github.io/syncview
 
-![Sync View preview](images/preview.png)
+![Sync View preview](images/screenshot.avif)
 
 ## Libraries used
 
