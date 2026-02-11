@@ -737,7 +737,7 @@ body {
     /* First map location button - under search button */
     .map-wrapper:first-child .location-btn {
         top: auto;
-        bottom: 12px;
+        bottom: 54px;
         left: 12px;
     }
 
