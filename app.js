@@ -9,6 +9,8 @@ const hybridRef = 'https://services.arcgisonline.com/ArcGIS/rest/services/Refere
 const map1 = L.map('map1', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], 12);
 const map2 = L.map('map2', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], 12);
 
+let currentMapType = 'hybrid'; // Track current map type
+
 function b64UrlEncodeUtf8(str) {
     const bytes = new TextEncoder().encode(str);
     let bin = '';
@@ -75,7 +77,8 @@ function encodeAppState() {
         m2: [round(c2.lat, 6), round(c2.lng, 6)],
         mode: encodedMode,
         ref: encodedRef,
-        pts: encodedPts
+        pts: encodedPts,
+        mapType: currentMapType
     };
 
     return b64UrlEncodeUtf8(JSON.stringify(state));
@@ -105,9 +108,76 @@ function applyDecodedState(state) {
     const m2 = safeLatLngLike(state.m2);
     const decodedMode = state.mode === 'area' ? 'area' : 'dist';
     const pts = Array.isArray(state.pts) ? state.pts : [];
+    const mapType = state.mapType || 'hybrid'; // Get map type from state, default to hybrid
 
     isApplyingUrlState = true;
     try {
+        // Apply map type first
+        if (mapType !== currentMapType) {
+            currentMapType = mapType;
+            // Update dropdown text
+            const triggerText = document.getElementById('triggerText');
+            const optionElement = document.querySelector(`.option[data-value="${mapType}"]`);
+            if (triggerText && optionElement) {
+                triggerText.innerText = optionElement.innerText;
+            }
+            
+            // Remove existing layers
+            map1.removeLayer(l1);
+            map2.removeLayer(l2);
+            if (map1.hasLayer(h1)) map1.removeLayer(h1);
+            if (map2.hasLayer(h2)) map2.removeLayer(h2);
+            
+            // Create new tile layers
+            l1 = L.tileLayer(tiles[mapType], { 
+                fadeAnimation: false,
+                updateWhenIdle: false,
+                updateWhenZooming: true,
+                keepBuffer: 0,
+                maxNativeZoom: 18,
+                maxZoom: 20
+            }).addTo(map1);
+            
+            l2 = L.tileLayer(tiles[mapType], { 
+                fadeAnimation: false,
+                updateWhenIdle: false,
+                updateWhenZooming: true,
+                keepBuffer: 0,
+                maxNativeZoom: 18,
+                maxZoom: 20
+            }).addTo(map2);
+
+            // Add error handling to new layers
+            l1.on('tileerror', handleTileError);
+            l2.on('tileerror', handleTileError);
+
+            // Add hybrid reference layer for hybrid maps
+            if (mapType === 'hybrid') {
+                h1 = L.tileLayer(hybridRef, { 
+                    opacity: 0.9, 
+                    fadeAnimation: false,
+                    updateWhenIdle: false,
+                    updateWhenZooming: true,
+                    keepBuffer: 0,
+                    maxNativeZoom: 18,
+                    maxZoom: 20
+                }).addTo(map1);
+                h2 = L.tileLayer(hybridRef, { 
+                    opacity: 0.9, 
+                    fadeAnimation: false,
+                    updateWhenIdle: false,
+                    updateWhenZooming: true,
+                    keepBuffer: 0,
+                    maxNativeZoom: 18,
+                    maxZoom: 20
+                }).addTo(map2);
+                
+                // Add error handling to hybrid layers
+                h1.on('tileerror', handleTileError);
+                h2.on('tileerror', handleTileError);
+            }
+        }
+
         setMode(decodedMode);
         if (m1) map1.setView(m1, z, { animate: false });
         if (m2) map2.setView(m2, z, { animate: false });
@@ -525,6 +595,7 @@ document.querySelectorAll('.option').forEach(opt => {
     opt.onclick = () => {
         const val = opt.getAttribute('data-value');
         triggerText.innerText = opt.innerText;
+        currentMapType = val; // Update current map type
         
         options.classList.remove('open');
         trigger.querySelector('svg').style.transform = 'rotate(0deg)';
