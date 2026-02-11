@@ -4,6 +4,10 @@
   "description": "A real-time synchronized dual-map viewer for comparing locations and distances",
   "start_url": "/syncview/",
   "scope": "/syncview/",
+  "launch_handler": {
+    "client_mode": ["navigate-existing", "auto"]
+  },
+  "handle_links": "preferred",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#000000",

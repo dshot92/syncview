@@ -1,4 +1,4 @@
-const CACHE_NAME = 'syncview-v2';
+const CACHE_NAME = 'syncview-v3';
 const urlsToCache = [
   './',
   './index.html',
@@ -45,6 +45,18 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
   if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
+  // App shell routing: if the user opens a deep link within scope, serve index.html
+  // so the app can boot and then read state from the URL (hash).
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('./index.html').then((cached) => {
+        if (cached) return cached;
+        return fetch('./index.html').catch(() => cached);
+      })
+    );
     return;
   }
 

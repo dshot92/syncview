@@ -9,6 +9,287 @@ const hybridRef = 'https://services.arcgisonline.com/ArcGIS/rest/services/Refere
 const map1 = L.map('map1', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], 12);
 const map2 = L.map('map2', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], 12);
 
+function b64UrlEncodeUtf8(str) {
+    const bytes = new TextEncoder().encode(str);
+    let bin = '';
+    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+}
+
+function b64UrlDecodeUtf8(b64u) {
+    const b64 = String(b64u).replace(/-/g, '+').replace(/_/g, '/');
+    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+    const bin = atob(padded);
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return new TextDecoder().decode(bytes);
+}
+
+function clamp(n, min, max) {
+    const x = Number(n);
+    if (!Number.isFinite(x)) return min;
+    return Math.min(max, Math.max(min, x));
+}
+
+function round(n, dp = 6) {
+    const x = Number(n);
+    if (!Number.isFinite(x)) return 0;
+    const m = Math.pow(10, dp);
+    return Math.round(x * m) / m;
+}
+
+function safeLatLng(ll) {
+    if (!ll || typeof ll.lat !== 'number' || typeof ll.lng !== 'number') return null;
+    return [clamp(ll.lat, -85.05112878, 85.05112878), clamp(ll.lng, -180, 180)];
+}
+
+function safeLatLngLike(arr) {
+    if (!Array.isArray(arr) || arr.length < 2) return null;
+    const lat = Number(arr[0]);
+    const lng = Number(arr[1]);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return [clamp(lat, -85.05112878, 85.05112878), clamp(lng, -180, 180)];
+}
+
+function encodeAppState() {
+    const c1 = map1.getCenter();
+    const c2 = map2.getCenter();
+
+    let encodedMode = 'dist';
+    let encodedRef = 0;
+    let encodedPts = [];
+    try {
+        encodedMode = mode;
+        encodedRef = refMap === map1 ? 1 : (refMap === map2 ? 2 : 0);
+        encodedPts = verticesRef.map(v => [round(v.latlng.lat, 6), round(v.latlng.lng, 6)]);
+    } catch (_) {
+        encodedMode = 'dist';
+        encodedRef = 0;
+        encodedPts = [];
+    }
+
+    const state = {
+        v: 1,
+        z: round(map1.getZoom(), 2),
+        m1: [round(c1.lat, 6), round(c1.lng, 6)],
+        m2: [round(c2.lat, 6), round(c2.lng, 6)],
+        mode: encodedMode,
+        ref: encodedRef,
+        pts: encodedPts
+    };
+
+    return b64UrlEncodeUtf8(JSON.stringify(state));
+}
+
+function decodeAppState(hash) {
+    const raw = String(hash || '').replace(/^#/, '');
+    if (!raw) return null;
+    try {
+        const json = b64UrlDecodeUtf8(raw);
+        const obj = JSON.parse(json);
+        if (!obj || typeof obj !== 'object') return null;
+        if (obj.v !== 1) return null;
+        return obj;
+    } catch (_) {
+        return null;
+    }
+}
+
+let isApplyingUrlState = false;
+
+function applyDecodedState(state) {
+    if (!state || typeof state !== 'object') return;
+
+    const z = clamp(state.z, 0, 22);
+    const m1 = safeLatLngLike(state.m1);
+    const m2 = safeLatLngLike(state.m2);
+    const decodedMode = state.mode === 'area' ? 'area' : 'dist';
+    const pts = Array.isArray(state.pts) ? state.pts : [];
+
+    isApplyingUrlState = true;
+    try {
+        setMode(decodedMode);
+        if (m1) map1.setView(m1, z, { animate: false });
+        if (m2) map2.setView(m2, z, { animate: false });
+
+        clearAll();
+
+        if (pts.length > 0) {
+            const refIdx = state.ref === 2 ? 2 : 1;
+            refMap = refIdx === 1 ? map1 : map2;
+            ovlMap = refMap === map1 ? map2 : map1;
+            mercAnchorRef = toMerc(refMap.getCenter());
+            mercAnchorOvl = toMerc(ovlMap.getCenter());
+            document.getElementById('label1').innerText = refMap === map1 ? "Ref" : "Ovl";
+            document.getElementById('label2').innerText = refMap === map2 ? "Ref" : "Ovl";
+
+            pts.forEach((p) => {
+                const llArr = safeLatLngLike(p);
+                if (!llArr) return;
+                const ll = L.latLng(llArr[0], llArr[1]);
+                const mPos = toMerc(ll);
+                const ghostLL = fromMerc(L.point(mercAnchorOvl.x + (mPos.x - mercAnchorRef.x), mercAnchorOvl.y + (mPos.y - mercAnchorRef.y)));
+
+                const mR = L.marker(ll, { icon: L.divIcon({ className: 'handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(refMap);
+                const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(ovlMap);
+
+                mR.on('contextmenu', (e) => showCtx(e, mR));
+                mR.on('click', L.DomEvent.stopPropagation);
+
+                mR.on('drag', (de) => {
+                    const i = markersRef.indexOf(mR);
+                    verticesRef[i].latlng = de.target.getLatLng();
+                    const nP = toMerc(verticesRef[i].latlng);
+                    verticesOvl[i].latlng = fromMerc(L.point(mercAnchorOvl.x + (nP.x - mercAnchorRef.x), mercAnchorOvl.y + (nP.y - mercAnchorRef.y)));
+                    update();
+                    scheduleUrlUpdate();
+                });
+
+                let dSM = null, oMs = [];
+                mO.on('dragstart', (de) => { dSM = toMerc(de.target.getLatLng()); oMs = verticesOvl.map(v => toMerc(v.latlng)); });
+                mO.on('drag', (de) => {
+                    const cM = toMerc(de.target.getLatLng());
+                    const dx = cM.x - dSM.x, dy = cM.y - dSM.y;
+                    verticesOvl.forEach((v, idx) => v.latlng = fromMerc(L.point(oMs[idx].x + dx, oMs[idx].y + dy)));
+                    const i = markersOvl.indexOf(mO);
+                    const vOM = toMerc(verticesOvl[i].latlng), vRM = toMerc(verticesRef[i].latlng);
+                    mercAnchorOvl.x = vOM.x - (vRM.x - mercAnchorRef.x);
+                    mercAnchorOvl.y = vOM.y - (vRM.y - mercAnchorRef.y);
+                    update();
+                    scheduleUrlUpdate();
+                });
+
+                verticesRef.push({ latlng: ll });
+                verticesOvl.push({ latlng: ghostLL });
+                markersRef.push(mR);
+                markersOvl.push(mO);
+            });
+
+            update();
+        }
+    } finally {
+        isApplyingUrlState = false;
+    }
+}
+
+let urlUpdateT = null;
+function scheduleUrlUpdate() {
+    if (isApplyingUrlState) return;
+    clearTimeout(urlUpdateT);
+    urlUpdateT = setTimeout(() => {
+        if (isApplyingUrlState) return;
+        try {
+            const encoded = encodeAppState();
+            const next = '#' + encoded;
+            if (location.hash !== next) history.replaceState(null, '', next);
+        } catch (_) {
+        }
+    }, 150);
+}
+
+window.addEventListener('hashchange', () => {
+    if (isApplyingUrlState) return;
+    const state = decodeAppState(location.hash);
+    if (state) applyDecodedState(state);
+});
+
+function getSharableLink() {
+    const encoded = encodeAppState();
+    const base = location.href.split('#')[0];
+    return base + '#' + encoded;
+}
+
+function showToast(msg) {
+    const toast = document.getElementById('toast');
+    if (!toast) return;
+    toast.textContent = msg;
+    toast.classList.add('visible');
+    setTimeout(() => toast.classList.remove('visible'), 1400);
+}
+
+function flashShareCopied() {
+    const shareBtn = document.querySelector('.share-btn');
+    if (!shareBtn) return;
+    shareBtn.classList.add('copied');
+    setTimeout(() => shareBtn.classList.remove('copied'), 900);
+}
+
+function setShareMenuUrl(url) {
+    const input = document.getElementById('share-link');
+    if (input) input.value = url;
+    document.querySelectorAll('.share-action').forEach((btn) => {
+        btn.setAttribute('data-url', url);
+    });
+}
+
+function openShareMenu() {
+    const overlay = document.getElementById('share-overlay');
+    if (!overlay) return;
+
+    const link = getSharableLink();
+    setShareMenuUrl(link);
+
+    overlay.style.display = 'flex';
+    requestAnimationFrame(() => {
+        const input = document.getElementById('share-link');
+        if (input) input.focus({ preventScroll: true });
+    });
+}
+
+function closeShareMenu() {
+    const overlay = document.getElementById('share-overlay');
+    if (!overlay) return;
+    overlay.style.display = 'none';
+}
+
+async function copyShareLink() {
+    const link = getSharableLink();
+    setShareMenuUrl(link);
+
+    const input = document.getElementById('share-link');
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+            await navigator.clipboard.writeText(link);
+            flashShareCopied();
+            showToast('Link copied');
+            return;
+        } catch (_) {
+        }
+    }
+
+    if (input) {
+        try {
+            input.focus({ preventScroll: true });
+            input.select();
+            input.setSelectionRange(0, input.value.length);
+            const ok = document.execCommand && document.execCommand('copy');
+            if (ok) {
+                flashShareCopied();
+                showToast('Link copied');
+                return;
+            }
+        } catch (_) {
+        }
+    }
+
+    showToast('Select and copy the link');
+}
+
+document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    const overlay = document.getElementById('share-overlay');
+    if (overlay && overlay.style.display !== 'none') closeShareMenu();
+});
+
+document.addEventListener('click', (e) => {
+    const overlay = document.getElementById('share-overlay');
+    if (!overlay || overlay.style.display === 'none') return;
+    const card = document.getElementById('share-card');
+    if (card && card.contains(e.target)) return;
+    if (e.target === overlay) closeShareMenu();
+});
+
 let l1 = L.tileLayer(tiles.hybrid, { 
     fadeAnimation: false,
     updateWhenIdle: false,
@@ -82,6 +363,11 @@ const syncZoom = (e) => {
     }, 50);
 };
 map1.on('zoom', syncZoom); map2.on('zoom', syncZoom);
+
+map1.on('moveend', scheduleUrlUpdate);
+map2.on('moveend', scheduleUrlUpdate);
+map1.on('zoomend', scheduleUrlUpdate);
+map2.on('zoomend', scheduleUrlUpdate);
 
 // Search Logic with Suggestions
 let searchTimeout = null;
@@ -341,6 +627,7 @@ function setMode(m) {
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.id === 'btn-' + m));
     document.querySelectorAll('.map-instance').forEach(div => div.style.cursor = 'crosshair');
     update();
+    scheduleUrlUpdate();
 }
 
 // Context Menu Logic
@@ -363,6 +650,7 @@ function delPoint() {
         refMap.removeLayer(markersRef[i]); ovlMap.removeLayer(markersOvl[i]);
         markersRef.splice(i, 1); markersOvl.splice(i, 1);
         update();
+        scheduleUrlUpdate();
     }
     hideCtx();
 }
@@ -552,6 +840,7 @@ function handleMapClick(e, src) {
         const nP = toMerc(verticesRef[i].latlng);
         verticesOvl[i].latlng = fromMerc(L.point(mercAnchorOvl.x + (nP.x - mercAnchorRef.x), mercAnchorOvl.y + (nP.y - mercAnchorRef.y)));
         update();
+        scheduleUrlUpdate();
     });
 
     let dSM = null, oMs = [];
@@ -565,6 +854,7 @@ function handleMapClick(e, src) {
         mercAnchorOvl.x = vOM.x - (vRM.x - mercAnchorRef.x);
         mercAnchorOvl.y = vOM.y - (vRM.y - mercAnchorRef.y);
         update();
+        scheduleUrlUpdate();
     });
 
     verticesRef.push({ latlng: e.latlng });
@@ -572,6 +862,7 @@ function handleMapClick(e, src) {
     markersRef.push(mR);
     markersOvl.push(mO);
     update();
+    scheduleUrlUpdate();
 }
 
 map1.on('click', (e) => handleMapClick(e, map1));
@@ -585,6 +876,7 @@ function clearAll() {
     refMap = null; ovlMap = null;
     document.getElementById('label1').innerText = "Map 1"; document.getElementById('label2').innerText = "Map 2";
     update();
+    scheduleUrlUpdate();
 }
 
 // Service Worker Registration for PWA
@@ -610,3 +902,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 // Initialize app in ruler mode
 setMode('dist');
+
+// Restore from URL if present, otherwise ensure hash is initialized
+(() => {
+    const state = decodeAppState(location.hash);
+    if (state) {
+        applyDecodedState(state);
+    }
+    scheduleUrlUpdate();
+})();
