@@ -442,3 +442,6 @@ window.addEventListener('beforeinstallprompt', (e) => {
     deferredPrompt = e;
     // You can show an install button here if desired
 });
+
+// Initialize app in ruler mode
+setMode('dist');
