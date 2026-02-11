@@ -107,17 +107,31 @@
             top: 12px;
             left: 12px;
             z-index: 1000;
-            display: flex;
-            align-items: flex-start;
-            pointer-events: none;
+            display: inline-flex;
+            align-items: center;
+            pointer-events: auto;
+            background: var(--bg-panel);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-full);
+            height: 36px;
+            padding: 0;
+            overflow: hidden;
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            width: 36px;
+        }
+
+        .search-wrapper.expanded {
+            width: 280px;
+            border-radius: var(--radius);
+            overflow: visible;
         }
 
         .lens-btn {
             width: 36px;
             height: 36px;
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-radius: var(--radius-full);
+            background: transparent;
+            border: none;
+            border-radius: 0;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -127,15 +141,14 @@
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             flex-shrink: 0;
             z-index: 2;
+            padding: 0;
         }
 
         .lens-btn:hover {
-            border-color: var(--accent);
+            color: var(--accent);
         }
 
         .lens-btn.active {
-            background: var(--bg-panel);
-            border: 1px solid var(--danger-border);
             color: var(--danger);
             transform: rotate(90deg);
         }
@@ -144,37 +157,60 @@
             position: relative;
             pointer-events: auto;
             display: flex;
-            flex-direction: column;
-            margin-left: -1px;
+            align-items: center;
+            flex: 1;
+            overflow: visible;
+            height: 100%;
         }
 
         .search-box {
-            background: var(--bg-panel);
-            border: 1px solid var(--border);
-            border-left: none;
-            border-radius: 0 var(--radius) var(--radius) 0;
+            background: transparent;
+            border: none;
+            border-radius: 0;
             color: var(--text-white);
             height: 36px;
-            padding: 0 15px 0 25px;
+            padding: 0 12px;
             font-size: 13px;
             outline: none;
-            backdrop-filter: blur(8px);
-            width: 0;
-            opacity: 0;
-            transform: translateX(-20px);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1;
+            backdrop-filter: none;
+            width: 100%;
+            box-sizing: border-box;
+            flex: 1;
         }
 
-        .search-box.expanded {
-            width: 220px;
-            opacity: 1;
-            transform: translateX(0);
+        .search-box::placeholder {
+            color: var(--text-muted);
+        }
+
+        .search-clear-btn {
+            width: 28px;
+            height: 28px;
+            background: transparent;
+            border: none;
+            border-radius: var(--radius);
+            cursor: pointer;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            flex-shrink: 0;
+            margin-right: 4px;
+            transition: all 0.2s;
+            padding: 0;
+        }
+
+        .search-clear-btn:hover {
+            color: var(--text-white);
+            background: var(--bg-overlay-light);
+        }
+
+        .search-box:not(:placeholder-shown) ~ .search-clear-btn {
+            display: flex;
         }
 
         .suggestions {
             position: absolute;
-            top: 36px;
+            top: 100%;
             left: 0;
             right: 0;
             background: var(--bg-panel);
@@ -521,8 +557,9 @@
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </div>
-                <div class="search-container">
+                <div class="search-container" id="searchContainer1">
                     <input type="text" id="search1" class="search-box" placeholder="Search Map 1..." autocomplete="off">
+                    <button type="button" class="search-clear-btn" onclick="document.getElementById('search1').value=''; this.style.display='none';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                     <div id="results1" class="suggestions"></div>
                 </div>
             </div>
@@ -549,8 +586,9 @@
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </div>
-                <div class="search-container">
+                <div class="search-container" id="searchContainer2">
                     <input type="text" id="search2" class="search-box" placeholder="Search Map 2..." autocomplete="off">
+                    <button type="button" class="search-clear-btn" onclick="document.getElementById('search2').value=''; this.style.display='none';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                     <div id="results2" class="suggestions"></div>
                 </div>
             </div>
@@ -631,18 +669,19 @@
         let searchTimeout = null;
 
         function toggleSearch(idx) {
-            const input = document.getElementById('search' + idx);
             const lens = document.getElementById('lens' + idx);
+            const wrapper = lens.closest('.search-wrapper');
+            const input = document.getElementById('search' + idx);
             const list = document.getElementById('results' + idx);
 
-            if (input.classList.contains('expanded')) {
+            if (wrapper.classList.contains('expanded')) {
                 input.value = '';
-                input.classList.remove('expanded');
+                wrapper.classList.remove('expanded');
                 lens.classList.remove('active');
                 list.classList.remove('visible');
                 lens.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
             } else {
-                input.classList.add('expanded');
+                wrapper.classList.add('expanded');
                 lens.classList.add('active');
                 lens.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
                 input.focus();
