@@ -17,7 +17,7 @@
       "src": "images/icon.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any"
+      "purpose": "any maskable"
     }
   ],
   "categories": ["utilities", "productivity"]
