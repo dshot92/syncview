@@ -9,17 +9,6 @@
     <meta property="og:type" content="website">
     <meta property="og:title" content="Sync View">
     <meta property="og:description" content="A real-time synchronized dual-map viewer for comparing locations and distances">
-    <meta property="og:url" content="https://dshot92.github.io/syncview/">
-    <script>
-        // Update og:url to include the current hash so Telegram preview clicks go to the exact state
-        (function() {
-            const currentUrl = location.href;
-            let ogUrl = document.querySelector('meta[property="og:url"]');
-            if (ogUrl && currentUrl.includes('#')) {
-                ogUrl.content = currentUrl.split('?')[0] + '?v=3' + location.hash;
-            }
-        })();
-    </script>
     <meta property="og:image" content="https://dshot92.github.io/syncview/images/preview.png">
     <meta property="og:image:secure_url" content="https://dshot92.github.io/syncview/images/preview.png">
     <meta property="og:image:type" content="image/png">
