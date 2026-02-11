@@ -36,15 +36,12 @@
     --panel: var(--bg-panel);
     --ovl-yellow: var(--accent-yellow);
 
-    /* Vignette - intuitive controls */
-    --vignette-darkness: 0.4;      /* How dark (0-1) */
-    --vignette-distance: 20%;      /* Where it starts from center (0-100%) */
-
+    
     /* Buttons */
     --bg-tool: rgba(42, 42, 44, 0.9);
 
     /* Lines and Points */
-    --line-weight: 2;
+    --divisor-width: 4px;
     --line-weight-bg: 4;
     --point-size: 14;
     --point-border: 2px;
@@ -77,19 +74,6 @@ body {
     min-height: 0;
 }
 
-.map-wrapper::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: 
-        linear-gradient(to bottom, rgba(0, 0, 0, var(--vignette-darkness)) 0%, transparent var(--vignette-distance)),
-        linear-gradient(to top, rgba(0, 0, 0, var(--vignette-darkness)) 0%, transparent var(--vignette-distance));
-    pointer-events: none;
-    z-index: 999;
-}
 
 /* Advanced Search UI */
 .search-wrapper {
@@ -238,7 +222,7 @@ body {
 /* Divisor UI */
 .divisor-area {
     position: relative;
-    height: 2px;
+    height: var(--divisor-width);
     background: var(--bg-body);
     width: 100%;
     z-index: 1500;
