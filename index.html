@@ -238,15 +238,21 @@
         .panel-container {
             display: flex;
             align-items: stretch;
-            gap: 4px;
-        }
-
-        .unified-panel {
+            gap: 0;
             background: var(--bg-panel);
             backdrop-filter: blur(10px);
             border: 1.5px solid var(--bg-body);
             border-radius: var(--radius);
             box-shadow: 0 4px 15px var(--bg-overlay-hover);
+            overflow: hidden;
+        }
+
+        .unified-panel {
+            background: transparent;
+            backdrop-filter: none;
+            border: none;
+            border-radius: 0;
+            box-shadow: none;
             display: flex;
             flex-direction: column;
             overflow: hidden;
@@ -261,13 +267,13 @@
         }
 
         #top-val-box {
-            border-bottom: 1px solid var(--border-med);
+            border-bottom: none;
         }
 
         .diff-lateral {
-            background: var(--bg-panel);
-            border: 1.5px solid var(--bg-body);
-            border-radius: var(--radius);
+            background: transparent;
+            border: none;
+            border-radius: 0;
             padding: 0 10px;
             display: flex;
             align-items: center;
@@ -826,7 +832,8 @@
                     const ratio = vRef > 0 ? vOvl / vRef : 1;
                     const diff = (Math.abs(ratio - 1) * 100).toFixed(1);
                     const diffColor = vRef > vOvl ? 'var(--accent)' : 'var(--ovl-yellow)';
-                    document.getElementById('diff-val').innerText = `${diff}%`;
+                    const comma = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+                    document.getElementById('diff-val').innerText = `+${comma(diff)}%`;
                     document.getElementById('diff-val').style.color = diffColor;
                 }
             }
@@ -841,7 +848,11 @@
             return Math.abs(a * R * R / 2);
         }
         function getDist(ll) { let d = 0; for (let i = 0; i < ll.length - 1; i++) d += ll[i].distanceTo(ll[i + 1]); return d; }
-        function fmt(v, t) { if (t === 'area') return v >= 1e6 ? (v / 1e6).toFixed(2) + ' km²' : v.toFixed(0) + ' m²'; return v >= 1000 ? (v / 1000).toFixed(2) + ' km' : v.toFixed(0) + ' m'; }
+        function fmt(v, t) { 
+            const comma = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+            if (t === 'area') return v >= 1e6 ? comma((v / 1e6).toFixed(2)) + ' km²' : comma(v.toFixed(0)) + ' m²'; 
+            return v >= 1000 ? comma((v / 1000).toFixed(2)) + ' km' : comma(v.toFixed(0)) + ' m'; 
+        }
 
         function handleMapClick(e, src) {
             if (mode === 'none') return;
