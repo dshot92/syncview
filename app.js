@@ -1,3 +1,11 @@
+// Prevent context menu globally, only allow on points
+document.addEventListener('contextmenu', function(e) {
+    if (!e.target.classList.contains('handle') && !e.target.classList.contains('ghost-handle')) {
+        e.preventDefault();
+        return false;
+    }
+});
+
 // Tile Definitions
 const tiles = {
     hybrid: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',

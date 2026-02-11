@@ -64,7 +64,12 @@ body {
         "dashboard";
     grid-template-rows: 1fr auto;
     grid-template-columns: 1fr;
+    user-select: none;
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
 }
+
 
 body.share-overlay-open {
     grid-template-areas: 
