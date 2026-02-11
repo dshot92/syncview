@@ -154,7 +154,7 @@ const shapes = {
     aOvl: L.polygon([], { color: 'var(--accent-yellow)', weight: 2, fillOpacity: 0.3 })
 };
 
-let mode = 'none';
+let mode = 'dist';
 let verticesRef = [], verticesOvl = [], markersRef = [], markersOvl = [];
 let refMap = null, ovlMap = null, mercAnchorRef = null, mercAnchorOvl = null;
 let measureLabelRef = null;
@@ -166,7 +166,7 @@ const fromMerc = (p) => L.Projection.Mercator.unproject(p);
 function setMode(m) {
     mode = m;
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.id === 'btn-' + m));
-    document.querySelectorAll('.map-instance').forEach(div => div.style.cursor = m === 'none' ? 'grab' : 'crosshair');
+    document.querySelectorAll('.map-instance').forEach(div => div.style.cursor = 'crosshair');
     update();
 }
 
@@ -346,7 +346,6 @@ function lineMidpoint(ll) {
 }
 
 function handleMapClick(e, src) {
-    if (mode === 'none') return;
     hideCtx();
 
     if (!refMap) {
