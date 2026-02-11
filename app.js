@@ -508,18 +508,58 @@ async function copyShareLink() {
     // Select and copy the link
 }
 
+function openInfoMenu() {
+    const overlay = document.getElementById('info-overlay');
+    if (!overlay) return;
+
+    overlay.style.display = 'grid';
+    
+    // Add visible class in next frame for transition
+    requestAnimationFrame(() => {
+        overlay.classList.add('visible');
+    });
+}
+
+function closeInfoMenu() {
+    const overlay = document.getElementById('info-overlay');
+    if (!overlay) return;
+    
+    // Remove visible class to trigger transition
+    overlay.classList.remove('visible');
+    
+    // Hide overlay after transition completes
+    setTimeout(() => {
+        if (!overlay.classList.contains('visible')) {
+            overlay.style.display = 'none';
+        }
+    }, 300); // Match transition duration
+}
+
 document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
-    const overlay = document.getElementById('share-overlay');
-    if (overlay && overlay.style.display !== 'none') closeShareMenu();
+    const shareOverlay = document.getElementById('share-overlay');
+    const infoOverlay = document.getElementById('info-overlay');
+    if (shareOverlay && shareOverlay.style.display !== 'none') closeShareMenu();
+    if (infoOverlay && infoOverlay.style.display !== 'none') closeInfoMenu();
 });
 
 document.addEventListener('click', (e) => {
-    const overlay = document.getElementById('share-overlay');
-    if (!overlay || overlay.style.display === 'none') return;
-    const card = document.getElementById('share-card');
-    if (card && card.contains(e.target)) return;
-    if (e.target === overlay) closeShareMenu();
+    const shareOverlay = document.getElementById('share-overlay');
+    const infoOverlay = document.getElementById('info-overlay');
+    
+    // Handle share overlay clicks
+    if (shareOverlay && shareOverlay.style.display !== 'none') {
+        const shareCard = document.getElementById('share-card');
+        if (shareCard && shareCard.contains(e.target)) return;
+        if (e.target === shareOverlay) closeShareMenu();
+    }
+    
+    // Handle info overlay clicks
+    if (infoOverlay && infoOverlay.style.display !== 'none') {
+        const infoCard = document.getElementById('info-card');
+        if (infoCard && infoCard.contains(e.target)) return;
+        if (e.target === infoOverlay) closeInfoMenu();
+    }
 });
 
 let l1 = L.tileLayer(tiles.hybrid, { 

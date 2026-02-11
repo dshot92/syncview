@@ -332,8 +332,8 @@ body.share-overlay-open {
 .nav-row {
     grid-area: nav;
     display: grid;
-    grid-template-areas: "dropdown tools share";
-    grid-template-columns: 38px 1fr 38px;
+    grid-template-areas: "dropdown tools share info";
+    grid-template-columns: 38px 1fr 38px 38px;
     align-items: stretch;
     gap: 12px;
     height: 38px;
@@ -587,6 +587,67 @@ body.share-overlay-open {
      color: var(--text-white);
  }
 
+ .info-btn {
+    grid-area: info;
+    background: var(--bg-opaque);
+    color: var(--text-main);
+    border: 1px solid var(--border);
+    padding: 0;
+    width: 38px;
+    height: 38px;
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--hover-transition);
+    display: grid;
+    place-items: center;
+}
+
+.info-btn-mobile {
+    display: none;
+}
+
+ .info-btn svg {
+    width: 18px;
+    height: 18px;
+ }
+
+ .info-btn:hover {
+     background: var(--hover-bg);
+     border-color: var(--hover-border);
+     color: var(--hover-text);
+ }
+
+ .info-btn:active {
+    transform: scale(0.97);
+}
+
+@media (max-width: 767px) {
+    /* On mobile we place the info button on the horizontal divisor line */
+    .nav-row .info-btn {
+        display: none;
+    }
+
+    .nav-row {
+        grid-template-areas: "dropdown tools share";
+        grid-template-columns: 38px 1fr 38px;
+    }
+
+    .divisor-area {
+        position: relative;
+        overflow: visible;
+    }
+
+    .info-btn-mobile {
+        display: grid;
+        position: absolute;
+        left: 12px;
+        top: calc((var(--divisor-width) / 2) - 18px);
+        width: 36px;
+        height: 36px;
+        z-index: 2001;
+    }
+}
+
  .toast {
      position: fixed;
      left: 50%;
@@ -781,6 +842,102 @@ body.share-overlay-open {
      box-sizing: border-box;
  }
 
+ .info-content {
+    grid-area: grid;
+    padding: 14px;
+    max-height: 60vh;
+    overflow-y: auto;
+ }
+
+ .info-section {
+    margin-bottom: 20px;
+ }
+
+ .info-section:last-child {
+    margin-bottom: 0;
+ }
+
+ .info-section h3 {
+    font-size: 14px;
+    font-weight: 900;
+    color: var(--text-main);
+    margin: 0 0 10px 0;
+    letter-spacing: 0.02em;
+ }
+
+ .info-section p {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-muted);
+    margin: 0 0 8px 0;
+ }
+
+ .info-section ul {
+    margin: 0;
+    padding-left: 16px;
+ }
+
+ .info-section li {
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+ }
+
+ .info-section li strong {
+    color: var(--text-main);
+    font-weight: 600;
+ }
+
+ .creator {
+    margin-top: 10px;
+ }
+
+ .creator a {
+    color: var(--accent-blue);
+    text-decoration: none;
+    font-weight: 600;
+ }
+
+ .creator a:hover {
+    text-decoration: underline;
+ }
+
+ .github-buttons {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+}
+
+ .github-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-opaque);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-main);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 600;
+    transition: var(--hover-transition);
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+ }
+
+ .github-link:hover {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+    color: var(--hover-text);
+    text-decoration: none;
+ }
+
+ .github-link svg {
+    fill: currentColor;
+ }
+
 /* Context Menu */
 #ctx-menu {
     position: fixed;
@@ -907,26 +1064,26 @@ body.share-overlay-open {
     /* First map search button - just above divisor line */
     .map-wrapper:first-child .search-wrapper {
         top: auto;
-        bottom: 12px;
+        bottom: calc(18px + var(--button-gap));
         transform: none;
     }
 
     /* Second map search button - just below divisor line */
     .map-wrapper:last-child .search-wrapper {
-        top: 12px;
+        top: calc(18px + var(--button-gap));
         transform: none;
     }
 
     /* First map location button - under search button */
     .map-wrapper:first-child .location-btn {
         top: auto;
-        bottom: 54px;
+        bottom: calc(18px + var(--button-gap) + 42px);
         left: 12px;
     }
 
     /* Second map location button - under search button */
     .map-wrapper:last-child .location-btn {
-        top: 54px;
+        top: calc(18px + var(--button-gap) + 42px);
         bottom: auto;
         left: 12px;
     }
@@ -934,13 +1091,13 @@ body.share-overlay-open {
     /* First map clear button - vertically next to location button without overlap (top map) */
     .map-wrapper:first-child .clear-btn-map {
         top: auto;
-        bottom: calc(54px + 36px + var(--button-gap));
+        bottom: calc(18px + var(--button-gap) + 84px);
         left: 12px;
     }
 
     /* Second map clear button - vertically next to location button without overlap (bottom map) */
     .map-wrapper:last-child .clear-btn-map {
-        top: calc(54px + 36px + var(--button-gap));
+        top: calc(18px + var(--button-gap) + 84px);
         bottom: auto;
         left: 12px;
     }
