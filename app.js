@@ -161,11 +161,11 @@ window.onclick = (e) => {
 // Graphics & Measurement State
 const shapes = {
     sRefBg: L.polyline([], { color: 'var(--text-inv)', weight: 4, opacity: 0.8 }),
-    sRef: L.polyline([], { color: 'var(--accent)', weight: 2 }),
+    sRef: L.polyline([], { color: 'var(--accent-blue)', weight: 2 }),
     sOvlBg: L.polyline([], { color: 'var(--text-inv)', weight: 4, opacity: 0.8 }),
     sOvl: L.polyline([], { color: 'var(--accent-yellow)', weight: 2 }),
     aRefBg: L.polygon([], { color: 'var(--text-inv)', weight: 4, opacity: 0.8, fill: false }),
-    aRef: L.polygon([], { color: 'var(--accent)', weight: 2, fillOpacity: 0.2 }),
+    aRef: L.polygon([], { color: 'var(--accent-blue)', weight: 2, fillOpacity: 0.2 }),
     aOvlBg: L.polygon([], { color: 'var(--text-inv)', weight: 4, opacity: 0.8, fill: false }),
     aOvl: L.polygon([], { color: 'var(--accent-yellow)', weight: 2, fillOpacity: 0.3 })
 };
@@ -273,7 +273,7 @@ function update() {
                 html: `<div class="measurement-label-wrap">
                     <div class="measurement-label-inner" style="border-color:${color}">
                         <div class="measurement-label-primary" style="color:${color}">${valueText}</div>
-                        ${color === 'var(--ovl-yellow)' ? `<div class="measurement-label-secondary" style="color:${color}">${pctText}</div>` : ''}
+                        ${color === 'var(--accent-yellow)' ? `<div class="measurement-label-secondary" style="color:${color}">${pctText}</div>` : ''}
                     </div>
                 </div>`,
                 iconSize: null
@@ -285,13 +285,13 @@ function update() {
             measureLabelRef = L.marker(labelPoint(pRef, isArea), {
                 interactive: false,
                 keyboard: false,
-                icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent)')
+                icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)')
             }).addTo(refMap);
 
             measureLabelOvl = L.marker(labelPoint(pOvl, isArea), {
                 interactive: false,
                 keyboard: false,
-                icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--ovl-yellow)')
+                icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)')
             }).addTo(ovlMap);
         }
     }

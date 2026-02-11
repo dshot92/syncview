@@ -4,8 +4,6 @@
     --bg-surface: #2a2a2c;
     --bg-panel: rgba(26, 26, 27, 0.98);
 
-    --bg-overlay-strong: rgba(0, 0, 0, 0.85);
-    --bg-overlay-med: rgba(0, 0, 0, 0.7);
     --bg-overlay-light: rgba(0, 0, 0, 0.3);
     --bg-overlay-hover: rgba(0, 0, 0, 0.5);
 
@@ -14,51 +12,38 @@
     --text-inv: #000;
     --text-white: #fff;
 
-    --border-main: #333538;
-    --border-strong: rgba(255, 255, 255, 0.2);
-    --border-med: rgba(255, 255, 255, 0.1);
-    --border-faint: rgba(255, 255, 255, 0.05);
+    --border: #333538;
 
-    --accent: #3b82f6;
+    --accent-blue: #3b82f6;
     --accent-yellow: #fbbf24;
     --danger: #ef4444;
-    --danger-soft: rgba(239, 68, 68, 0.15);
-    --danger-border: rgba(239, 68, 68, 0.3);
 
     /* Border Radius */
     --radius: 0.5rem;
     --radius-full: 50%;
-
-    /* Compatibility */
-    --bg: #1a1a1b;
-    --border: var(--border-main);
-    --text: var(--text-main);
-    --panel: var(--bg-panel);
-    --ovl-yellow: var(--accent-yellow);
-
     
     /* Buttons */
     --bg-tool: rgba(42, 42, 44, 0.9);
 
     /* Unified Hover States */
-    --hover-bg: var(--accent);
+    --hover-bg: var(--accent-blue);
     --hover-bg-subtle: var(--bg-overlay-hover);
     --hover-text: var(--text-white);
-    --hover-border: var(--accent);
+    --hover-border: var(--accent-blue);
     --hover-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     
     /* Lines and Points */
     --divisor-width: 4px;
-    --line-weight-bg: 4;
     --point-border: 2px;
-    --point-outline: 2px;        }
+    --point-outline: 2px;
+}
 
 body {
     margin: 0;
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background: var(--bg-body);
-    color: var(--text);
+    color: var(--text-main);
     overflow: hidden;
     height: 100vh;
     display: flex;
@@ -215,7 +200,7 @@ body {
     font-size: 12px;
     color: var(--text-muted);
     cursor: pointer;
-    border-bottom: 1px solid var(--border-faint);
+    border-bottom: 1px solid var(--border);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -234,7 +219,7 @@ body {
     width: 100%;
     z-index: 1500;
     flex-shrink: 0;
-    border-top: 1px solid var(--border-strong);
+    border-top: 1px solid var(--border);
 }
 
 .map-instance {
@@ -254,7 +239,7 @@ body {
     border-radius: var(--radius);
     font-size: 10px;
     font-weight: 800;
-    border: 1px solid var(--border-med);
+    border: 1px solid var(--border);
     color: var(--text-white);
     text-transform: uppercase;
     pointer-events: none;
@@ -267,7 +252,7 @@ body {
     left: 50%;
     transform: translateX(-50%);
     z-index: 2000;
-    background: var(--panel);
+    background: var(--bg-panel);
     backdrop-filter: blur(15px);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -320,9 +305,9 @@ body {
     bottom: calc(100% + 6px);
     left: 0;
     width: 100%;
-    background: var(--panel);
+    background: var(--bg-panel);
     backdrop-filter: blur(12px);
-    border: 1px solid var(--border-main);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 4px;
     display: none;
@@ -359,8 +344,8 @@ body {
 
 .tool-btn {
     background: transparent;
-    border: 1px solid var(--border-main);
-    color: var(--text);
+    border: 1px solid var(--border);
+    color: var(--text-main);
     border-radius: var(--radius);
     cursor: pointer;
     font-size: 12px;
@@ -378,17 +363,17 @@ body {
 }
 
 .tool-btn.active {
-    background: var(--accent);
+    background: var(--accent-blue);
     color: white;
-    border-color: var(--accent);
+    border-color: var(--accent-blue);
     opacity: 1;
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
 }
 
 .clear-btn {
-    background: var(--danger-soft);
-    color: var(--danger);
-    border: 1px solid var(--danger-border);
+    background: var(--danger);
+    color: var(--text-white);
+    border: 1px solid var(--danger);
     padding: 0;
     width: 38px;
     height: 38px;
@@ -427,7 +412,7 @@ body {
     display: none;
     z-index: 5000;
     background: var(--bg-surface);
-    border: 1px solid var(--border-main);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 4px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
@@ -449,8 +434,8 @@ body {
 
 /* Markers */
 .handle {
-    background: var(--accent);
-    border: var(--point-border) solid var(--accent);
+    background: var(--accent-blue);
+    border: var(--point-border) solid var(--accent-blue);
     border-radius: var(--radius-full);
     box-shadow: 0 0 0 var(--point-outline) var(--text-inv), 0 0 5px var(--bg-overlay-light);
 }
@@ -462,39 +447,39 @@ body {
     box-shadow: 0 0 0 var(--point-outline) var(--text-inv), 0 0 5px var(--bg-overlay-light);
 }
 
- .measurement-label {
-     pointer-events: none;
- }
+.measurement-label {
+    pointer-events: none;
+}
 
- .measurement-label-wrap {
-     position: relative;
-     left: 0;
-     top: 0;
-     transform: translate(-50%, -50%);
- }
+.measurement-label-wrap {
+    position: relative;
+    left: 0;
+    top: 0;
+    transform: translate(-50%, -50%);
+}
 
- .measurement-label-inner {
-     background: var(--bg-overlay-med);
-     border: 1px solid var(--border-strong);
-     border-radius: 10px;
-     padding: 6px 10px;
-     text-align: center;
-     font-weight: 900;
-     backdrop-filter: blur(8px);
-     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
- }
+.measurement-label-inner {
+    background: var(--bg-overlay-hover);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 6px 10px;
+    text-align: center;
+    font-weight: 900;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+}
 
- .measurement-label-primary {
-     font-size: 13px;
-     line-height: 1.1;
- }
+.measurement-label-primary {
+    font-size: 13px;
+    line-height: 1.1;
+}
 
- .measurement-label-secondary {
-     margin-top: 2px;
-     font-size: 11px;
-     line-height: 1.1;
-     opacity: 0.95;
- }
+.measurement-label-secondary {
+    margin-top: 2px;
+    font-size: 11px;
+    line-height: 1.1;
+    opacity: 0.95;
+}
 
 /* Mobile-specific search positioning */
 @media (max-width: 767px) {
@@ -504,13 +489,13 @@ body {
         bottom: 12px;
         transform: none;
     }
-    
+
     /* Second map search button - just below divisor line */
     .map-wrapper:last-child .search-wrapper {
         top: 12px;
         transform: none;
     }
-    
+
     /* First map suggestions - open upward */
     .map-wrapper:first-child .suggestions {
         bottom: 100%;
@@ -519,7 +504,7 @@ body {
         border-top: 1px solid var(--border);
         border-radius: var(--radius) var(--radius) 0 0;
     }
-    
+
     /* Second map suggestions - open downward (normal) */
     .map-wrapper:last-child .suggestions {
         top: 100%;
@@ -536,10 +521,10 @@ body {
     }
 
     .divisor-area {
-        width: 2px;
+        width: 4px;
         height: 100%;
         border-top: none;
-        border-left: 1px solid var(--border-strong);
+        border-left: 1px solid var(--border);
     }
 
     #dashboard {
