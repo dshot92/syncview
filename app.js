@@ -942,16 +942,18 @@ function update() {
 
     if (hasPoints && refMap && ovlMap) {
         const isArea = mode === 'area';
+        const polyRef = pRef;
+        const polyOvl = pOvl;
         if (isArea) {
-            shapes.aRefBg.addTo(refMap).setLatLngs(pRef);
-            shapes.aRef.addTo(refMap).setLatLngs(pRef);
-            shapes.aOvlBg.addTo(ovlMap).setLatLngs(pOvl);
-            shapes.aOvl.addTo(ovlMap).setLatLngs(pOvl);
+            shapes.aRefBg.addTo(refMap).setLatLngs(polyRef);
+            shapes.aRef.addTo(refMap).setLatLngs(polyRef);
+            shapes.aOvlBg.addTo(ovlMap).setLatLngs(polyOvl);
+            shapes.aOvl.addTo(ovlMap).setLatLngs(polyOvl);
         } else {
-            shapes.sRefBg.addTo(refMap).setLatLngs(pRef);
-            shapes.sRef.addTo(refMap).setLatLngs(pRef);
-            shapes.sOvlBg.addTo(ovlMap).setLatLngs(pOvl);
-            shapes.sOvl.addTo(ovlMap).setLatLngs(pOvl);
+            shapes.sRefBg.addTo(refMap).setLatLngs(polyRef);
+            shapes.sRef.addTo(refMap).setLatLngs(polyRef);
+            shapes.sOvlBg.addTo(ovlMap).setLatLngs(polyOvl);
+            shapes.sOvl.addTo(ovlMap).setLatLngs(polyOvl);
         }
 
         markersOvl.forEach((m, i) => { if (pOvl[i]) m.setLatLng(pOvl[i]); });
@@ -960,8 +962,8 @@ function update() {
         if (!isComplete) return;
 
         if (isComplete) {
-            const vRef = isArea ? getArea(pRef) : getDist(pRef);
-            const vOvl = isArea ? getArea(pOvl) : getDist(pOvl);
+            const vRef = isArea ? getArea(polyRef) : getDist(polyRef);
+            const vOvl = isArea ? getArea(polyOvl) : getDist(polyOvl);
 
             const pctDeltaVsRef = vRef > 0 ? ((vOvl - vRef) / vRef) * 100 : 0;
             const fmtPct = (pct) => {
@@ -992,13 +994,13 @@ function update() {
             const pctRef = fmtPct(-pctDeltaVsRef);
             const pctOvl = fmtPct(pctDeltaVsRef);
 
-            measureLabelRef = L.marker(labelPoint(pRef, isArea), {
+            measureLabelRef = L.marker(labelPoint(polyRef, isArea), {
                 interactive: true,
                 keyboard: false,
                 icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)', true)
             }).addTo(refMap);
 
-            measureLabelOvl = L.marker(labelPoint(pOvl, isArea), {
+            measureLabelOvl = L.marker(labelPoint(polyOvl, isArea), {
                 interactive: true,
                 keyboard: false,
                 icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)', false)
@@ -1012,7 +1014,43 @@ function update() {
 }
 
 function getArea(ll) {
-    let a = 0; const R = 6378137;
+    if (!Array.isArray(ll) || ll.length < 3) return 0;
+
+    // If Turf is available, compute the area of the shaded (filled) regions even
+    // when the polygon is self-intersecting.
+    try {
+        if (typeof turf !== 'undefined' && turf && typeof turf.polygon === 'function') {
+            const ring = ll
+                .filter(p => p && Number.isFinite(p.lat) && Number.isFinite(p.lng))
+                .map(p => [p.lng, p.lat]);
+            if (ring.length < 3) return 0;
+
+            // Close ring
+            const first = ring[0];
+            const last = ring[ring.length - 1];
+            if (first[0] !== last[0] || first[1] !== last[1]) ring.push([first[0], first[1]]);
+
+            const poly = turf.polygon([ring]);
+            if (typeof turf.unkinkPolygon === 'function') {
+                const unk = turf.unkinkPolygon(poly);
+                if (unk && unk.features && unk.features.length) {
+                    let sum = 0;
+                    for (const f of unk.features) sum += turf.area(f);
+                    return Math.abs(sum);
+                }
+            }
+
+            // Fallback to turf.area (works for simple polygons; for self-intersection
+            // behavior is implementation-defined)
+            return Math.abs(turf.area(poly));
+        }
+    } catch (_) {
+        // fall through to spherical formula
+    }
+
+    // Fallback: spherical excess approximation (assumes non-self-intersecting)
+    let a = 0;
+    const R = 6378137;
     for (let i = 0; i < ll.length; i++) {
         const p1 = ll[i], p2 = ll[(i + 1) % ll.length];
         a += (p2.lng - p1.lng) * (Math.PI / 180) * (2 + Math.sin(p1.lat * Math.PI / 180) + Math.sin(p2.lat * Math.PI / 180));
