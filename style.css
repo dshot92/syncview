@@ -736,7 +736,29 @@ body {
 }
 
 .measurement-label {
-    pointer-events: none;
+    pointer-events: auto;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.measurement-label:hover {
+    transform: translate(-50%, -50%) scale(1.05);
+}
+
+.measurement-label.move-mode {
+    cursor: move;
+    animation: pulse-label 2s infinite;
+}
+
+@keyframes pulse-label {
+    0%, 100% { 
+        filter: brightness(1);
+        transform: translate(-50%, -50%) scale(1);
+    }
+    50% { 
+        filter: brightness(1.2);
+        transform: translate(-50%, -50%) scale(1.1);
+    }
 }
 
 .measurement-label-wrap {

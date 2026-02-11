@@ -700,6 +700,15 @@ let refMap = null, ovlMap = null, mercAnchorRef = null, mercAnchorOvl = null;
 let measureLabelRef = null;
 let measureLabelOvl = null;
 
+// Movement state variables
+let isMovingAllPoints = false;
+let moveStartPoint = null;
+let originalVerticesRef = [];
+let originalVerticesOvl = [];
+let activeMoveLabel = null;
+let draggedLabel = null;
+let hasStartedDragging = false;
+
 const toMerc = (ll) => L.Projection.Mercator.project(ll);
 const fromMerc = (p) => L.Projection.Mercator.unproject(p);
 
@@ -810,7 +819,7 @@ function update() {
                 return L.polygon(pts).getBounds().getCenter();
             };
 
-            const makeMeasureLabel = (valueText, pctText, color) => L.divIcon({
+            const makeMeasureLabel = (valueText, pctText, color, isRef) => L.divIcon({
                 className: 'measurement-label',
                 html: `<div class="measurement-label-wrap">
                     <div class="measurement-label-inner" style="border-color:${color}">
@@ -825,16 +834,20 @@ function update() {
             const pctOvl = fmtPct(pctDeltaVsRef);
 
             measureLabelRef = L.marker(labelPoint(pRef, isArea), {
-                interactive: false,
+                interactive: true,
                 keyboard: false,
-                icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)')
+                icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)', true)
             }).addTo(refMap);
 
             measureLabelOvl = L.marker(labelPoint(pOvl, isArea), {
-                interactive: false,
+                interactive: true,
                 keyboard: false,
-                icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)')
+                icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)', false)
             }).addTo(ovlMap);
+
+            // Add drag handlers for movement
+            measureLabelRef.on('mousedown', (e) => startLabelDrag(e, 'ref', measureLabelRef));
+            measureLabelOvl.on('mousedown', (e) => startLabelDrag(e, 'ovl', measureLabelOvl));
         }
     }
 }
@@ -1140,6 +1153,198 @@ window.addEventListener('beforeinstallprompt', (e) => {
     deferredPrompt = e;
     // You can show an install button here if desired
 });
+
+function startLabelDrag(e, labelType, labelMarker) {
+    if (!refMap || !ovlMap || verticesRef.length === 0) return;
+    
+    L.DomEvent.preventDefault(e);
+    L.DomEvent.stopPropagation(e);
+    
+    isMovingAllPoints = true;
+    activeMoveLabel = labelType;
+    draggedLabel = labelMarker;
+    
+    // Store both reference and overlay points positions
+    originalVerticesRef = verticesRef.map(v => ({ latlng: L.latLng(v.latlng.lat, v.latlng.lng) }));
+    originalVerticesOvl = verticesOvl.map(v => ({ latlng: L.latLng(v.latlng.lat, v.latlng.lng) }));
+    
+    // Get the starting point from mouse position
+    const map = labelType === 'ref' ? refMap : ovlMap;
+    moveStartPoint = map.mouseEventToLatLng(e.originalEvent);
+    
+    // Add visual feedback to labels
+    if (measureLabelRef) {
+        measureLabelRef._icon.classList.add('move-mode');
+    }
+    if (measureLabelOvl) {
+        measureLabelOvl._icon.classList.add('move-mode');
+    }
+    
+    // Add global mouse event listeners
+    document.addEventListener('mousemove', handleLabelDrag);
+    document.addEventListener('mouseup', handleLabelDragEnd);
+    
+    const labelName = labelType === 'ref' ? 'reference' : 'overlay';
+    showToast(`Dragging to move ${labelName} points`);
+}
+
+function handleLabelDrag(e) {
+    if (!isMovingAllPoints || !moveStartPoint || !draggedLabel) return;
+    
+    // Prevent any map-related events
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Disable map controls only on first movement
+    if (!hasStartedDragging) {
+        hasStartedDragging = true;
+        // Disable map dragging and panning on both maps
+        refMap.dragging.disable();
+        ovlMap.dragging.disable();
+        refMap.touchZoom.disable();
+        ovlMap.touchZoom.disable();
+        refMap.doubleClickZoom.disable();
+        ovlMap.doubleClickZoom.disable();
+        refMap.scrollWheelZoom.disable();
+        ovlMap.scrollWheelZoom.disable();
+        refMap.boxZoom.disable();
+        ovlMap.boxZoom.disable();
+        refMap.keyboard.disable();
+        ovlMap.keyboard.disable();
+        
+        // Also prevent any map click/touch events during drag
+        refMap.off('click mousedown touchstart');
+        ovlMap.off('click mousedown touchstart');
+    }
+    
+    const map = activeMoveLabel === 'ref' ? refMap : ovlMap;
+    const currentPoint = map.mouseEventToLatLng(e);
+    const deltaX = currentPoint.lng - moveStartPoint.lng;
+    const deltaY = currentPoint.lat - moveStartPoint.lat;
+    
+    // Move the appropriate points based on which panel is being dragged
+    if (activeMoveLabel === 'ref') {
+        // Move reference points
+        verticesRef.forEach((vertex, i) => {
+            const original = originalVerticesRef[i];
+            vertex.latlng = L.latLng(original.latlng.lat + deltaY, original.latlng.lng + deltaX);
+        });
+        
+        // Update reference marker positions
+        markersRef.forEach((marker, i) => {
+            marker.setLatLng(verticesRef[i].latlng);
+        });
+        
+        // Update overlay points to maintain synchronization
+        verticesOvl.forEach((vertex, i) => {
+            const originalRef = originalVerticesRef[i];
+            const originalOvl = originalVerticesOvl[i];
+            // Move overlay point by the same delta as its corresponding reference point
+            vertex.latlng = L.latLng(originalOvl.latlng.lat + deltaY, originalOvl.latlng.lng + deltaX);
+        });
+        
+        // Update overlay marker positions
+        markersOvl.forEach((marker, i) => {
+            marker.setLatLng(verticesOvl[i].latlng);
+        });
+
+    } else {
+        // Move overlay points
+        verticesOvl.forEach((vertex, i) => {
+            const original = originalVerticesOvl[i];
+            vertex.latlng = L.latLng(original.latlng.lat + deltaY, original.latlng.lng + deltaX);
+        });
+        
+        // Update overlay marker positions
+        markersOvl.forEach((marker, i) => {
+            marker.setLatLng(verticesOvl[i].latlng);
+        });
+
+        // Update mercator anchor so future reference-point drags keep overlay in sync
+        // (mirror of overlay-marker drag logic, using a stable vertex index)
+        if (verticesOvl.length > 0 && verticesRef.length > 0 && mercAnchorRef && mercAnchorOvl) {
+            const idx = 0;
+            const vOM = toMerc(verticesOvl[idx].latlng);
+            const vRM = toMerc(verticesRef[idx].latlng);
+            mercAnchorOvl.x = vOM.x - (vRM.x - mercAnchorRef.x);
+            mercAnchorOvl.y = vOM.y - (vRM.y - mercAnchorRef.y);
+        }
+    }
+    
+    // Update the dragged label position using the appropriate points
+    const labelPoint = activeMoveLabel === 'ref' ? 
+        verticesRef.map(v => v.latlng) : verticesOvl.map(v => v.latlng);
+    
+    if (labelPoint.length > 0) {
+        const isArea = mode === 'area';
+        const newPosition = isArea ? 
+            (polyCentroid(labelPoint) && pointInPolygon(polyCentroid(labelPoint), labelPoint) ? 
+                polyCentroid(labelPoint) : L.polygon(labelPoint).getBounds().getCenter()) :
+            lineMidpoint(labelPoint);
+        
+        if (newPosition) {
+            draggedLabel.setLatLng(newPosition);
+        }
+    }
+    
+    update();
+}
+
+function handleLabelDragEnd(e) {
+    if (!isMovingAllPoints) return;
+    
+    // Remove global event listeners
+    document.removeEventListener('mousemove', handleLabelDrag);
+    document.removeEventListener('mouseup', handleLabelDragEnd);
+    
+    // Check if dragging actually occurred before resetting flags
+    const didActuallyDrag = hasStartedDragging;
+    
+    // Re-enable map controls only if dragging had started
+    if (didActuallyDrag) {
+        // Re-enable map dragging and all controls on both maps
+        refMap.dragging.enable();
+        ovlMap.dragging.enable();
+        refMap.touchZoom.enable();
+        ovlMap.touchZoom.enable();
+        refMap.doubleClickZoom.enable();
+        ovlMap.doubleClickZoom.enable();
+        refMap.scrollWheelZoom.enable();
+        ovlMap.scrollWheelZoom.enable();
+        refMap.boxZoom.enable();
+        ovlMap.boxZoom.enable();
+        refMap.keyboard.enable();
+        ovlMap.keyboard.enable();
+        
+        // Restore map event listeners
+        map1.on('click', (e) => handleMapClick(e, map1));
+        map2.on('click', (e) => handleMapClick(e, map2));
+    }
+    
+    // Remove visual feedback
+    if (measureLabelRef) {
+        measureLabelRef._icon.classList.remove('move-mode');
+    }
+    if (measureLabelOvl) {
+        measureLabelOvl._icon.classList.remove('move-mode');
+    }
+    
+    // Save the label type before resetting variables
+    const movedType = activeMoveLabel === 'ref' ? 'Reference' : 'Overlay';
+    
+    isMovingAllPoints = false;
+    moveStartPoint = null;
+    activeMoveLabel = null;
+    draggedLabel = null;
+    hasStartedDragging = false;
+    originalVerticesRef = [];
+    originalVerticesOvl = [];
+    
+    if (didActuallyDrag) {
+        scheduleUrlUpdate();
+        showToast(`${movedType} points moved successfully`);
+    }
+}
 
 // Initialize app in ruler mode
 setMode('dist');
