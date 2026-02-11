@@ -535,7 +535,48 @@ function closeInfoMenu() {
     }, 300); // Match transition duration
 }
 
+function undoLastPoint() {
+    hideCtx();
+    if (!refMap || !ovlMap) return;
+    if (!verticesRef || verticesRef.length === 0) return;
+
+    const i = verticesRef.length - 1;
+
+    if (markersRef[i]) refMap.removeLayer(markersRef[i]);
+    if (markersOvl[i]) ovlMap.removeLayer(markersOvl[i]);
+
+    verticesRef.pop();
+    verticesOvl.pop();
+    markersRef.pop();
+    markersOvl.pop();
+
+    if (verticesRef.length === 0) {
+        if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
+        if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
+        refMap = null;
+        ovlMap = null;
+        document.getElementById('label1').innerText = "Map 1";
+        document.getElementById('label2').innerText = "Map 2";
+    }
+
+    update();
+    scheduleUrlUpdate();
+}
+
 document.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
+        const t = e.target;
+        const isTypingTarget = t && (
+            t.tagName === 'INPUT' ||
+            t.tagName === 'TEXTAREA' ||
+            t.isContentEditable
+        );
+        if (!isTypingTarget) {
+            e.preventDefault();
+            undoLastPoint();
+        }
+        return;
+    }
     if (e.key !== 'Escape') return;
     const shareOverlay = document.getElementById('share-overlay');
     const infoOverlay = document.getElementById('info-overlay');
@@ -971,17 +1012,23 @@ function update() {
     // Show/hide clear button based on drawing state
     const clearBtn1 = document.getElementById('clearBtn1');
     const clearBtn2 = document.getElementById('clearBtn2');
+    const backBtn1 = document.getElementById('backBtn1');
+    const backBtn2 = document.getElementById('backBtn2');
     
     // Hide both clear buttons first
     clearBtn1.classList.remove('visible');
     clearBtn2.classList.remove('visible');
+    if (backBtn1) backBtn1.classList.remove('visible');
+    if (backBtn2) backBtn2.classList.remove('visible');
     
     // Only show clear button on the reference map when drawing
     if (hasPoints && refMap) {
         if (refMap === map1) {
             clearBtn1.classList.add('visible');
+            if (backBtn1) backBtn1.classList.add('visible');
         } else if (refMap === map2) {
             clearBtn2.classList.add('visible');
+            if (backBtn2) backBtn2.classList.add('visible');
         }
     }
 

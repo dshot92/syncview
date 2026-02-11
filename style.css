@@ -15,6 +15,10 @@
 
     --button-gap: 6px;
 
+    --ui-btn-size: 38px;
+    --ui-btn-size-sm: 36px;
+    --ui-icon-size: 18px;
+
     --border: #4a4d52;
 
     --accent-blue: #3b82f6;
@@ -107,18 +111,18 @@ body.share-overlay-open {
     left: 12px;
     z-index: 1000;
     display: grid;
-    grid-template-columns: 36px 1fr;
+    grid-template-columns: var(--ui-btn-size-sm) 1fr;
     grid-template-areas: "lens container";
     align-items: center;
     pointer-events: auto;
     background: var(--bg-opaque);
     border: 1px solid var(--border);
     border-radius: var(--radius);
-    height: 36px;
+    height: var(--ui-btn-size-sm);
     padding: 0;
     overflow: hidden;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    width: 36px;
+    width: var(--ui-btn-size-sm);
 }
 
 .search-wrapper.expanded {
@@ -129,8 +133,8 @@ body.share-overlay-open {
 
 .lens-btn {
     grid-area: lens;
-    width: 36px;
-    height: 36px;
+    width: var(--ui-btn-size-sm);
+    height: var(--ui-btn-size-sm);
     background: transparent;
     border: none;
     border-radius: 0;
@@ -143,6 +147,11 @@ body.share-overlay-open {
     z-index: 2;
     padding: 0;
 }
+
+ .lens-btn svg {
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
+ }
 
 .lens-btn:hover {
     background: var(--hover-bg);
@@ -168,7 +177,7 @@ body.share-overlay-open {
     border: none;
     border-radius: 0;
     color: var(--text-white);
-    height: 36px;
+    height: var(--ui-btn-size-sm);
     padding: 0 12px;
     font-size: 13px;
     outline: none;
@@ -248,8 +257,8 @@ body.share-overlay-open {
     position: absolute;
     top: 54px;
     left: 12px;
-    width: 36px;
-    height: 36px;
+    width: var(--ui-btn-size-sm);
+    height: var(--ui-btn-size-sm);
     background: var(--bg-opaque);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -271,6 +280,11 @@ body.share-overlay-open {
 .location-btn:active {
     transform: scale(0.95);
 }
+
+ .location-btn svg {
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
+ }
 
 @keyframes pulse {
     0%, 100% { opacity: 1; }
@@ -333,17 +347,17 @@ body.share-overlay-open {
     grid-area: nav;
     display: grid;
     grid-template-areas: "dropdown tools share info";
-    grid-template-columns: 38px 1fr 38px 38px;
+    grid-template-columns: var(--ui-btn-size) 1fr var(--ui-btn-size) var(--ui-btn-size);
     align-items: stretch;
     gap: 12px;
-    height: 38px;
+    height: var(--ui-btn-size);
 }
 
 /* Custom Dropdown Grid */
 .custom-select {
     grid-area: dropdown;
     position: relative;
-    width: 38px;
+    width: var(--ui-btn-size);
 }
 
 .select-trigger {
@@ -491,8 +505,8 @@ body.share-overlay-open {
     color: var(--text-white);
     border: 1px solid #ffffff;
     padding: 0;
-    width: 38px;
-    height: 38px;
+    width: var(--ui-btn-size);
+    height: var(--ui-btn-size);
     border-radius: var(--radius);
     font-size: 11px;
     font-weight: 800;
@@ -521,12 +535,52 @@ body.share-overlay-open {
     color: white;
 }
 
+.back-btn-map {
+    position: absolute;
+    top: calc(54px + var(--ui-btn-size-sm) + var(--button-gap));
+    left: 12px;
+    width: var(--ui-btn-size-sm);
+    height: var(--ui-btn-size-sm);
+    background: var(--bg-opaque);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-main);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    z-index: 1000;
+    transition: var(--hover-transition);
+    padding: 0;
+    visibility: hidden;
+    opacity: 0;
+}
+
+ .back-btn-map svg {
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
+ }
+
+.back-btn-map.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+.back-btn-map:hover {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+    color: var(--hover-text);
+}
+
+.back-btn-map:active {
+    transform: scale(0.95);
+}
+
 .clear-btn-map {
     position: absolute;
-    top: calc(54px + 36px + var(--button-gap));
+    top: calc(54px + (var(--ui-btn-size-sm) + var(--button-gap)) * 2);
     left: 12px;
-    width: 36px;
-    height: 36px;
+    width: var(--ui-btn-size-sm);
+    height: var(--ui-btn-size-sm);
     background: var(--danger);
     border: 1px solid #ffffff;
     border-radius: var(--radius);
@@ -562,13 +616,18 @@ body.share-overlay-open {
     color: var(--text-main);
     border: 1px solid var(--border);
     padding: 0;
-    width: 38px;
-    height: 38px;
+    width: var(--ui-btn-size);
+    height: var(--ui-btn-size);
     border-radius: var(--radius);
     cursor: pointer;
     transition: var(--hover-transition);
     display: grid;
     place-items: center;
+ }
+
+ .share-btn svg {
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
  }
 
  .share-btn:hover {
@@ -593,8 +652,8 @@ body.share-overlay-open {
     color: var(--text-main);
     border: 1px solid var(--border);
     padding: 0;
-    width: 38px;
-    height: 38px;
+    width: var(--ui-btn-size);
+    height: var(--ui-btn-size);
     border-radius: var(--radius);
     cursor: pointer;
     transition: var(--hover-transition);
@@ -607,8 +666,8 @@ body.share-overlay-open {
 }
 
  .info-btn svg {
-    width: 18px;
-    height: 18px;
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
  }
 
  .info-btn:hover {
@@ -629,7 +688,7 @@ body.share-overlay-open {
 
     .nav-row {
         grid-template-areas: "dropdown tools share";
-        grid-template-columns: 38px 1fr 38px;
+        grid-template-columns: var(--ui-btn-size) 1fr var(--ui-btn-size);
     }
 
     .divisor-area {
@@ -641,9 +700,9 @@ body.share-overlay-open {
         display: grid;
         position: absolute;
         left: 12px;
-        top: calc((var(--divisor-width) / 2) - 18px);
-        width: 36px;
-        height: 36px;
+        top: calc((var(--divisor-width) / 2) - (var(--ui-btn-size-sm) / 2));
+        width: var(--ui-btn-size-sm);
+        height: var(--ui-btn-size-sm);
         z-index: 2001;
     }
 }
@@ -1091,12 +1150,26 @@ body.share-overlay-open {
     /* First map clear button - vertically next to location button without overlap (top map) */
     .map-wrapper:first-child .clear-btn-map {
         top: auto;
-        bottom: calc(18px + var(--button-gap) + 84px);
+        bottom: calc(18px + var(--button-gap) + 126px);
         left: 12px;
     }
 
     /* Second map clear button - vertically next to location button without overlap (bottom map) */
     .map-wrapper:last-child .clear-btn-map {
+        top: calc(18px + var(--button-gap) + 126px);
+        bottom: auto;
+        left: 12px;
+    }
+
+    /* First map back button - between location and clear (top map) */
+    .map-wrapper:first-child .back-btn-map {
+        top: auto;
+        bottom: calc(18px + var(--button-gap) + 84px);
+        left: 12px;
+    }
+
+    /* Second map back button - between location and clear (bottom map) */
+    .map-wrapper:last-child .back-btn-map {
         top: calc(18px + var(--button-gap) + 84px);
         bottom: auto;
         left: 12px;
@@ -1122,7 +1195,7 @@ body.share-overlay-open {
 
     /* Ensure custom dropdown behaves consistently on mobile */
     .custom-select {
-        width: 38px;
+        width: var(--ui-btn-size);
     }
 
     .select-trigger {
