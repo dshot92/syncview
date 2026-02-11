@@ -682,8 +682,8 @@ body {
  .share-copy-btn {
      height: 40px;
      border-radius: 12px;
-     border: 1px solid rgba(255, 255, 255, 0.12);
-     background: rgba(59, 130, 246, 0.22);
+     border: 1px solid var(--hover-border);
+     background: var(--hover-bg);
      color: var(--text-white);
      font-size: 12px;
      font-weight: 900;
@@ -692,8 +692,8 @@ body {
  }
 
  .share-copy-btn:hover {
-     background: var(--accent-blue);
-     border-color: var(--accent-blue);
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
  }
 
  .share-link {
