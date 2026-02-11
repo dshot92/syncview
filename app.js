@@ -217,6 +217,14 @@ function update() {
     const pOvl = verticesOvl.map(v => v.latlng);
     const hasPoints = pRef.length > 0;
 
+    // Show/hide clear button based on drawing state
+    const clearBtn = document.querySelector('.clear-btn');
+    if (hasPoints) {
+        clearBtn.classList.add('visible');
+    } else {
+        clearBtn.classList.remove('visible');
+    }
+
     Object.values(shapes).forEach(s => { if (s._map) s.remove(); });
 
     if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }

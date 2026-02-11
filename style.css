@@ -40,6 +40,13 @@
     /* Buttons */
     --bg-tool: rgba(42, 42, 44, 0.9);
 
+    /* Unified Hover States */
+    --hover-bg: var(--accent);
+    --hover-bg-subtle: var(--bg-overlay-hover);
+    --hover-text: var(--text-white);
+    --hover-border: var(--accent);
+    --hover-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    
     /* Lines and Points */
     --divisor-width: 4px;
     --line-weight-bg: 4;
@@ -118,7 +125,8 @@ body {
 }
 
 .lens-btn:hover {
-    color: var(--accent);
+    background: var(--hover-bg-subtle);
+    color: var(--hover-text);
 }
 
 .lens-btn.active {
@@ -173,8 +181,8 @@ body {
 }
 
 .search-clear-btn:hover {
-    color: var(--text-white);
-    background: var(--bg-overlay-light);
+    background: var(--hover-bg-subtle);
+    color: var(--hover-text);
 }
 
 .search-box:not(:placeholder-shown) ~ .search-clear-btn {
@@ -214,8 +222,8 @@ body {
 }
 
 .suggestion-item:hover {
-    background: var(--accent);
-    color: var(--text-white);
+    background: var(--hover-bg);
+    color: var(--hover-text);
 }
 
 /* Divisor UI */
@@ -303,8 +311,8 @@ body {
 }
 
 .select-trigger:hover {
-    background: var(--bg-overlay-hover);
-    color: var(--text-white);
+    background: var(--hover-bg-subtle);
+    color: var(--hover-text);
 }
 
 .select-options {
@@ -337,8 +345,8 @@ body {
 }
 
 .option:hover {
-    background: var(--accent);
-    color: var(--text-white);
+    background: var(--hover-bg);
+    color: var(--hover-text);
 }
 
 .tool-group {
@@ -363,8 +371,10 @@ body {
 }
 
 .tool-btn:hover {
-    opacity: 0.9;
-    border-color: var(--text-muted);
+    background: var(--hover-bg-subtle);
+    opacity: 1;
+    border-color: var(--hover-border);
+    color: var(--hover-text);
 }
 
 .tool-btn.active {
@@ -379,12 +389,31 @@ body {
     background: var(--danger-soft);
     color: var(--danger);
     border: 1px solid var(--danger-border);
-    padding: 0 14px;
+    padding: 0;
+    width: 38px;
+    height: 38px;
     border-radius: var(--radius);
     font-size: 11px;
     font-weight: 800;
     text-transform: uppercase;
     cursor: pointer;
+    transition: var(--hover-transition);
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    visibility: hidden;
+    opacity: 0;
+}
+
+.clear-btn.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+.clear-btn:hover {
+    background: var(--danger);
+    color: var(--text-white);
+    border-color: var(--danger);
 }
 
 .clear-btn:active {
@@ -414,7 +443,8 @@ body {
 }
 
 .ctx-item:hover {
-    background: var(--danger-soft);
+    background: var(--danger);
+    color: var(--text-white);
 }
 
 /* Markers */
