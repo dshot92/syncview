@@ -128,6 +128,51 @@ const setupSearchEvents = (idx) => {
 setupSearchEvents(1);
 setupSearchEvents(2);
 
+// Geolocation functionality
+function setLocationFromDevice(mapIndex) {
+    const btn = document.getElementById('locationBtn' + mapIndex);
+    const targetMap = mapIndex === 1 ? map1 : map2;
+    
+    if (!navigator.geolocation) {
+        alert('Geolocation is not supported by your browser');
+        return;
+    }
+    
+    // Add locating animation
+    btn.classList.add('locating');
+    
+    navigator.geolocation.getCurrentPosition(
+        (position) => {
+            const { latitude, longitude } = position.coords;
+            targetMap.setView([latitude, longitude], 15);
+            btn.classList.remove('locating');
+        },
+        (error) => {
+            btn.classList.remove('locating');
+            let errorMessage = 'Unable to retrieve your location';
+            
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    errorMessage = 'Location access denied. Please enable location permissions.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    errorMessage = 'Location information unavailable.';
+                    break;
+                case error.TIMEOUT:
+                    errorMessage = 'Location request timed out.';
+                    break;
+            }
+            
+            alert(errorMessage);
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000 // Accept cached position up to 1 minute old
+        }
+    );
+}
+
 // Custom Dropdown Logic
 const trigger = document.getElementById('layerTrigger');
 const options = document.getElementById('layerOptions');

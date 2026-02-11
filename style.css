@@ -211,6 +211,45 @@ body {
     color: var(--hover-text);
 }
 
+/* Location Button */
+.location-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-white);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: all 0.2s;
+    padding: 0;
+}
+
+.location-btn:hover {
+    background: var(--hover-bg-subtle);
+    color: var(--hover-text);
+    border-color: var(--hover-border);
+}
+
+.location-btn:active {
+    transform: scale(0.95);
+}
+
+.location-btn.locating {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
 /* Divisor UI */
 .divisor-area {
     position: relative;
@@ -494,6 +533,22 @@ body {
     .map-wrapper:last-child .search-wrapper {
         top: 12px;
         transform: none;
+    }
+
+    /* First map location button - above search button */
+    .map-wrapper:first-child .location-btn {
+        top: auto;
+        right: auto;
+        bottom: 54px;
+        left: 12px;
+    }
+
+    /* Second map location button - below search button */
+    .map-wrapper:last-child .location-btn {
+        top: 54px;
+        bottom: auto;
+        right: auto;
+        left: 12px;
     }
 
     /* First map suggestions - open upward */
