@@ -706,6 +706,13 @@ const fromMerc = (p) => L.Projection.Mercator.unproject(p);
 function setMode(m) {
     mode = m;
     document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.id === 'btn-' + m));
+    
+    // Update data-active attribute for sliding animation
+    const toolGroup = document.getElementById('toolGroup');
+    if (toolGroup) {
+        toolGroup.setAttribute('data-active', m);
+    }
+    
     document.querySelectorAll('.map-instance').forEach(div => div.style.cursor = 'crosshair');
     update();
     scheduleUrlUpdate();
