@@ -292,6 +292,18 @@ body {
     font-weight: 800;
 }
 
+ .stat-primary {
+     line-height: 1.15;
+ }
+
+ .stat-secondary {
+     margin-top: 2px;
+     font-size: 11px;
+     font-weight: 800;
+     opacity: 0.9;
+     line-height: 1.15;
+ }
+
 #top-val-box {
     border-bottom: none;
 }
@@ -515,6 +527,40 @@ body {
     border-radius: var(--radius-full);
     box-shadow: 0 0 0 var(--point-outline) var(--text-inv), 0 0 5px var(--bg-overlay-light);
 }
+
+ .measurement-label {
+     pointer-events: none;
+ }
+
+ .measurement-label-wrap {
+     position: relative;
+     left: 0;
+     top: 0;
+     transform: translate(-50%, -50%);
+ }
+
+ .measurement-label-inner {
+     background: var(--bg-overlay-med);
+     border: 1px solid var(--border-strong);
+     border-radius: 10px;
+     padding: 6px 10px;
+     text-align: center;
+     font-weight: 900;
+     backdrop-filter: blur(8px);
+     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
+ }
+
+ .measurement-label-primary {
+     font-size: 13px;
+     line-height: 1.1;
+ }
+
+ .measurement-label-secondary {
+     margin-top: 2px;
+     font-size: 11px;
+     line-height: 1.1;
+     opacity: 0.95;
+ }
 
 @media (min-width: 768px) {
     .map-container {

@@ -1,7 +1,9 @@
-const CACHE_NAME = 'syncview-v1';
+const CACHE_NAME = 'syncview-v2';
 const urlsToCache = [
   './',
   './index.html',
+  './app.js',
+  './style.css',
   './manifest.json',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js'
@@ -41,6 +43,11 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
 
+  const url = new URL(event.request.url);
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) return cachedResponse;
@@ -52,7 +59,10 @@ self.addEventListener('fetch', (event) => {
 
         const responseToCache = response.clone();
         caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+          try {
+            cache.put(event.request, responseToCache);
+          } catch (_) {
+          }
         });
 
         return response;

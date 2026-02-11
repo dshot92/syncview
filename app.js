@@ -157,6 +157,8 @@ const shapes = {
 let mode = 'none';
 let verticesRef = [], verticesOvl = [], markersRef = [], markersOvl = [];
 let refMap = null, ovlMap = null, mercAnchorRef = null, mercAnchorOvl = null;
+let measureLabelRef = null;
+let measureLabelOvl = null;
 
 const toMerc = (ll) => L.Projection.Mercator.project(ll);
 const fromMerc = (p) => L.Projection.Mercator.unproject(p);
@@ -199,9 +201,10 @@ function update() {
     const pOvl = verticesOvl.map(v => v.latlng);
     const hasPoints = pRef.length > 0;
 
-    document.getElementById('floating-stats').classList.toggle('visible', hasPoints);
-
     Object.values(shapes).forEach(s => { if (s._map) s.remove(); });
+
+    if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
+    if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
 
     if (hasPoints && refMap && ovlMap) {
         const isArea = mode === 'area';
@@ -219,28 +222,53 @@ function update() {
 
         markersOvl.forEach((m, i) => { if (pOvl[i]) m.setLatLng(pOvl[i]); });
 
-        if (pRef.length >= (isArea ? 3 : 2)) {
+        const isComplete = pRef.length >= (isArea ? 3 : 2);
+        if (!isComplete) return;
+
+        if (isComplete) {
             const vRef = isArea ? getArea(pRef) : getDist(pRef);
             const vOvl = isArea ? getArea(pOvl) : getDist(pOvl);
 
-            // Top value = map1, Bottom value = map2
-            const isMap1Ref = refMap === map1;
-            const topVal = isMap1Ref ? vRef : vOvl;
-            const bottomVal = isMap1Ref ? vOvl : vRef;
-            const topColor = isMap1Ref ? 'var(--accent)' : 'var(--ovl-yellow)';
-            const bottomColor = isMap1Ref ? 'var(--ovl-yellow)' : 'var(--accent)';
+            const pctDeltaVsRef = vRef > 0 ? ((vOvl - vRef) / vRef) * 100 : 0;
+            const fmtPct = (pct) => {
+                const p = Number(pct);
+                const sign = p >= 0 ? '+' : '-';
+                return `${sign}${Math.abs(p).toFixed(1)}%`;
+            };
 
-            document.getElementById('top-val').innerText = fmt(topVal, mode);
-            document.getElementById('top-val').style.color = topColor;
-            document.getElementById('bottom-val').innerText = fmt(bottomVal, mode);
-            document.getElementById('bottom-val').style.color = bottomColor;
+            const labelPoint = (pts, isAreaShape) => {
+                if (!pts.length) return null;
+                if (!isAreaShape) return lineMidpoint(pts);
+                const c = polyCentroid(pts);
+                if (c && pointInPolygon(c, pts)) return c;
+                return L.polygon(pts).getBounds().getCenter();
+            };
 
-            const ratio = vRef > 0 ? vOvl / vRef : 1;
-            const diff = (Math.abs(ratio - 1) * 100).toFixed(1);
-            const diffColor = vRef > vOvl ? 'var(--accent)' : 'var(--ovl-yellow)';
-            const comma = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-            document.getElementById('diff-val').innerText = `+${comma(diff)}%`;
-            document.getElementById('diff-val').style.color = diffColor;
+            const makeMeasureLabel = (valueText, pctText, color) => L.divIcon({
+                className: 'measurement-label',
+                html: `<div class="measurement-label-wrap">
+                    <div class="measurement-label-inner" style="border-color:${color}">
+                        <div class="measurement-label-primary" style="color:${color}">${valueText}</div>
+                        ${color === 'var(--ovl-yellow)' ? `<div class="measurement-label-secondary" style="color:${color}">${pctText}</div>` : ''}
+                    </div>
+                </div>`,
+                iconSize: null
+            });
+
+            const pctRef = fmtPct(-pctDeltaVsRef);
+            const pctOvl = fmtPct(pctDeltaVsRef);
+
+            measureLabelRef = L.marker(labelPoint(pRef, isArea), {
+                interactive: false,
+                keyboard: false,
+                icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent)')
+            }).addTo(refMap);
+
+            measureLabelOvl = L.marker(labelPoint(pOvl, isArea), {
+                interactive: false,
+                keyboard: false,
+                icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--ovl-yellow)')
+            }).addTo(ovlMap);
         }
     }
 }
@@ -258,6 +286,63 @@ function fmt(v, t) {
     const comma = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
     if (t === 'area') return v >= 1e6 ? comma((v / 1e6).toFixed(2)) + ' km²' : comma(v.toFixed(0)) + ' m²'; 
     return v >= 1000 ? comma((v / 1000).toFixed(2)) + ' km' : comma(v.toFixed(0)) + ' m'; 
+}
+
+function pointInPolygon(point, polygon) {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+        const xi = polygon[i].lng, yi = polygon[i].lat;
+        const xj = polygon[j].lng, yj = polygon[j].lat;
+        const intersect = ((yi > point.lat) !== (yj > point.lat)) &&
+            (point.lng < (xj - xi) * (point.lat - yi) / ((yj - yi) || 1e-12) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+function polyCentroid(ll) {
+    let area = 0;
+    let cx = 0;
+    let cy = 0;
+    for (let i = 0; i < ll.length; i++) {
+        const p1 = ll[i];
+        const p2 = ll[(i + 1) % ll.length];
+        const x1 = p1.lng, y1 = p1.lat;
+        const x2 = p2.lng, y2 = p2.lat;
+        const a = x1 * y2 - x2 * y1;
+        area += a;
+        cx += (x1 + x2) * a;
+        cy += (y1 + y2) * a;
+    }
+    area *= 0.5;
+    if (Math.abs(area) < 1e-12) return null;
+    cx /= (6 * area);
+    cy /= (6 * area);
+    return L.latLng(cy, cx);
+}
+
+function lineMidpoint(ll) {
+    if (ll.length === 1) return ll[0];
+    const segLens = [];
+    let total = 0;
+    for (let i = 0; i < ll.length - 1; i++) {
+        const len = ll[i].distanceTo(ll[i + 1]);
+        segLens.push(len);
+        total += len;
+    }
+    if (total <= 0) return ll[0];
+    let target = total / 2;
+    for (let i = 0; i < segLens.length; i++) {
+        const len = segLens[i];
+        if (target > len) {
+            target -= len;
+            continue;
+        }
+        const t = len > 0 ? (target / len) : 0;
+        const a = ll[i], b = ll[i + 1];
+        return L.latLng(a.lat + (b.lat - a.lat) * t, a.lng + (b.lng - a.lng) * t);
+    }
+    return ll[ll.length - 1];
 }
 
 function handleMapClick(e, src) {
@@ -314,6 +399,8 @@ map2.on('click', (e) => handleMapClick(e, map2));
 
 function clearAll() {
     if (refMap) { markersRef.forEach(m => refMap.removeLayer(m)); markersOvl.forEach(m => ovlMap.removeLayer(m)); }
+    if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
+    if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
     verticesRef = []; verticesOvl = []; markersRef = []; markersOvl = [];
     refMap = null; ovlMap = null;
     document.getElementById('label1').innerText = "Map 1"; document.getElementById('label2').innerText = "Map 2";
