@@ -51,7 +51,14 @@
             --vignette-distance: 20%;      /* Where it starts from center (0-100%) */
 
             /* Buttons */
-            --bg-tool: rgba(42, 42, 44, 0.9);        }
+            --bg-tool: rgba(42, 42, 44, 0.9);
+
+            /* Lines and Points */
+            --line-weight: 2;
+            --line-weight-bg: 4;
+            --point-size: 14;
+            --point-border: 2px;
+            --point-outline: 2px;        }
 
         body {
             margin: 0;
@@ -464,17 +471,17 @@
 
         /* Markers */
         .handle {
-            background: var(--text-white);
-            border: 2px solid var(--accent);
+            background: var(--accent);
+            border: var(--point-border) solid var(--accent);
             border-radius: var(--radius-full);
-            box-shadow: 0 0 5px var(--bg-overlay-light);
+            box-shadow: 0 0 0 var(--point-outline) var(--text-inv), 0 0 5px var(--bg-overlay-light);
         }
 
         .ghost-handle {
-            background: var(--bg-body);
-            border: 2px solid var(--accent-yellow);
+            background: var(--accent-yellow);
+            border: var(--point-border) solid var(--accent-yellow);
             border-radius: var(--radius-full);
-            box-shadow: 0 0 5px var(--bg-overlay-light);
+            box-shadow: 0 0 0 var(--point-outline) var(--text-inv), 0 0 5px var(--bg-overlay-light);
         }
 
         @media (min-width: 768px) {
@@ -725,14 +732,14 @@
 
         // Graphics & Measurement State
         const shapes = {
-            sRefBg: L.polyline([], { color: 'var(--text-inv)', weight: 6, opacity: 0.8 }),
-            sRef: L.polyline([], { color: 'var(--accent)', weight: 3 }),
-            sOvlBg: L.polyline([], { color: 'var(--text-inv)', weight: 6, opacity: 0.8 }),
-            sOvl: L.polyline([], { color: 'var(--accent-yellow)', weight: 3 }),
-            aRefBg: L.polygon([], { color: 'var(--text-inv)', weight: 6, opacity: 0.8, fill: false }),
-            aRef: L.polygon([], { color: 'var(--accent)', weight: 3, fillOpacity: 0.2 }),
-            aOvlBg: L.polygon([], { color: 'var(--text-inv)', weight: 6, opacity: 0.8, fill: false }),
-            aOvl: L.polygon([], { color: 'var(--accent-yellow)', weight: 3, fillOpacity: 0.3 })
+            sRefBg: L.polyline([], { color: 'var(--text-inv)', weight: 4, opacity: 0.8 }),
+            sRef: L.polyline([], { color: 'var(--accent)', weight: 2 }),
+            sOvlBg: L.polyline([], { color: 'var(--text-inv)', weight: 4, opacity: 0.8 }),
+            sOvl: L.polyline([], { color: 'var(--accent-yellow)', weight: 2 }),
+            aRefBg: L.polygon([], { color: 'var(--text-inv)', weight: 4, opacity: 0.8, fill: false }),
+            aRef: L.polygon([], { color: 'var(--accent)', weight: 2, fillOpacity: 0.2 }),
+            aOvlBg: L.polygon([], { color: 'var(--text-inv)', weight: 4, opacity: 0.8, fill: false }),
+            aOvl: L.polygon([], { color: 'var(--accent-yellow)', weight: 2, fillOpacity: 0.3 })
         };
 
         let mode = 'none';
@@ -851,8 +858,8 @@
             const mPos = toMerc(e.latlng);
             const ghostLL = fromMerc(L.point(mercAnchorOvl.x + (mPos.x - mercAnchorRef.x), mercAnchorOvl.y + (mPos.y - mercAnchorRef.y)));
 
-            const mR = L.marker(e.latlng, { icon: L.divIcon({ className: 'handle', iconSize: [12, 12] }), draggable: true }).addTo(refMap);
-            const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [12, 12] }), draggable: true }).addTo(ovlMap);
+            const mR = L.marker(e.latlng, { icon: L.divIcon({ className: 'handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(refMap);
+            const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(ovlMap);
 
             mR.on('contextmenu', (e) => showCtx(e, mR));
             mR.on('click', L.DomEvent.stopPropagation);
