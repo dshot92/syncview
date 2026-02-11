@@ -355,7 +355,7 @@ function getSharableLink() {
     const encoded = encodeAppState();
     const base = location.href.split('#')[0];
     // Ensure we have a cache-busting query param for OG previews
-    const withCache = base.includes('?') ? base : base + '?v=3';
+    const withCache = base.includes('?') ? base : base + '?v=4';
     return withCache + '#' + encoded;
 }
 
