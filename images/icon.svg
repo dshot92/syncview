@@ -163,7 +163,7 @@
      id="layer4"
      inkscape:label="cutter 1"
      transform="matrix(1,0.18070498,0,1,-4.6280098,-40.205476)"><rect
-       style="fill:black;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:12.9502;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;paint-order:stroke fill markers"
+       style="display:none;fill:black;fill-opacity:1;fill-rule:evenodd;stroke:none;stroke-width:12.9502;stroke-linecap:round;stroke-linejoin:round;stroke-opacity:1;paint-order:stroke fill markers"
        id="rect2"
        width="620.94299"
        height="613.59607"
