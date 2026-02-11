@@ -862,31 +862,32 @@ body.share-overlay-open {
     display: grid;
     grid-template-areas: "primary" "secondary";
     gap: 2px;
-    background: rgba(0, 0, 0, 0.85);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(0, 0, 0, 0.3);
     border-radius: 10px;
     padding: 6px 10px;
     text-align: center;
     font-weight: 900;
     backdrop-filter: blur(12px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.7);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .measurement-label-primary {
     grid-area: primary;
     font-size: 13px;
     line-height: 1.1;
-    color: #ffffff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    color: #000000;
+    text-shadow: none;
+    white-space: nowrap;
 }
 
 .measurement-label-secondary {
     grid-area: secondary;
     font-size: 11px;
     line-height: 1.1;
-    color: #ffffff;
-    opacity: 0.95;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+    color: #000000;
+    opacity: 0.8;
+    text-shadow: none;
+    font-weight: 900;
 }
 
 /* Mobile-specific search positioning */

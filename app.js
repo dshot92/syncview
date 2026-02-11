@@ -993,9 +993,9 @@ function update() {
             const makeMeasureLabel = (valueText, pctText, color, isRef) => L.divIcon({
                 className: 'measurement-label',
                 html: `<div class="measurement-label-wrap">
-                    <div class="measurement-label-inner" style="border-color:${color}">
-                        <div class="measurement-label-primary" style="color:${color}">${valueText}</div>
-                        ${color === 'var(--accent-yellow)' ? `<div class="measurement-label-secondary" style="color:${color}">${pctText}</div>` : ''}
+                    <div class="measurement-label-inner" style="background-color:${color}; border-color:rgba(0, 0, 0, 0.3);">
+                        <div class="measurement-label-primary" style="color:#000000">${valueText}</div>
+                        ${color === 'var(--accent-yellow)' ? `<div class="measurement-label-secondary" style="color:#000000">${pctText}</div>` : ''}
                     </div>
                 </div>`,
                 iconSize: null
@@ -1015,6 +1015,22 @@ function update() {
                 keyboard: false,
                 icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)', false)
             }).addTo(ovlMap);
+
+            // Prevent clicks on measurement labels from creating new points
+            const preventLabelClick = (marker) => {
+                const labelElement = marker.getElement();
+                if (labelElement) {
+                    labelElement.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                    });
+                    labelElement.addEventListener('touchstart', (e) => {
+                        e.stopPropagation();
+                    }, { passive: true });
+                }
+            };
+            
+            preventLabelClick(measureLabelRef);
+            preventLabelClick(measureLabelOvl);
 
             // Add drag handlers for movement
             bindMeasurementLabelDrag(measureLabelRef, 'ref');
@@ -1070,8 +1086,9 @@ function getArea(ll) {
 function getDist(ll) { let d = 0; for (let i = 0; i < ll.length - 1; i++) d += ll[i].distanceTo(ll[i + 1]); return d; }
 function fmt(v, t) { 
     const comma = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    if (t === 'area') return v >= 1e6 ? comma((v / 1e6).toFixed(2)) + ' km²' : comma(v.toFixed(0)) + ' m²'; 
-    return v >= 1000 ? comma((v / 1000).toFixed(2)) + ' km' : comma(v.toFixed(0)) + ' m'; 
+    const nbsp = '\u00A0'; // Non-breaking space
+    if (t === 'area') return v >= 1e6 ? comma((v / 1e6).toFixed(2)) + nbsp + 'km²' : comma(v.toFixed(0)) + nbsp + 'm²'; 
+    return v >= 1000 ? comma((v / 1000).toFixed(2)) + nbsp + 'km' : comma(v.toFixed(0)) + nbsp + 'm'; 
 }
 
 function pointInPolygon(point, polygon) {
@@ -1333,6 +1350,26 @@ function insertIntermediatePoint(index, latlng, src) {
 map1.on('click', (e) => handleMapClick(e, map1));
 map2.on('click', (e) => handleMapClick(e, map2));
 
+// Prevent clicks and touches on dashboard from creating points on maps
+const dashboard = document.getElementById('dashboard');
+if (dashboard) {
+    // Prevent mouse clicks from propagating to maps
+    dashboard.addEventListener('click', (e) => {
+        // Only stop propagation if the click is not on interactive elements that need it
+        if (!e.target.closest('button, .option, input')) {
+            e.stopPropagation();
+        }
+    });
+    
+    // For touch events, use a more targeted approach
+    dashboard.addEventListener('touchstart', (e) => {
+        // Only stop propagation for non-interactive touches
+        if (!e.target.closest('button, .option, input')) {
+            e.stopPropagation();
+        }
+    }, { passive: true });
+}
+
 function getLatLngFromDomEvent(map, ev) {
     if (!map || !ev) return null;
     const src = (ev.touches && ev.touches[0]) ? ev.touches[0]
@@ -1551,42 +1588,95 @@ function startLabelDrag(e, labelType, labelMarker) {
     if (originalEvent && originalEvent.preventDefault) originalEvent.preventDefault();
     if (originalEvent && originalEvent.stopPropagation) originalEvent.stopPropagation();
     
-    isMovingAllPoints = true;
-    activeMoveLabel = labelType;
-    draggedLabel = labelMarker;
+    // Get initial position for movement detection
+    const startX = originalEvent && (originalEvent.touches && originalEvent.touches[0] ? originalEvent.touches[0].clientX : originalEvent.clientX);
+    const startY = originalEvent && (originalEvent.touches && originalEvent.touches[0] ? originalEvent.touches[0].clientY : originalEvent.clientY);
     
-    // Store both reference and overlay points positions
-    originalVerticesRef = verticesRef.map(v => ({ latlng: L.latLng(v.latlng.lat, v.latlng.lng) }));
-    originalVerticesOvl = verticesOvl.map(v => ({ latlng: L.latLng(v.latlng.lat, v.latlng.lng) }));
-    originalMercAnchorRef = mercAnchorRef ? L.point(mercAnchorRef.x, mercAnchorRef.y) : null;
-    originalMercAnchorOvl = mercAnchorOvl ? L.point(mercAnchorOvl.x, mercAnchorOvl.y) : null;
+    let moved = false;
+    let prevented = false;
     
-    // Get the starting point from mouse position
-    const map = labelType === 'ref' ? refMap : ovlMap;
-    moveStartPoint = getLatLngFromDomEvent(map, originalEvent);
-
-    // Prevent Leaflet from starting a pan on touch immediately
-    lockMapInteractions();
+    const move = (me) => {
+        const dx = Math.abs((me.touches && me.touches[0] ? me.touches[0].clientX : me.clientX) - startX);
+        const dy = Math.abs((me.touches && me.touches[0] ? me.touches[0].clientY : me.clientY) - startY);
+        if (!moved && (dx > 5 || dy > 5)) {
+            moved = true;
+            // First movement: lock interactions and prevent default to stop map pan
+            lockMapInteractions();
+            stop(me);
+            prevented = true;
+        }
+    };
     
-    // Add visual feedback to labels
-    if (measureLabelRef) {
-        measureLabelRef._icon.classList.add('move-mode');
-    }
-    if (measureLabelOvl) {
-        measureLabelOvl._icon.classList.add('move-mode');
-    }
+    const up = (ue) => {
+        document.removeEventListener('mousemove', move);
+        document.removeEventListener('mouseup', up);
+        document.removeEventListener('touchmove', move);
+        document.removeEventListener('touchend', up);
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+        
+        if (moved || prevented) {
+            unlockMapInteractions();
+        }
+    };
     
-    // Add global mouse event listeners
-    document.addEventListener('mousemove', handleLabelDrag);
-    document.addEventListener('mouseup', handleLabelDragEnd);
-    document.addEventListener('touchmove', handleLabelDrag, { passive: false });
-    document.addEventListener('touchend', handleLabelDragEnd);
-    document.addEventListener('touchcancel', handleLabelDragEnd);
-    document.addEventListener('pointermove', handleLabelDrag, { passive: false });
-    document.addEventListener('pointerup', handleLabelDragEnd);
-    document.addEventListener('pointercancel', handleLabelDragEnd);
+    // Add temporary listeners to detect movement
+    document.addEventListener('mousemove', move);
+    document.addEventListener('mouseup', up);
+    document.addEventListener('touchmove', move, { passive: false });
+    document.addEventListener('touchend', up);
+    document.addEventListener('pointermove', move, { passive: false });
+    document.addEventListener('pointerup', up);
     
-    }
+    // Only start actual drag if movement detected within threshold
+    const stop = (me) => {
+        if (!prevented && me && me.preventDefault) me.preventDefault();
+        if (!prevented && me && me.stopPropagation) me.stopPropagation();
+        
+        if (moved && !isMovingAllPoints) {
+            // Actual drag start - only after movement threshold
+            isMovingAllPoints = true;
+            activeMoveLabel = labelType;
+            draggedLabel = labelMarker;
+            hasStartedDragging = true;
+            
+            // Store both reference and overlay points positions
+            originalVerticesRef = verticesRef.map(v => ({ latlng: L.latLng(v.latlng.lat, v.latlng.lng) }));
+            originalVerticesOvl = verticesOvl.map(v => ({ latlng: L.latLng(v.latlng.lat, v.latlng.lng) }));
+            originalMercAnchorRef = mercAnchorRef ? L.point(mercAnchorRef.x, mercAnchorRef.y) : null;
+            originalMercAnchorOvl = mercAnchorOvl ? L.point(mercAnchorOvl.x, mercAnchorOvl.y) : null;
+            
+            // Get the starting point from mouse position
+            const map = labelType === 'ref' ? refMap : ovlMap;
+            moveStartPoint = getLatLngFromDomEvent(map, originalEvent);
+            
+            // Add visual feedback to labels
+            if (measureLabelRef) {
+                measureLabelRef._icon.classList.add('move-mode');
+            }
+            if (measureLabelOvl) {
+                measureLabelOvl._icon.classList.add('move-mode');
+            }
+            
+            // Replace temporary listeners with actual drag handlers
+            document.removeEventListener('mousemove', move);
+            document.removeEventListener('mouseup', up);
+            document.removeEventListener('touchmove', move);
+            document.removeEventListener('touchend', up);
+            document.removeEventListener('pointermove', move);
+            document.removeEventListener('pointerup', up);
+            
+            document.addEventListener('mousemove', handleLabelDrag);
+            document.addEventListener('mouseup', handleLabelDragEnd);
+            document.addEventListener('touchmove', handleLabelDrag, { passive: false });
+            document.addEventListener('touchend', handleLabelDragEnd);
+            document.addEventListener('touchcancel', handleLabelDragEnd);
+            document.addEventListener('pointermove', handleLabelDrag, { passive: false });
+            document.addEventListener('pointerup', handleLabelDragEnd);
+            document.addEventListener('pointercancel', handleLabelDragEnd);
+        }
+    };
+}
 
 function handleLabelDrag(e) {
     if (!isMovingAllPoints || !moveStartPoint || !draggedLabel) return;
