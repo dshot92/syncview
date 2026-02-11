@@ -3,6 +3,7 @@
     --bg-map: #0b0e11;
     --bg-surface: #2a2a2c;
     --bg-panel: rgba(26, 26, 27, 0.98);
+    --bg-opaque: #2a2a2c;
 
     --bg-overlay-light: rgba(0, 0, 0, 0.3);
     --bg-overlay-hover: rgba(0, 0, 0, 0.5);
@@ -12,7 +13,7 @@
     --text-inv: #000;
     --text-white: #fff;
 
-    --border: #333538;
+    --border: #4a4d52;
 
     --accent-blue: #3b82f6;
     --accent-yellow: #fbbf24;
@@ -75,7 +76,7 @@ body {
     display: inline-flex;
     align-items: center;
     pointer-events: auto;
-    background: var(--bg-panel);
+    background: var(--bg-opaque);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     height: 36px;
@@ -110,7 +111,7 @@ body {
 }
 
 .lens-btn:hover {
-    background: var(--hover-bg-subtle);
+    background: var(--hover-bg);
     color: var(--hover-text);
 }
 
@@ -179,7 +180,7 @@ body {
     top: 100%;
     left: 0;
     right: 0;
-    background: var(--bg-panel);
+    background: var(--bg-opaque);
     border: 1px solid var(--border);
     border-top: none;
     border-radius: 0 0 var(--radius) var(--radius);
@@ -187,8 +188,8 @@ body {
     overflow-y: auto;
     display: none;
     z-index: 2000;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 4px 12px var(--bg-overlay-hover);
+    backdrop-filter: none;
+    box-shadow: none;
 }
 
 .suggestions.visible {
@@ -218,7 +219,7 @@ body {
     left: 12px;
     width: 36px;
     height: 36px;
-    background: var(--bg-panel);
+    background: var(--bg-opaque);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     color: var(--text-white);
@@ -232,7 +233,7 @@ body {
 }
 
 .location-btn:hover {
-    background: var(--hover-bg-subtle);
+    background: var(--hover-bg);
     color: var(--hover-text);
     border-color: var(--hover-border);
 }
@@ -273,7 +274,7 @@ body {
     top: 10px;
     right: 10px;
     z-index: 1000;
-    background: var(--bg-panel);
+    background: var(--bg-opaque);
     padding: 4px 8px;
     border-radius: var(--radius);
     font-size: 10px;
@@ -291,8 +292,8 @@ body {
     left: 50%;
     transform: translateX(-50%);
     z-index: 2000;
-    background: var(--bg-panel);
-    backdrop-filter: blur(15px);
+    background: var(--bg-opaque);
+    backdrop-filter: none;
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 8px;
@@ -301,7 +302,7 @@ body {
     gap: 8px;
     width: 92%;
     max-width: 440px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+    box-shadow: none;
 }
 
 .nav-row {
@@ -314,22 +315,22 @@ body {
 /* Custom Dropdown */
 .custom-select {
     position: relative;
-    width: 110px;
+    width: 38px;
     flex-shrink: 0;
 }
 
 .select-trigger {
     height: 100%;
-    background: var(--bg-tool);
+    background: var(--bg-opaque);
     color: var(--text-main);
-    border: none;
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     font-size: 12px;
     font-weight: 600;
     padding: 0 12px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     cursor: pointer;
     transition: background 0.2s;
 }
@@ -345,24 +346,25 @@ body {
 }
 
 .select-trigger:hover {
-    background: var(--hover-bg-subtle);
+    background: var(--hover-bg);
     color: var(--hover-text);
 }
 
 .select-options {
     position: absolute;
-    bottom: calc(100% - 1px);
-    left: -1px;
-    right: -1px;
-    background: var(--bg-tool);
-    backdrop-filter: blur(12px);
+    bottom: calc(100% + 4px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bg-opaque);
     border: 1px solid var(--border);
-    border-radius: var(--radius) var(--radius) 0 0;
-    border-bottom: none;
+    border-radius: var(--radius);
     padding: 4px;
     display: none;
     z-index: 2100;
-    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+    /* Remove all visual effects that cause black overlay */
+    backdrop-filter: none;
+    box-shadow: none;
+    min-width: 100px;
 }
 
 .select-options.open {
@@ -396,11 +398,14 @@ body {
 
 .tool-group {
     display: flex;
-    background: var(--bg-tool);
+    background: var(--bg-opaque);
+    border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 2px;
     flex: 1;
     position: relative;
+    backdrop-filter: none;
+    opacity: 1;
 }
 
 .tool-group::before {
@@ -521,7 +526,7 @@ body {
 }
 
  .share-btn {
-     background: var(--bg-tool);
+     background: var(--bg-opaque);
      color: var(--text-main);
      border: 1px solid var(--border);
      padding: 0;
@@ -537,7 +542,7 @@ body {
  }
 
  .share-btn:hover {
-     background: var(--hover-bg-subtle);
+     background: var(--hover-bg);
      border-color: var(--hover-border);
      color: var(--hover-text);
  }
@@ -629,9 +634,9 @@ body {
  }
 
  .overlay-close:hover {
-     background: var(--hover-bg-subtle);
-     border-color: var(--hover-border);
-     color: var(--hover-text);
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: var(--text-white);
  }
 
  .share-grid {
@@ -654,10 +659,10 @@ body {
  }
 
  .share-action:hover {
-     background: var(--hover-bg-subtle);
-     border-color: var(--hover-border);
-     color: var(--hover-text);
- }
+    background: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: var(--text-white);
+}
 
  .share-copy {
      padding: 0 14px 14px 14px;
@@ -679,8 +684,8 @@ body {
  }
 
  .share-copy-btn:hover {
-     background: rgba(59, 130, 246, 0.35);
-     border-color: rgba(59, 130, 246, 0.8);
+     background: var(--accent-blue);
+     border-color: var(--accent-blue);
  }
 
  .share-link {
@@ -859,22 +864,22 @@ body {
 
     /* Ensure custom dropdown behaves consistently on mobile */
     .custom-select {
-        width: 110px;
+        width: 38px;
         flex-shrink: 0;
     }
 
     .select-trigger {
         height: 100%;
-        background: var(--bg-tool);
+        background: var(--bg-opaque);
         color: var(--text-main);
-        border: none;
+        border: 1px solid var(--border);
         border-radius: var(--radius);
         font-size: 12px;
         font-weight: 600;
         padding: 0 12px;
         display: flex;
         align-items: center;
-        justify-content: space-between;
+        justify-content: center;
         cursor: pointer;
         transition: background 0.2s;
     }
@@ -890,24 +895,25 @@ body {
     }
 
     .select-trigger:hover {
-        background: var(--hover-bg-subtle);
+        background: var(--hover-bg);
         color: var(--hover-text);
     }
 
     .select-options {
         position: absolute;
-        bottom: calc(100% - 1px);
-        left: -1px;
-        right: -1px;
-        background: var(--bg-tool);
-        backdrop-filter: blur(12px);
+        bottom: calc(100% + 4px);
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--bg-opaque);
         border: 1px solid var(--border);
-        border-radius: var(--radius) var(--radius) 0 0;
-        border-bottom: none;
+        border-radius: var(--radius);
         padding: 4px;
         display: none;
         z-index: 2100;
-        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+        /* Remove all visual effects that cause black overlay */
+        backdrop-filter: none;
+        box-shadow: none;
+        min-width: 100px;
     }
 
     .select-options.open {

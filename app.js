@@ -115,12 +115,6 @@ function applyDecodedState(state) {
         // Apply map type first
         if (mapType !== currentMapType) {
             currentMapType = mapType;
-            // Update dropdown text
-            const triggerText = document.getElementById('triggerText');
-            const optionElement = document.querySelector(`.option[data-value="${mapType}"]`);
-            if (triggerText && optionElement) {
-                triggerText.innerText = optionElement.innerText;
-            }
             
             // Remove existing layers
             map1.removeLayer(l1);
@@ -596,22 +590,17 @@ function setLocationFromDevice(mapIndex) {
 // Custom Dropdown Logic
 const trigger = document.getElementById('layerTrigger');
 const options = document.getElementById('layerOptions');
-const triggerText = document.getElementById('triggerText');
 
 trigger.onclick = () => {
     options.classList.toggle('open');
-    const arrow = trigger.querySelector('svg');
-    arrow.style.transform = options.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0deg)';
 };
 
 document.querySelectorAll('.option').forEach(opt => {
     opt.onclick = () => {
         const val = opt.getAttribute('data-value');
-        triggerText.innerText = opt.innerText;
         currentMapType = val; // Update current map type
         
         options.classList.remove('open');
-        trigger.querySelector('svg').style.transform = 'rotate(0deg)';
 
         // Remove existing layers to prevent cache issues
         map1.removeLayer(l1);
@@ -678,12 +667,29 @@ document.querySelectorAll('.option').forEach(opt => {
     };
 });
 window.onclick = (e) => {
-    if (!e.target.closest('#layerDropdown')) options.classList.remove('open');
+    if (!e.target.closest('#layerDropdown')) {
+        if (options.classList.contains('open')) {
+            options.classList.remove('open');
+        }
+    }
     if (!e.target.closest('.search-wrapper')) {
         document.querySelectorAll('.suggestions').forEach(s => s.classList.remove('visible'));
     }
     if (!e.target.closest('#ctx-menu')) hideCtx();
 };
+
+// Add touch event listener for mobile devices
+window.addEventListener('touchstart', (e) => {
+    if (!e.target.closest('#layerDropdown')) {
+        if (options.classList.contains('open')) {
+            options.classList.remove('open');
+        }
+    }
+    if (!e.target.closest('.search-wrapper')) {
+        document.querySelectorAll('.suggestions').forEach(s => s.classList.remove('visible'));
+    }
+    if (!e.target.closest('#ctx-menu')) hideCtx();
+}, { passive: true });
 
 // Graphics & Measurement State
 const shapes = {
