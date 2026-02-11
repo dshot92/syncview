@@ -346,8 +346,7 @@ function scheduleUrlUpdate() {
             const encoded = encodeAppState();
             const url = new URL(location.href);
 
-            // Ensure cache-busting parameter is present for OG previews
-            if (!url.searchParams.has('v')) url.searchParams.set('v', '4');
+            // Cache busting removed
 
             // Write state into query param (crawler-visible)
             url.searchParams.set('s', encoded);
@@ -381,7 +380,6 @@ function migrateHashStateToQuery() {
     try {
         const url = new URL(location.href);
         if (!url.searchParams.has('s')) url.searchParams.set('s', rawHash);
-        if (!url.searchParams.has('v')) url.searchParams.set('v', '4');
         url.hash = '';
         history.replaceState(null, '', url.toString());
     } catch (_) {
@@ -405,8 +403,7 @@ function getSharableLink() {
 
     const url = new URL(location.href);
 
-    // Ensure cache-busting parameter is present for OG previews
-    if (!url.searchParams.has('v')) url.searchParams.set('v', '4');
+    // Cache busting removed
 
     // Put state into query param (crawler-visible)
     url.searchParams.set('s', encoded);
