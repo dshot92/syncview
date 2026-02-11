@@ -466,6 +466,42 @@ body {
     color: white;
 }
 
+.clear-btn-map {
+    position: absolute;
+    top: 96px;
+    left: 12px;
+    width: 36px;
+    height: 36px;
+    background: var(--danger);
+    border: 1px solid var(--danger);
+    border-radius: var(--radius);
+    color: var(--text-white);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    transition: all 0.2s;
+    padding: 0;
+    visibility: hidden;
+    opacity: 0;
+}
+
+.clear-btn-map.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+.clear-btn-map:hover {
+    background: var(--danger);
+    color: var(--text-white);
+    border-color: var(--danger);
+}
+
+.clear-btn-map:active {
+    transform: scale(0.95);
+}
+
  .share-btn {
      background: var(--bg-tool);
      color: var(--text-main);
@@ -744,6 +780,20 @@ body {
     /* Second map location button - under search button */
     .map-wrapper:last-child .location-btn {
         top: 54px;
+        bottom: auto;
+        left: 12px;
+    }
+
+    /* First map clear button - vertically next to location button without overlap (top map) */
+    .map-wrapper:first-child .clear-btn-map {
+        top: auto;
+        bottom: 96px;
+        left: 12px;
+    }
+
+    /* Second map clear button - vertically next to location button without overlap (bottom map) */
+    .map-wrapper:last-child .clear-btn-map {
+        top: 96px;
         bottom: auto;
         left: 12px;
     }

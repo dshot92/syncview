@@ -663,11 +663,20 @@ function update() {
     const hasPoints = pRef.length > 0;
 
     // Show/hide clear button based on drawing state
-    const clearBtn = document.querySelector('.clear-btn');
-    if (hasPoints) {
-        clearBtn.classList.add('visible');
-    } else {
-        clearBtn.classList.remove('visible');
+    const clearBtn1 = document.getElementById('clearBtn1');
+    const clearBtn2 = document.getElementById('clearBtn2');
+    
+    // Hide both clear buttons first
+    clearBtn1.classList.remove('visible');
+    clearBtn2.classList.remove('visible');
+    
+    // Only show clear button on the reference map when drawing
+    if (hasPoints && refMap) {
+        if (refMap === map1) {
+            clearBtn1.classList.add('visible');
+        } else if (refMap === map2) {
+            clearBtn2.classList.add('visible');
+        }
     }
 
     Object.values(shapes).forEach(s => { if (s._map) s.remove(); });
