@@ -708,6 +708,8 @@ let originalVerticesOvl = [];
 let activeMoveLabel = null;
 let draggedLabel = null;
 let hasStartedDragging = false;
+let originalMercAnchorRef = null;
+let originalMercAnchorOvl = null;
 
 const toMerc = (ll) => L.Projection.Mercator.project(ll);
 const fromMerc = (p) => L.Projection.Mercator.unproject(p);
@@ -1167,6 +1169,8 @@ function startLabelDrag(e, labelType, labelMarker) {
     // Store both reference and overlay points positions
     originalVerticesRef = verticesRef.map(v => ({ latlng: L.latLng(v.latlng.lat, v.latlng.lng) }));
     originalVerticesOvl = verticesOvl.map(v => ({ latlng: L.latLng(v.latlng.lat, v.latlng.lng) }));
+    originalMercAnchorRef = mercAnchorRef ? L.point(mercAnchorRef.x, mercAnchorRef.y) : null;
+    originalMercAnchorOvl = mercAnchorOvl ? L.point(mercAnchorOvl.x, mercAnchorOvl.y) : null;
     
     // Get the starting point from mouse position
     const map = labelType === 'ref' ? refMap : ovlMap;
@@ -1221,53 +1225,44 @@ function handleLabelDrag(e) {
     const currentPoint = map.mouseEventToLatLng(e);
     const deltaX = currentPoint.lng - moveStartPoint.lng;
     const deltaY = currentPoint.lat - moveStartPoint.lat;
+
+    const startM = toMerc(moveStartPoint);
+    const currM = toMerc(currentPoint);
+    const dMx = currM.x - startM.x;
+    const dMy = currM.y - startM.y;
     
     // Move the appropriate points based on which panel is being dragged
     if (activeMoveLabel === 'ref') {
-        // Move reference points
+        // Move reference points only
         verticesRef.forEach((vertex, i) => {
             const original = originalVerticesRef[i];
             vertex.latlng = L.latLng(original.latlng.lat + deltaY, original.latlng.lng + deltaX);
         });
-        
+
         // Update reference marker positions
         markersRef.forEach((marker, i) => {
             marker.setLatLng(verticesRef[i].latlng);
         });
-        
-        // Update overlay points to maintain synchronization
-        verticesOvl.forEach((vertex, i) => {
-            const originalRef = originalVerticesRef[i];
-            const originalOvl = originalVerticesOvl[i];
-            // Move overlay point by the same delta as its corresponding reference point
-            vertex.latlng = L.latLng(originalOvl.latlng.lat + deltaY, originalOvl.latlng.lng + deltaX);
-        });
-        
-        // Update overlay marker positions
-        markersOvl.forEach((marker, i) => {
-            marker.setLatLng(verticesOvl[i].latlng);
-        });
 
+        // Keep overlay fixed, but update the reference anchor so future point-drags don't desync
+        if (originalMercAnchorRef && mercAnchorRef) {
+            mercAnchorRef = L.point(originalMercAnchorRef.x + dMx, originalMercAnchorRef.y + dMy);
+        }
     } else {
-        // Move overlay points
+        // Move overlay points only
         verticesOvl.forEach((vertex, i) => {
             const original = originalVerticesOvl[i];
             vertex.latlng = L.latLng(original.latlng.lat + deltaY, original.latlng.lng + deltaX);
         });
-        
+
         // Update overlay marker positions
         markersOvl.forEach((marker, i) => {
             marker.setLatLng(verticesOvl[i].latlng);
         });
 
-        // Update mercator anchor so future reference-point drags keep overlay in sync
-        // (mirror of overlay-marker drag logic, using a stable vertex index)
-        if (verticesOvl.length > 0 && verticesRef.length > 0 && mercAnchorRef && mercAnchorOvl) {
-            const idx = 0;
-            const vOM = toMerc(verticesOvl[idx].latlng);
-            const vRM = toMerc(verticesRef[idx].latlng);
-            mercAnchorOvl.x = vOM.x - (vRM.x - mercAnchorRef.x);
-            mercAnchorOvl.y = vOM.y - (vRM.y - mercAnchorRef.y);
+        // Update overlay anchor so future reference-point drags keep overlay in sync with its new position
+        if (originalMercAnchorOvl && mercAnchorOvl) {
+            mercAnchorOvl = L.point(originalMercAnchorOvl.x + dMx, originalMercAnchorOvl.y + dMy);
         }
     }
     
@@ -1339,6 +1334,8 @@ function handleLabelDragEnd(e) {
     hasStartedDragging = false;
     originalVerticesRef = [];
     originalVerticesOvl = [];
+    originalMercAnchorRef = null;
+    originalMercAnchorOvl = null;
     
     if (didActuallyDrag) {
         scheduleUrlUpdate();
