@@ -9,12 +9,63 @@ const hybridRef = 'https://services.arcgisonline.com/ArcGIS/rest/services/Refere
 const map1 = L.map('map1', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], 12);
 const map2 = L.map('map2', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], 12);
 
-let l1 = L.tileLayer(tiles.hybrid, { fadeAnimation: false }).addTo(map1);
-let l2 = L.tileLayer(tiles.hybrid, { fadeAnimation: false }).addTo(map2);
-let h1 = L.tileLayer(hybridRef, { opacity: 0.9, fadeAnimation: false }).addTo(map1);
-let h2 = L.tileLayer(hybridRef, { opacity: 0.9, fadeAnimation: false }).addTo(map2);
+let l1 = L.tileLayer(tiles.hybrid, { 
+    fadeAnimation: false,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    keepBuffer: 0,
+    maxNativeZoom: 18,
+    maxZoom: 20
+}).addTo(map1);
+let l2 = L.tileLayer(tiles.hybrid, { 
+    fadeAnimation: false,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    keepBuffer: 0,
+    maxNativeZoom: 18,
+    maxZoom: 20
+}).addTo(map2);
+let h1 = L.tileLayer(hybridRef, { 
+    opacity: 0.9, 
+    fadeAnimation: false,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    keepBuffer: 0,
+    maxNativeZoom: 18,
+    maxZoom: 20
+}).addTo(map1);
+let h2 = L.tileLayer(hybridRef, { 
+    opacity: 0.9, 
+    fadeAnimation: false,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    keepBuffer: 0,
+    maxNativeZoom: 18,
+    maxZoom: 20
+}).addTo(map2);
 
-// Sync Logic - debounced to prevent flicker, with flag to prevent feedback loops
+// Tile error handling to prevent black screens
+function handleTileError(e) {
+    console.warn('Tile loading error:', e);
+    // Try to reload the tile after a short delay
+    setTimeout(() => {
+        if (e.tile && e.tile.src) {
+            const img = new Image();
+            img.onload = () => {
+                if (e.tile.parentNode) {
+                    e.tile.parentNode.replaceChild(img, e.tile);
+                }
+            };
+            img.src = e.tile.src + '?retry=' + Date.now();
+        }
+    }, 1000);
+}
+
+// Add error handling to initial layers
+l1.on('tileerror', handleTileError);
+l2.on('tileerror', handleTileError);
+h1.on('tileerror', handleTileError);
+h2.on('tileerror', handleTileError);
 let zoomTimeout = null;
 let isSyncing = false;
 const syncZoom = (e) => {
@@ -192,15 +243,68 @@ document.querySelectorAll('.option').forEach(opt => {
         options.classList.remove('open');
         trigger.querySelector('svg').style.transform = 'rotate(0deg)';
 
-        l1.setUrl(tiles[val]);
-        l2.setUrl(tiles[val]);
+        // Remove existing layers to prevent cache issues
+        map1.removeLayer(l1);
+        map2.removeLayer(l2);
+        
+        // Remove hybrid reference layers if they exist
+        if (map1.hasLayer(h1)) map1.removeLayer(h1);
+        if (map2.hasLayer(h2)) map2.removeLayer(h2);
+
+        // Create new tile layers with fresh cache
+        l1 = L.tileLayer(tiles[val], { 
+            fadeAnimation: false,
+            updateWhenIdle: false,
+            updateWhenZooming: true,
+            keepBuffer: 0,
+            maxNativeZoom: 18,
+            maxZoom: 20
+        }).addTo(map1);
+        
+        l2 = L.tileLayer(tiles[val], { 
+            fadeAnimation: false,
+            updateWhenIdle: false,
+            updateWhenZooming: true,
+            keepBuffer: 0,
+            maxNativeZoom: 18,
+            maxZoom: 20
+        }).addTo(map2);
+
+        // Add error handling to new layers
+        l1.on('tileerror', handleTileError);
+        l2.on('tileerror', handleTileError);
+
+        // Add hybrid reference layer for hybrid maps
         if (val === 'hybrid') {
-            h1.addTo(map1);
-            h2.addTo(map2);
-        } else {
-            h1.remove();
-            h2.remove();
+            h1 = L.tileLayer(hybridRef, { 
+                opacity: 0.9, 
+                fadeAnimation: false,
+                updateWhenIdle: false,
+                updateWhenZooming: true,
+                keepBuffer: 0,
+                maxNativeZoom: 18,
+                maxZoom: 20
+            }).addTo(map1);
+            h2 = L.tileLayer(hybridRef, { 
+                opacity: 0.9, 
+                fadeAnimation: false,
+                updateWhenIdle: false,
+                updateWhenZooming: true,
+                keepBuffer: 0,
+                maxNativeZoom: 18,
+                maxZoom: 20
+            }).addTo(map2);
+            
+            // Add error handling to hybrid layers
+            h1.on('tileerror', handleTileError);
+            h2.on('tileerror', handleTileError);
         }
+
+        // Force map redraw to prevent black screen on mobile
+        setTimeout(() => {
+            map1.invalidateSize({ reset: true, animate: false });
+            map2.invalidateSize({ reset: true, animate: false });
+        }, 100);
     };
 });
 window.onclick = (e) => {
