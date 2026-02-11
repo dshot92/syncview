@@ -338,32 +338,77 @@ function scheduleUrlUpdate() {
         if (isApplyingUrlState) return;
         try {
             const encoded = encodeAppState();
-            const next = '#' + encoded;
-            if (location.hash !== next) history.replaceState(null, '', next);
+            const url = new URL(location.href);
+
+            // Ensure cache-busting parameter is present for OG previews
+            if (!url.searchParams.has('v')) url.searchParams.set('v', '4');
+
+            // Write state into query param (crawler-visible)
+            url.searchParams.set('s', encoded);
+
+            // Clear hash to avoid ambiguous old-style state URLs
+            url.hash = '';
+
+            const next = url.toString();
+            if (location.href !== next) history.replaceState(null, '', next);
         } catch (_) {
         }
     }, 150);
 }
 
-window.addEventListener('hashchange', () => {
+function getEncodedStateFromUrl() {
+    try {
+        const url = new URL(location.href);
+        const fromQuery = url.searchParams.get('s');
+        if (fromQuery) return fromQuery;
+    } catch (_) {
+    }
+
+    const rawHash = String(location.hash || '').replace(/^#/, '');
+    return rawHash || null;
+}
+
+function migrateHashStateToQuery() {
+    const rawHash = String(location.hash || '').replace(/^#/, '');
+    if (!rawHash) return;
+
+    try {
+        const url = new URL(location.href);
+        if (!url.searchParams.has('s')) url.searchParams.set('s', rawHash);
+        if (!url.searchParams.has('v')) url.searchParams.set('v', '4');
+        url.hash = '';
+        history.replaceState(null, '', url.toString());
+    } catch (_) {
+    }
+}
+
+function applyStateFromUrl() {
     if (isApplyingUrlState) return;
-    const state = decodeAppState(location.hash);
+    const encoded = getEncodedStateFromUrl();
+    if (!encoded) return;
+    const state = decodeAppState(encoded);
     if (state) applyDecodedState(state);
+}
+
+window.addEventListener('popstate', () => {
+    applyStateFromUrl();
 });
 
 function getSharableLink() {
     const encoded = encodeAppState();
-    const base = location.href.split('#')[0];
-    
-    // Parse existing URL to preserve query parameters
-    const url = new URL(base);
-    
+
+    const url = new URL(location.href);
+
     // Ensure cache-busting parameter is present for OG previews
-    if (!url.searchParams.has('v')) {
-        url.searchParams.set('v', '4');
-    }
-    
-    return url.toString() + '#' + encoded;
+    if (!url.searchParams.has('v')) url.searchParams.set('v', '4');
+
+    // Put state into query param (crawler-visible)
+    url.searchParams.set('s', encoded);
+
+    // Ensure we don't also include legacy state hash
+    url.hash = '';
+
+    return url.toString();
 }
 
 function showToast(msg) {
@@ -1619,11 +1664,9 @@ function handleLabelDragEnd(e) {
 // Initialize app in ruler mode
 setMode('dist');
 
-// Restore from URL if present, otherwise ensure hash is initialized
+// Restore from URL if present
 (() => {
-    const state = decodeAppState(location.hash);
-    if (state) {
-        applyDecodedState(state);
-    }
+    migrateHashStateToQuery();
+    applyStateFromUrl();
     scheduleUrlUpdate();
 })();
