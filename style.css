@@ -910,8 +910,9 @@ body {
     .select-options {
         position: absolute;
         bottom: calc(100% + 4px);
-        left: 50%;
-        transform: translateX(-50%);
+        left: 0;
+        right: auto;
+        transform: none;
         background: var(--bg-opaque);
         border: 1px solid var(--border);
         border-radius: var(--radius);
@@ -922,6 +923,8 @@ body {
         backdrop-filter: none;
         box-shadow: none;
         min-width: 100px;
+        max-width: calc(100vw - 32px);
+        box-sizing: border-box;
     }
 
     .select-options.open {
@@ -954,6 +957,14 @@ body {
     }
 }
 
+@media (min-width: 600px) and (max-width: 767px) {
+    .select-options {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
+    }
+}
+
 @media (min-width: 768px) {
     .map-container {
         flex-direction: row;
@@ -968,5 +979,11 @@ body {
 
     #dashboard {
         bottom: 24px;
+    }
+
+    .select-options {
+        left: 50%;
+        right: auto;
+        transform: translateX(-50%);
     }
 }
