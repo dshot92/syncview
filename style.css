@@ -214,8 +214,8 @@ body {
 /* Location Button */
 .location-btn {
     position: absolute;
-    top: 12px;
-    right: 12px;
+    top: 54px;
+    left: 12px;
     width: 36px;
     height: 36px;
     background: var(--bg-panel);
@@ -560,19 +560,17 @@ body {
         transform: none;
     }
 
-    /* First map location button - above search button */
+    /* First map location button - under search button */
     .map-wrapper:first-child .location-btn {
         top: auto;
-        right: auto;
-        bottom: 54px;
+        bottom: 12px;
         left: 12px;
     }
 
-    /* Second map location button - below search button */
+    /* Second map location button - under search button */
     .map-wrapper:last-child .location-btn {
         top: 54px;
         bottom: auto;
-        right: auto;
         left: 12px;
     }
 
