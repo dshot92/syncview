@@ -327,8 +327,8 @@ body.share-overlay-open {
     grid-area: dashboard;
     position: fixed;
     bottom: 16px;
-    left: 50%;
-    transform: translateX(-50%);
+    left: 16px;
+    right: 16px;
     z-index: 2000;
     background: var(--bg-opaque);
     backdrop-filter: none;
@@ -338,16 +338,16 @@ body.share-overlay-open {
     display: grid;
     grid-template-areas: "nav";
     gap: 8px;
-    width: 92%;
     max-width: 440px;
+    margin: 0 auto;
     box-shadow: none;
 }
 
 .nav-row {
     grid-area: nav;
     display: grid;
-    grid-template-areas: "dropdown tools share info";
-    grid-template-columns: var(--ui-btn-size) 1fr var(--ui-btn-size) var(--ui-btn-size);
+    grid-template-areas: "dropdown tools share";
+    grid-template-columns: var(--ui-btn-size) 1fr var(--ui-btn-size);
     align-items: stretch;
     gap: 12px;
     height: var(--ui-btn-size);
@@ -647,7 +647,9 @@ body.share-overlay-open {
  }
 
  .info-btn {
-    grid-area: info;
+    position: absolute;
+    right: calc(var(--ui-btn-size) * -1.5);
+    top: 8px;
     background: var(--bg-opaque);
     color: var(--text-main);
     border: 1px solid var(--border);
