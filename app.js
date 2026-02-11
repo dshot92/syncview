@@ -289,7 +289,15 @@ function setShareMenuUrl(url) {
     if (input) input.value = url;
     document.querySelectorAll('.share-action').forEach((btn) => {
         btn.setAttribute('data-url', url);
+        // Remove existing listener to avoid duplicates
+        btn.removeEventListener('click', handleShareAction);
+        // Add click listener to close overlay after sharing
+        btn.addEventListener('click', handleShareAction);
     });
+}
+
+function handleShareAction() {
+    setTimeout(() => closeShareMenu(), 500); // Close overlay after a short delay
 }
 
 function openShareMenu() {
@@ -323,6 +331,7 @@ async function copyShareLink() {
             await navigator.clipboard.writeText(link);
             flashShareCopied();
             showToast('Link copied');
+            setTimeout(() => closeShareMenu(), 500); // Close overlay after showing toast
             return;
         } catch (_) {
         }
@@ -337,6 +346,7 @@ async function copyShareLink() {
             if (ok) {
                 flashShareCopied();
                 showToast('Link copied');
+                setTimeout(() => closeShareMenu(), 500); // Close overlay after showing toast
                 return;
             }
         } catch (_) {
