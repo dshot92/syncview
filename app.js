@@ -1065,7 +1065,7 @@ function getAabb(lls) {
 }
 
 function ensureGizmoMarkers() {
-    const rotateGlyph = '<span class="gizmo-glyph" aria-hidden="true">⟳</span>';
+    const rotateGlyph = '<span class="gizmo-glyph" aria-hidden="true">🗘</span>';
     const moveGlyph = '<span class="gizmo-glyph" aria-hidden="true">𖦏</span>';
 
     if (!rotateGizmoRef) {
