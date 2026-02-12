@@ -7,17 +7,21 @@
     --text-black: #000;
     --text-muted: #ccc;
 
-    --button-gap: 6px;
+    --tool-offset: 0.75rem;
 
-    --ui-btn-size: 38px;
-    --ui-btn-size-sm: 36px;
-    --ui-icon-size: 18px;
+    --button-gap: 0.375rem;
+
+    --ui-btn-size: 2.375rem;
+    --ui-btn-size-sm: 2.25rem;
+    --ui-icon-size: 1.125rem;
 
     --border: #4a4d52;
 
     --accent-blue: #3b82f6;
     --accent-yellow: #fbbf24;
     --accent-red: #ef4444;
+
+    --shadow: 0 0.625rem 1.625rem rgba(0, 0, 0, 0.5);
 
     /* Border Radius */
     --radius: 0.375rem;
@@ -31,9 +35,9 @@
     --hover-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     
     /* Lines and Points */
-    --divisor-width: 4px;
-    --point-border: 2px;
-    --point-outline: 2px;
+    --divisor-width: 0.25rem;
+    --point-border: 0.125rem;
+    --point-outline: 0.125rem;
     
     /* Grid Template Areas */
     --grid-desktop: "map1 divisor map2";
@@ -103,8 +107,8 @@ body.share-overlay-open {
 /* Search Grid Layout */
 .tool__search-wrapper {
     position: absolute;
-    top: 12px;
-    left: 12px;
+    top: var(--tool-offset);
+    left: var(--tool-offset);
     z-index: 1000;
     display: grid;
     grid-template-columns: var(--ui-btn-size-sm) 1fr;
@@ -112,17 +116,18 @@ body.share-overlay-open {
     align-items: center;
     pointer-events: auto;
     background: var(--bg-body);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
     height: var(--ui-btn-size-sm);
     padding: 0;
     overflow: hidden;
     transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     width: var(--ui-btn-size-sm);
+    box-shadow: var(--shadow);
 }
 
 .tool__search-wrapper.expanded {
-    width: 280px;
+    width: 17.5rem;
     border-radius: var(--radius);
     overflow: visible;
 }
@@ -144,12 +149,20 @@ body.share-overlay-open {
     padding: 0;
 }
 
- .lens-btn svg {
+.tool__lens-btn,
+.tool__location-btn,
+.tool__back-btn,
+.tool__clear-btn {
+    box-sizing: border-box;
+}
+
+ .tool__lens-btn svg {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
+    display: block;
  }
 
-.lens-btn:hover {
+.tool__lens-btn:hover {
     background: var(--hover-bg);
     border-color: var(--hover-border);
     color: var(--hover-text);
@@ -176,8 +189,8 @@ body.share-overlay-open {
     border-radius: 0;
     color: var(--text-white);
     height: var(--ui-btn-size-sm);
-    padding: 0 12px;
-    font-size: 13px;
+    padding: 0 0.75rem;
+    font-size: 0.8125rem;
     outline: none;
     backdrop-filter: none;
     width: 100%;
@@ -198,10 +211,10 @@ body.share-overlay-open {
     left: 0;
     right: 0;
     background: var(--bg-body);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-top: none;
     border-radius: 0 0 var(--radius) var(--radius);
-    max-height: 200px;
+    max-height: 12.5rem;
     overflow-y: auto;
     display: none;
     z-index: 2000;
@@ -214,11 +227,11 @@ body.share-overlay-open {
 }
 
 .suggestion-item {
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
     cursor: pointer;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 0.0625rem solid var(--border);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -232,12 +245,12 @@ body.share-overlay-open {
 /* Location Button Grid */
 .tool__location-btn {
     position: absolute;
-    top: 54px;
-    left: 12px;
+    top: calc(var(--tool-offset) + var(--ui-btn-size-sm) + var(--button-gap));
+    left: var(--tool-offset);
     width: var(--ui-btn-size-sm);
     height: var(--ui-btn-size-sm);
     background: var(--bg-body);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
     color: var(--text-white);
     cursor: pointer;
@@ -246,21 +259,23 @@ body.share-overlay-open {
     z-index: 1000;
     transition: all 0.2s;
     padding: 0;
+    box-shadow: var(--shadow);
 }
 
-.location-btn:hover {
+.tool__location-btn:hover {
     background: var(--hover-bg);
     color: var(--hover-text);
     border-color: var(--hover-border);
 }
 
-.location-btn:active {
+.tool__location-btn:active {
     transform: scale(0.95);
 }
 
- .location-btn svg {
+ .tool__location-btn svg {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
+    display: block;
  }
 
 @keyframes pulse {
@@ -273,7 +288,7 @@ body.share-overlay-open {
     position: relative;
     background: var(--bg-body);
     z-index: 1500;
-    border-top: 1px solid var(--border);
+    border-top: 0.0625rem solid var(--border);
 }
 
 .map-instance {
@@ -285,15 +300,15 @@ body.share-overlay-open {
 
 .tool__map-label {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 0.625rem;
+    right: 0.625rem;
     z-index: 1000;
     background: var(--bg-body);
-    padding: 4px 8px;
+    padding: 0.25rem 0.5rem;
     border-radius: var(--radius);
-    font-size: 10px;
+    font-size: 0.625rem;
     font-weight: 800;
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     color: var(--text-white);
     text-transform: uppercase;
     pointer-events: none;
@@ -303,22 +318,22 @@ body.share-overlay-open {
 #dashboard {
     grid-area: dashboard;
     position: fixed;
-    bottom: 16px;
-    left: 16px;
-    right: 16px;
+    bottom: 1rem;
+    left: 1rem;
+    right: 1rem;
     z-index: 2000;
     background: var(--bg-body);
     backdrop-filter: none;
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
-    padding: 8px;
+    padding: 0.5rem;
     pointer-events: auto;
     display: grid;
     grid-template-areas: "nav";
-    gap: 8px;
-    max-width: 440px;
+    gap: 0.5rem;
+    max-width: 27.5rem;
     margin: 0 auto;
-    box-shadow: none;
+    box-shadow: var(--shadow);
 }
 
 .nav-row {
@@ -327,7 +342,7 @@ body.share-overlay-open {
     grid-template-areas: "dropdown tools share";
     grid-template-columns: var(--ui-btn-size) 1fr var(--ui-btn-size);
     align-items: stretch;
-    gap: 12px;
+    gap: 0.75rem;
     height: var(--ui-btn-size);
 }
 
@@ -342,9 +357,9 @@ body.share-overlay-open {
     height: 100%;
     background: var(--bg-body);
     color: var(--text-white);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     padding: 0;
     display: grid;
@@ -364,19 +379,19 @@ body.share-overlay-open {
 
 .select-options {
     position: absolute;
-    bottom: calc(100% + 4px);
+    bottom: calc(100% + 0.25rem);
     left: 50%;
     transform: translateX(-50%);
     background: var(--bg-body);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
-    padding: 4px;
+    padding: 0.25rem;
     display: none;
     z-index: 2100;
     /* Remove all visual effects that cause black overlay */
     backdrop-filter: none;
     box-shadow: none;
-    min-width: 100px;
+    min-width: 6.25rem;
 }
 
 .select-options.open {
@@ -384,8 +399,8 @@ body.share-overlay-open {
 }
 
 .option {
-    padding: 8px 10px;
-    font-size: 12px;
+    padding: 0.5rem 0.625rem;
+    font-size: 0.75rem;
     font-weight: 500;
     cursor: pointer;
     border-radius: var(--radius);
@@ -414,9 +429,9 @@ body.share-overlay-open {
     grid-template-areas: "dist area";
     grid-template-columns: 1fr 1fr;
     background: var(--bg-body);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
-    padding: 2px;
+    padding: 0.125rem;
     position: relative;
     backdrop-filter: none;
     opacity: 1;
@@ -425,20 +440,20 @@ body.share-overlay-open {
 .navbar-group::before {
     content: '';
     position: absolute;
-    top: 2px;
-    left: 2px;
-    height: calc(100% - 4px);
-    width: calc(50% - 2px);
+    top: 0.125rem;
+    left: 0.125rem;
+    height: calc(100% - 0.25rem);
+    width: calc(50% - 0.125rem);
     background: var(--accent-blue);
-    border-radius: calc(var(--radius) - 2px) 0 0 calc(var(--radius) - 2px);
+    border-radius: calc(var(--radius) - 0.125rem) 0 0 calc(var(--radius) - 0.125rem);
     transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 0.125rem 0.5rem rgba(59, 130, 246, 0.4);
     z-index: 0;
 }
 
 .navbar-group[data-active="area"]::before {
     transform: translateX(100%);
-    border-radius: 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0;
+    border-radius: 0 calc(var(--radius) - 0.125rem) calc(var(--radius) - 0.125rem) 0;
 }
 
 .navbar-btn {
@@ -447,7 +462,7 @@ body.share-overlay-open {
     color: var(--text-white);
     border-radius: 0;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     opacity: 0.7;
     transition: opacity 0.2s, color 0.2s;
@@ -489,12 +504,12 @@ body.share-overlay-open {
 .clear-btn {
     background: var(--accent-red);
     color: var(--text-white);
-    border: 1px solid #ffffff;
+    border: 0.0625rem solid #ffffff;
     padding: 0;
     width: var(--ui-btn-size);
     height: var(--ui-btn-size);
     border-radius: var(--radius);
-    font-size: 11px;
+    font-size: 0.6875rem;
     font-weight: 800;
     text-transform: uppercase;
     cursor: pointer;
@@ -507,12 +522,12 @@ body.share-overlay-open {
 
 .tool__back-btn {
     position: absolute;
-    top: calc(54px + var(--ui-btn-size-sm) + var(--button-gap));
-    left: 12px;
+    top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 2);
+    left: var(--tool-offset);
     width: var(--ui-btn-size-sm);
     height: var(--ui-btn-size-sm);
     background: var(--bg-body);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
     color: var(--text-white);
     cursor: pointer;
@@ -523,6 +538,7 @@ body.share-overlay-open {
     padding: 0;
     visibility: hidden;
     opacity: 0;
+    box-shadow: var(--shadow);
 }
 
 .tool__back-btn.visible {
@@ -533,6 +549,7 @@ body.share-overlay-open {
 .tool__back-btn svg {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
+    display: block;
 }
 
 .tool__back-btn:hover {
@@ -547,12 +564,12 @@ body.share-overlay-open {
 
 .tool__clear-btn {
     position: absolute;
-    top: calc(54px + (var(--ui-btn-size-sm) + var(--button-gap)) * 2);
-    left: 12px;
+    top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 3);
+    left: var(--tool-offset);
     width: var(--ui-btn-size-sm);
     height: var(--ui-btn-size-sm);
     background: var(--accent-red);
-    border: 1px solid #ffffff;
+    border: 0.0625rem solid #ffffff;
     border-radius: var(--radius);
     color: var(--text-white);
     cursor: pointer;
@@ -563,6 +580,7 @@ body.share-overlay-open {
     padding: 0;
     visibility: hidden;
     opacity: 0;
+    box-shadow: var(--shadow);
 }
 
 .tool__clear-btn.visible {
@@ -580,11 +598,17 @@ body.share-overlay-open {
     transform: scale(0.95);
 }
 
+.tool__clear-btn svg {
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
+    display: block;
+}
+
 .share-btn {
     grid-area: share;
     background: var(--bg-body);
     color: var(--text-white);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     padding: 0;
     width: var(--ui-btn-size);
     height: var(--ui-btn-size);
@@ -619,10 +643,10 @@ body.share-overlay-open {
  .info-btn {
     position: absolute;
     right: calc(var(--ui-btn-size) * -1.5);
-    top: 8px;
+    top: 0.5rem;
     background: var(--bg-body);
     color: var(--text-white);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     padding: 0;
     width: var(--ui-btn-size);
     height: var(--ui-btn-size);
@@ -631,6 +655,7 @@ body.share-overlay-open {
     transition: var(--hover-transition);
     display: grid;
     place-items: center;
+    box-shadow: var(--shadow);
 }
 
 .info-btn-mobile {
@@ -652,7 +677,7 @@ body.share-overlay-open {
     transform: scale(0.97);
 }
 
-@media (max-width: 767px) {
+@media (max-width: 47.9375em) {
     /* On mobile we place the info button on the horizontal divisor line */
     .nav-row .info-btn {
         display: none;
@@ -671,38 +696,39 @@ body.share-overlay-open {
     .info-btn-mobile {
         display: grid;
         position: absolute;
-        left: 12px;
+        left: var(--tool-offset);
         top: calc((var(--divisor-width) / 2) - (var(--ui-btn-size-sm) / 2));
         width: var(--ui-btn-size-sm);
         height: var(--ui-btn-size-sm);
         z-index: 2001;
+        box-shadow: var(--shadow);
     }
 }
 
  .toast {
      position: fixed;
      left: 50%;
-     bottom: 78px;
+     bottom: 4.875rem;
      transform: translateX(-50%);
      z-index: 6000;
      background: rgba(0, 0, 0, 0.85);
-     border: 1px solid rgba(255, 255, 255, 0.18);
+     border: 0.0625rem solid rgba(255, 255, 255, 0.18);
      color: var(--text-white);
-     padding: 10px 12px;
-     border-radius: 12px;
-     font-size: 12px;
+     padding: 0.625rem 0.75rem;
+     border-radius: 0.75rem;
+     font-size: 0.75rem;
      font-weight: 800;
      letter-spacing: 0.02em;
      opacity: 0;
      pointer-events: none;
      transition: opacity 180ms ease, transform 180ms ease;
-     backdrop-filter: blur(10px);
-     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+     backdrop-filter: blur(0.625rem);
+     box-shadow: 0 0.625rem 1.625rem rgba(0, 0, 0, 0.5);
  }
 
  .toast.visible {
      opacity: 1;
-     transform: translateX(-50%) translateY(-4px);
+     transform: translateX(-50%) translateY(-0.25rem);
  }
 
  .overlay {
@@ -711,10 +737,10 @@ body.share-overlay-open {
     inset: 0;
     z-index: 6500;
     background: rgba(0, 0, 0, 0.55);
-    backdrop-filter: blur(6px);
+    backdrop-filter: blur(0.375rem);
     display: grid;
     place-items: center;
-    padding: 16px;
+    padding: 1rem;
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease, visibility 0.3s ease;
@@ -733,13 +759,13 @@ body.share-overlay-open {
         "copy";
     grid-template-rows: auto 1fr auto;
     width: 100%;
-    max-width: 420px;
+    max-width: 26.25rem;
     background: var(--bg-body);
-    border: 1px solid rgba(255, 255, 255, 0.14);
-    border-radius: 16px;
-    box-shadow: 0 18px 48px rgba(0, 0, 0, 0.7);
+    border: 0.0625rem solid rgba(255, 255, 255, 0.14);
+    border-radius: 1rem;
+    box-shadow: 0 0.875rem 2.375rem rgba(0, 0, 0, 0.7);
     overflow: hidden;
-    transform: scale(0.9) translateY(20px);
+    transform: scale(0.9) translateY(1.25rem);
     transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
  }
 
@@ -753,24 +779,24 @@ body.share-overlay-open {
      grid-template-areas: "title close";
      grid-template-columns: 1fr auto;
      align-items: center;
-     padding: 12px 12px 10px 14px;
-     border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+     padding: 0.75rem 0.75rem 0.625rem 0.875rem;
+     border-bottom: 0.0625rem solid rgba(255, 255, 255, 0.08);
  }
 
  .overlay-title {
      grid-area: title;
-     font-size: 13px;
+     font-size: 0.8125rem;
      font-weight: 900;
      letter-spacing: 0.02em;
  }
 
  .overlay-close {
      grid-area: close;
-     width: 34px;
-     height: 34px;
+     width: 2.125rem;
+     height: 2.125rem;
      background: transparent;
-     border: 1px solid rgba(255, 255, 255, 0.12);
-     border-radius: 12px;
+     border: 0.0625rem solid rgba(255, 255, 255, 0.12);
+     border-radius: 0.75rem;
      color: var(--text-white);
      cursor: pointer;
      display: grid;
@@ -791,8 +817,8 @@ body.share-overlay-open {
          "twitter facebook"
          "linkedin email";
      grid-template-columns: 1fr 1fr;
-     gap: 10px;
-     padding: 14px;
+     gap: 0.5rem;
+     padding: 0.875rem;
  }
 
  .share-action[data-sharer="twitter"] {
@@ -812,12 +838,12 @@ body.share-overlay-open {
  }
 
  .share-action {
-     height: 40px;
-     border-radius: 12px;
-     border: 1px solid var(--border);
+     height: 2.5rem;
+     border-radius: 0.75rem;
+     border: 0.0625rem solid var(--border);
      background: var(--bg-body);
      color: var(--text-white);
-     font-size: 12px;
+     font-size: 0.75rem;
      font-weight: 800;
      cursor: pointer;
      transition: var(--hover-transition);
@@ -833,21 +859,21 @@ body.share-overlay-open {
 
  .share-copy {
     grid-area: copy;
-     padding: 0 14px 14px 14px;
+     padding: 0 0.875rem 0.875rem 0.875rem;
      display: grid;
      grid-template-areas: "button input";
-     grid-template-columns: 110px 1fr;
-     gap: 10px;
+     grid-template-columns: 6.875rem 1fr;
+     gap: 0.625rem;
  }
 
  .share-copy-btn {
      grid-area: button;
-     height: 40px;
-     border-radius: 12px;
-     border: 1px solid var(--hover-border);
+     height: 2.5rem;
+     border-radius: 0.75rem;
+     border: 0.0625rem solid var(--hover-border);
      background: var(--hover-bg);
      color: var(--text-white);
-     font-size: 12px;
+     font-size: 0.75rem;
      font-weight: 900;
      cursor: pointer;
      transition: var(--hover-transition);
@@ -862,26 +888,26 @@ body.share-overlay-open {
 
  .share-link {
      grid-area: input;
-     height: 40px;
-     border-radius: 12px;
-     border: 1px solid var(--border);
+     height: 2.5rem;
+     border-radius: 0.75rem;
+     border: 0.0625rem solid var(--border);
      background: var(--bg-body);
      color: var(--text-white);
-     font-size: 12px;
-     padding: 0 10px;
+     font-size: 0.75rem;
+     padding: 0 0.5rem;
      outline: none;
      box-sizing: border-box;
  }
 
  .info-content {
     grid-area: grid;
-    padding: 14px;
+    padding: 0.875rem;
     max-height: 60vh;
     overflow-y: auto;
  }
 
  .info-section {
-    margin-bottom: 20px;
+    margin-bottom: 1rem;
  }
 
  .info-section:last-child {
@@ -889,30 +915,30 @@ body.share-overlay-open {
  }
 
  .info-section h3 {
-    font-size: 14px;
+    font-size: 0.875rem;
     font-weight: 900;
     color: var(--text-white);
-    margin: 0 0 10px 0;
+    margin: 0 0 0.5rem 0;
     letter-spacing: 0.02em;
  }
 
  .info-section p {
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.5;
     color: var(--text-muted);
-    margin: 0 0 8px 0;
+    margin: 0 0 0.5rem 0;
  }
 
  .info-section ul {
     margin: 0;
-    padding-left: 16px;
+    padding-left: 1rem;
  }
 
  .info-section li {
-    font-size: 12px;
+    font-size: 0.75rem;
     line-height: 1.5;
     color: var(--text-muted);
-    margin-bottom: 6px;
+    margin-bottom: 0.25rem;
  }
 
  .info-section li strong {
@@ -921,7 +947,7 @@ body.share-overlay-open {
  }
 
  .creator {
-    margin-top: 10px;
+    margin-top: 0.5rem;
  }
 
  .creator a {
@@ -936,21 +962,21 @@ body.share-overlay-open {
 
  .github-buttons {
     display: flex;
-    gap: 8px;
+    gap: 0.5rem;
     justify-content: center;
 }
 
  .github-link {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 12px;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
     background: var(--bg-body);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
     color: var(--text-white);
     text-decoration: none;
-    font-size: 12px;
+    font-size: 0.75rem;
     font-weight: 600;
     transition: var(--hover-transition);
     flex: 1;
@@ -975,15 +1001,15 @@ body.share-overlay-open {
     display: none;
     z-index: 5000;
     background: var(--bg-body);
-    border: 1px solid var(--border);
+    border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
-    padding: 4px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    padding: 0.25rem;
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.5);
 }
 
 .ctx-item {
-    padding: 6px 12px;
-    font-size: 12px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.75rem;
     color: var(--accent-red);
     font-weight: 600;
     cursor: pointer;
@@ -1000,21 +1026,21 @@ body.share-overlay-open {
     background: var(--accent-blue);
     border: var(--point-border) solid var(--accent-blue);
     border-radius: var(--radius-full);
-    box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0 5px var(--bg-overlay-light);
+    box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0 0.3125rem 0.0625rem var(--bg-overlay-light);
 }
 
 .ghost-handle {
     background: var(--accent-yellow);
     border: var(--point-border) solid var(--accent-yellow);
     border-radius: var(--radius-full);
-    box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0 5px var(--bg-overlay-light);
+    box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0 0.3125rem 0.0625rem var(--bg-overlay-light);
 }
 
 .gizmo {
-      width: 28px;
-      height: 28px;
+      width: 1.75rem;
+      height: 1.75rem;
       border-radius: var(--radius-full);
-      box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 6px 18px rgba(0, 0, 0, 0.45);
+      box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0.25rem 0.875rem rgba(0, 0, 0, 0.45);
       cursor: grab;
       touch-action: none;
       display: grid;
@@ -1026,8 +1052,8 @@ body.share-overlay-open {
 
   .gizmo-glyph {
       color: var(--gizmo-fg);
-      width: 24px;
-      height: 24px;
+      width: 1.5rem;
+      height: 1.5rem;
       display: grid;
       place-items: center;
   }
@@ -1093,19 +1119,19 @@ body.share-overlay-open {
 .measurement-label-inner {
     display: grid;
     grid-template-areas: "primary" "secondary";
-    gap: 2px;
+    gap: 0.125rem;
     border: var(--point-border) solid var(--text-black);
-    border-radius: 10px;
-    padding: 6px 10px;
+    border-radius: 0.625rem;
+    padding: 0.375rem 0.625rem;
     text-align: center;
     font-weight: 900;
-    backdrop-filter: blur(12px);
-    box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 4px 16px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(0.75rem);
+    box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0.25rem 1rem rgba(0, 0, 0, 0.3);
 }
 
 .measurement-label-primary {
     grid-area: primary;
-    font-size: 13px;
+    font-size: 0.8125rem;
     line-height: 1.1;
     color: #000000;
     text-shadow: none;
@@ -1114,7 +1140,7 @@ body.share-overlay-open {
 
 .measurement-label-secondary {
     grid-area: secondary;
-    font-size: 11px;
+    font-size: 0.6875rem;
     line-height: 1.1;
     color: #000000;
     opacity: 0.8;
@@ -1123,7 +1149,7 @@ body.share-overlay-open {
 }
 
 /* Mobile-specific search positioning */
-@media (max-width: 767px) {
+@media (max-width: 47.9375em) {
     .map-container {
         grid-template-areas: var(--grid-mobile);
         grid-template-columns: 1fr;
@@ -1133,62 +1159,62 @@ body.share-overlay-open {
     .divisor-area {
         width: 100%;
         height: var(--divisor-width);
-        border-top: 1px solid var(--border);
+        border-top: 0.0625rem solid var(--border);
         border-left: none;
     }
     /* First map search button - just above divisor line */
     .map-wrapper:first-child .tool__search-wrapper {
         top: auto;
-        bottom: calc(18px + var(--button-gap));
+        bottom: calc(var(--tool-offset) + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
         transform: none;
     }
 
     /* Second map search button - just below divisor line */
     .map-wrapper:last-child .tool__search-wrapper {
-        top: calc(18px + var(--button-gap));
+        top: calc(var(--tool-offset) + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
         transform: none;
     }
 
     /* First map location button - under search button */
     .map-wrapper:first-child .tool__location-btn {
         top: auto;
-        bottom: calc(18px + var(--button-gap) + 42px);
-        left: 12px;
+        bottom: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 1 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        left: var(--tool-offset);
     }
 
     /* Second map location button - under search button */
     .map-wrapper:last-child .tool__location-btn {
-        top: calc(18px + var(--button-gap) + 42px);
+        top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 1 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
         bottom: auto;
-        left: 12px;
+        left: var(--tool-offset);
     }
 
     /* First map clear button - vertically next to location button without overlap (top map) */
     .map-wrapper:first-child .tool__clear-btn {
         top: auto;
-        bottom: calc(18px + var(--button-gap) + 126px);
-        left: 12px;
+        bottom: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 3 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        left: var(--tool-offset);
     }
 
     /* Second map clear button - vertically next to location button without overlap (bottom map) */
     .map-wrapper:last-child .tool__clear-btn {
-        top: calc(18px + var(--button-gap) + 126px);
+        top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 3 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
         bottom: auto;
-        left: 12px;
+        left: var(--tool-offset);
     }
 
     /* First map back button - between location and clear (top map) */
     .map-wrapper:first-child .tool__back-btn {
         top: auto;
-        bottom: calc(18px + var(--button-gap) + 84px);
-        left: 12px;
+        bottom: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 2 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        left: var(--tool-offset);
     }
 
     /* Second map back button - between location and clear (bottom map) */
     .map-wrapper:last-child .tool__back-btn {
-        top: calc(18px + var(--button-gap) + 84px);
+        top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 2 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
         bottom: auto;
-        left: 12px;
+        left: var(--tool-offset);
     }
 
     /* First map suggestions - open upward */
@@ -1196,7 +1222,7 @@ body.share-overlay-open {
         bottom: 100%;
         top: auto;
         border-bottom: none;
-        border-top: 1px solid var(--border);
+        border-top: 0.0625rem solid var(--border);
         border-radius: var(--radius) var(--radius) 0 0;
     }
 
@@ -1205,7 +1231,7 @@ body.share-overlay-open {
         top: 100%;
         bottom: auto;
         border-top: none;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 0.0625rem solid var(--border);
         border-radius: 0 0 var(--radius) var(--radius);
     }
 
@@ -1218,9 +1244,9 @@ body.share-overlay-open {
         height: 100%;
         background: var(--bg-body);
         color: var(--text-white);
-        border: 1px solid var(--border);
+        border: 0.0625rem solid var(--border);
         border-radius: var(--radius);
-        font-size: 12px;
+        font-size: 0.75rem;
         font-weight: 600;
         padding: 0;
         display: grid;
@@ -1240,21 +1266,21 @@ body.share-overlay-open {
 
     .select-options {
         position: absolute;
-        bottom: calc(100% + 4px);
+        bottom: calc(100% + 0.25rem);
         left: 0;
         right: auto;
         transform: none;
         background: var(--bg-body);
-        border: 1px solid var(--border);
+        border: 0.0625rem solid var(--border);
         border-radius: var(--radius);
-        padding: 4px;
+        padding: 0.25rem;
         display: none;
         z-index: 2100;
         /* Remove all visual effects that cause black overlay */
         backdrop-filter: none;
         box-shadow: none;
-        min-width: 100px;
-        max-width: calc(100vw - 32px);
+        min-width: 5rem;
+        max-width: calc(100vw - 2rem);
         box-sizing: border-box;
     }
 
@@ -1263,8 +1289,8 @@ body.share-overlay-open {
     }
 
     .option {
-        padding: 8px 10px;
-        font-size: 12px;
+        padding: 0.5rem 0.625rem;
+        font-size: 0.75rem;
         font-weight: 500;
         cursor: pointer;
         border-radius: var(--radius);
@@ -1288,7 +1314,7 @@ body.share-overlay-open {
     }
 }
 
-@media (min-width: 600px) and (max-width: 767px) {
+@media (min-width: 37.5em) and (max-width: 47.9375em) {
     .select-options {
         left: 50%;
         right: auto;
@@ -1296,7 +1322,7 @@ body.share-overlay-open {
     }
 }
 
-@media (min-width: 768px) {
+@media (min-width: 48em) {
     .map-container {
         grid-template-areas: var(--grid-desktop);
         grid-template-columns: 1fr var(--divisor-width) 1fr;
@@ -1307,11 +1333,11 @@ body.share-overlay-open {
         width: var(--divisor-width);
         height: 100%;
         border-top: none;
-        border-left: 1px solid var(--border);
+        border-left: 0.0625rem solid var(--border);
     }
 
     #dashboard {
-        bottom: 24px;
+        bottom: 1.5rem;
     }
 
     .select-options {
