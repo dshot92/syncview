@@ -138,7 +138,7 @@ body.share-overlay-open {
     height: var(--ui-btn-size-sm);
     background: transparent;
     border: none;
-    border-radius: 0;
+    border-radius: var(--radius);
     cursor: pointer;
     display: grid;
     place-items: center;
@@ -156,7 +156,9 @@ body.share-overlay-open {
 
 .lens-btn:hover {
     background: var(--hover-bg);
+    border-color: var(--hover-border);
     color: var(--hover-text);
+    border-radius: var(--radius);
 }
 
 
@@ -474,6 +476,14 @@ body.share-overlay-open {
 .tool-btn:hover {
     opacity: 1;
     color: var(--text-white);
+}
+
+.tool-btn:first-child:hover {
+    border-radius: var(--radius) 0 0 var(--radius);
+}
+
+.tool-btn:last-child:hover {
+    border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 .tool-btn.active {
@@ -1105,13 +1115,13 @@ body.share-overlay-open {
     display: grid;
     grid-template-areas: "primary" "secondary";
     gap: 2px;
-    border: 1px solid rgba(0, 0, 0, 0.3);
+    border: var(--point-border) solid var(--text-black);
     border-radius: 10px;
     padding: 6px 10px;
     text-align: center;
     font-weight: 900;
     backdrop-filter: blur(12px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .measurement-label-primary {
