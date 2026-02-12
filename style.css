@@ -319,6 +319,7 @@ body.share-overlay-open {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 8px;
+    pointer-events: auto;
     display: grid;
     grid-template-areas: "nav";
     gap: 8px;

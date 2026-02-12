@@ -700,6 +700,11 @@ map2.on('moveend', scheduleUrlUpdate);
 map1.on('zoomend', scheduleUrlUpdate);
 map2.on('zoomend', scheduleUrlUpdate);
 
+map1.on('move', update);
+map2.on('move', update);
+map1.on('zoom', update);
+map2.on('zoom', update);
+
 const recalcAabbAndGizmosOnInteraction = (e) => {
     if (!masterVertices || masterVertices.length === 0) return;
     if (isRotating || isMovingWithGizmo) return;
@@ -1463,11 +1468,37 @@ function update() {
             const topMidPt = refMap.latLngToContainerPoint(topMidLL);
             const brPt = refMap.latLngToContainerPoint(brLL);
 
+            const containerSize = refMap.getSize();
+            const gizmoRadius = 14;
+            
             const rotatePt = L.point(topMidPt.x, topMidPt.y - 28);
             const movePt = L.point(brPt.x + 28, brPt.y + 28);
 
-            const topMid = refMap.containerPointToLatLng(rotatePt);
-            const brOut = refMap.containerPointToLatLng(movePt);
+            // On mobile, constrain gizmos to stay above the navbar area
+            const isMobile = window.innerWidth <= 767;
+            let maxY = containerSize.y - gizmoRadius;
+            
+            if (isMobile) {
+                // Calculate actual navbar height dynamically
+                const dashboard = document.querySelector('#dashboard');
+                const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
+                const gizmoSize = 28; // full gizmo diameter
+                const pointSize = 14; // point diameter
+                const margin = 8;
+                maxY = containerSize.y - navbarHeight - gizmoSize - pointSize - margin;
+            }
+
+            const clampedRotatePt = L.point(
+                Math.max(gizmoRadius, Math.min(containerSize.x - gizmoRadius, rotatePt.x)),
+                Math.max(gizmoRadius, Math.min(maxY, rotatePt.y))
+            );
+            const clampedMovePt = L.point(
+                Math.max(gizmoRadius, Math.min(containerSize.x - gizmoRadius, movePt.x)),
+                Math.max(gizmoRadius, Math.min(maxY, movePt.y))
+            );
+
+            const topMid = refMap.containerPointToLatLng(clampedRotatePt);
+            const brOut = refMap.containerPointToLatLng(clampedMovePt);
 
             rotateGizmoRef.setLatLng(topMid);
             moveGizmoRef.setLatLng(brOut);
@@ -1481,11 +1512,37 @@ function update() {
             const topMidPt = ovlMap.latLngToContainerPoint(topMidLL);
             const brPt = ovlMap.latLngToContainerPoint(brLL);
 
+            const containerSize = ovlMap.getSize();
+            const gizmoRadius = 14;
+            
             const rotatePt = L.point(topMidPt.x, topMidPt.y - 28);
             const movePt = L.point(brPt.x + 28, brPt.y + 28);
 
-            const topMid = ovlMap.containerPointToLatLng(rotatePt);
-            const brOut = ovlMap.containerPointToLatLng(movePt);
+            // On mobile, constrain gizmos to stay above the navbar area
+            const isMobile = window.innerWidth <= 767;
+            let maxY = containerSize.y - gizmoRadius;
+            
+            if (isMobile) {
+                // Calculate actual navbar height dynamically
+                const dashboard = document.querySelector('#dashboard');
+                const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
+                const gizmoSize = 28; // full gizmo diameter
+                const pointSize = 14; // point diameter
+                const margin = 8;
+                maxY = containerSize.y - navbarHeight - gizmoSize - pointSize - margin;
+            }
+
+            const clampedRotatePt = L.point(
+                Math.max(gizmoRadius, Math.min(containerSize.x - gizmoRadius, rotatePt.x)),
+                Math.max(gizmoRadius, Math.min(maxY, rotatePt.y))
+            );
+            const clampedMovePt = L.point(
+                Math.max(gizmoRadius, Math.min(containerSize.x - gizmoRadius, movePt.x)),
+                Math.max(gizmoRadius, Math.min(maxY, movePt.y))
+            );
+
+            const topMid = ovlMap.containerPointToLatLng(clampedRotatePt);
+            const brOut = ovlMap.containerPointToLatLng(clampedMovePt);
 
             rotateGizmoOvl.setLatLng(topMid);
             moveGizmoOvl.setLatLng(brOut);
