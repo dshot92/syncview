@@ -988,8 +988,8 @@ const shapes = {
     aRef: L.polygon([], { interactive: false, color: 'var(--accent-blue)', weight: 2, fillOpacity: 0.2 }),
     aOvlBg: L.polygon([], { interactive: false, color: 'var(--text-black)', weight: 4, opacity: 0.8, fill: false }),
     aOvl: L.polygon([], { interactive: false, color: 'var(--accent-yellow)', weight: 2, fillOpacity: 0.3 }),
-    bbRef: L.rectangle([[0, 0], [0, 0]], { interactive: false, color: 'rgba(59, 130, 246, 0.95)', weight: 1, fill: false, dashArray: '6 4' }),
-    bbOvl: L.rectangle([[0, 0], [0, 0]], { interactive: false, color: 'rgba(251, 191, 36, 0.95)', weight: 1, fill: false, dashArray: '6 4' })
+    bbRef: L.rectangle([[0, 0], [0, 0]], { interactive: false, fill: false, className: 'aabb-debug' }),
+    bbOvl: L.rectangle([[0, 0], [0, 0]], { interactive: false, fill: false, className: 'aabb-debug' })
 };
 
 let mode = 'dist';

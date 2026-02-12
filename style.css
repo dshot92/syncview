@@ -38,6 +38,9 @@
     --divisor-width: 0.25rem;
     --point-border: 0.125rem;
     --point-outline: 0.125rem;
+    --line-stroke-width: 2;
+    --line-stroke-opacity: 0.95;
+    --line-stroke-dasharray: 6 4;
     
     /* Grid Template Areas */
     --grid-desktop: "map1 divisor map2";
@@ -1320,6 +1323,14 @@ body.share-overlay-open {
         right: auto;
         transform: translateX(-50%);
     }
+}
+
+.aabb-debug {
+    stroke: var(--accent-red);
+    stroke-opacity: var(--line-stroke-opacity);
+    stroke-width: var(--line-stroke-width);
+    stroke-dasharray: var(--line-stroke-dasharray);
+    fill: none;
 }
 
 @media (min-width: 48em) {
