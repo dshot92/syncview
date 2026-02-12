@@ -1,7 +1,7 @@
 {
-  "name": "SyncView - Synchronized Map Comparison",
-  "short_name": "SyncView",
-  "description": "A real-time synchronized dual-map viewer for comparing locations and distances",
+  "name": "Sync View - Synchronized Map Comparison",
+  "short_name": "Sync View",
+  "description": "Synchronized dual-map viewer for comparing locations and distances",
   "start_url": "/syncview/",
   "scope": "/syncview/",
   "launch_handler": {
