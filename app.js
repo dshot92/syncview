@@ -1070,8 +1070,16 @@ function getAabb(lls) {
 }
 
 function ensureGizmoMarkers() {
-    const rotateGlyph = '<span class="gizmo-glyph" aria-hidden="true">🗘</span>';
-    const moveGlyph = '<span class="gizmo-glyph" aria-hidden="true">𖦏</span>';
+    const rotateGlyph = `
+        <span class="gizmo-glyph" aria-hidden="true">
+            <img src="images/rotate.svg" width="24" height="24" alt="">
+        </span>
+    `.trim();
+    const moveGlyph = `
+        <span class="gizmo-glyph" aria-hidden="true">
+            <img src="images/move.svg" width="24" height="24" alt="">
+        </span>
+    `.trim();
 
     if (!rotateGizmoRef) {
         rotateGizmoRef = L.marker([0, 0], {
@@ -1474,11 +1482,12 @@ function update() {
             const rotatePt = L.point(topMidPt.x, topMidPt.y - 28);
             const movePt = L.point(brPt.x + 28, brPt.y + 28);
 
-            // On mobile, constrain gizmos to stay above the navbar area
+            // On mobile, constrain gizmos to stay above the navbar area (bottom view only)
             const isMobile = window.innerWidth <= 767;
+            const constrainToNav = isMobile && refMap === map2;
             let maxY = containerSize.y - gizmoRadius;
             
-            if (isMobile) {
+            if (constrainToNav) {
                 // Calculate actual navbar height dynamically
                 const dashboard = document.querySelector('#dashboard');
                 const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
@@ -1518,11 +1527,12 @@ function update() {
             const rotatePt = L.point(topMidPt.x, topMidPt.y - 28);
             const movePt = L.point(brPt.x + 28, brPt.y + 28);
 
-            // On mobile, constrain gizmos to stay above the navbar area
+            // On mobile, constrain gizmos to stay above the navbar area (bottom view only)
             const isMobile = window.innerWidth <= 767;
+            const constrainToNav = isMobile && ovlMap === map2;
             let maxY = containerSize.y - gizmoRadius;
             
-            if (isMobile) {
+            if (constrainToNav) {
                 // Calculate actual navbar height dynamically
                 const dashboard = document.querySelector('#dashboard');
                 const navbarHeight = dashboard ? dashboard.offsetHeight : 56;

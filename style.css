@@ -1041,9 +1041,14 @@ body.share-overlay-open {
 
   .gizmo-glyph {
       color: var(--gizmo-fg);
-      font-size: 26px;
-      line-height: 100%;
-      font-weight: 700;
+      width: 24px;
+      height: 24px;
+      display: grid;
+      place-items: center;
+  }
+
+  .gizmo-glyph svg {
+      display: block;
   }
 
 .gizmo:active {
