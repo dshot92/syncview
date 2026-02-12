@@ -702,8 +702,14 @@ map2.on('zoomend', scheduleUrlUpdate);
 
 map1.on('move', update);
 map2.on('move', update);
-map1.on('zoom', update);
-map2.on('zoom', update);
+map1.on('zoomend', update);
+map2.on('zoomend', update);
+
+let isZoomAnimating = false;
+map1.on('zoomstart', () => { isZoomAnimating = true; });
+map2.on('zoomstart', () => { isZoomAnimating = true; });
+map1.on('zoomend', () => { isZoomAnimating = false; });
+map2.on('zoomend', () => { isZoomAnimating = false; });
 
 const recalcAabbAndGizmosOnInteraction = (e) => {
     if (!masterVertices || masterVertices.length === 0) return;
@@ -974,16 +980,16 @@ window.addEventListener('touchstart', (e) => {
 
 // Graphics & Measurement State
 const shapes = {
-    sRefBg: L.polyline([], { color: 'var(--text-black)', weight: 4, opacity: 0.8 }),
-    sRef: L.polyline([], { color: 'var(--accent-blue)', weight: 2 }),
-    sOvlBg: L.polyline([], { color: 'var(--text-black)', weight: 4, opacity: 0.8 }),
-    sOvl: L.polyline([], { color: 'var(--accent-yellow)', weight: 2 }),
-    aRefBg: L.polygon([], { color: 'var(--text-black)', weight: 4, opacity: 0.8, fill: false }),
-    aRef: L.polygon([], { color: 'var(--accent-blue)', weight: 2, fillOpacity: 0.2 }),
-    aOvlBg: L.polygon([], { color: 'var(--text-black)', weight: 4, opacity: 0.8, fill: false }),
-    aOvl: L.polygon([], { color: 'var(--accent-yellow)', weight: 2, fillOpacity: 0.3 }),
-    bbRef: L.rectangle([[0, 0], [0, 0]], { color: 'rgba(59, 130, 246, 0.95)', weight: 1, fill: false, dashArray: '6 4' }),
-    bbOvl: L.rectangle([[0, 0], [0, 0]], { color: 'rgba(251, 191, 36, 0.95)', weight: 1, fill: false, dashArray: '6 4' })
+    sRefBg: L.polyline([], { interactive: false, color: 'var(--text-black)', weight: 4, opacity: 0.8 }),
+    sRef: L.polyline([], { interactive: false, color: 'var(--accent-blue)', weight: 2 }),
+    sOvlBg: L.polyline([], { interactive: false, color: 'var(--text-black)', weight: 4, opacity: 0.8 }),
+    sOvl: L.polyline([], { interactive: false, color: 'var(--accent-yellow)', weight: 2 }),
+    aRefBg: L.polygon([], { interactive: false, color: 'var(--text-black)', weight: 4, opacity: 0.8, fill: false }),
+    aRef: L.polygon([], { interactive: false, color: 'var(--accent-blue)', weight: 2, fillOpacity: 0.2 }),
+    aOvlBg: L.polygon([], { interactive: false, color: 'var(--text-black)', weight: 4, opacity: 0.8, fill: false }),
+    aOvl: L.polygon([], { interactive: false, color: 'var(--accent-yellow)', weight: 2, fillOpacity: 0.3 }),
+    bbRef: L.rectangle([[0, 0], [0, 0]], { interactive: false, color: 'rgba(59, 130, 246, 0.95)', weight: 1, fill: false, dashArray: '6 4' }),
+    bbOvl: L.rectangle([[0, 0], [0, 0]], { interactive: false, color: 'rgba(251, 191, 36, 0.95)', weight: 1, fill: false, dashArray: '6 4' })
 };
 
 let mode = 'dist';
@@ -1387,7 +1393,32 @@ function ctxResetAll() {
 }
 
 function update() {
+    if (isZoomAnimating) return;
     const hasPoints = masterVertices.length > 0;
+
+    const ensureLayer = (map, layer, want) => {
+        if (!layer) return;
+        if (!map) {
+            if (layer._map) layer.remove();
+            return;
+        }
+        if (want) {
+            if (!layer._map) layer.addTo(map);
+        } else {
+            if (layer._map) layer.remove();
+        }
+    };
+
+    const removeAllShapes = () => {
+        Object.values(shapes).forEach((s) => {
+            if (s && s._map) s.remove();
+        });
+    };
+
+    const removeMeasureLabels = () => {
+        if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
+        if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
+    };
 
     if (hasPoints && refMap && ovlMap && mercAnchorRef && mercAnchorOvl) {
         const baseMerc = getMasterMerc();
@@ -1425,16 +1456,14 @@ function update() {
         }
     }
 
-    Object.values(shapes).forEach(s => { if (s._map) s.remove(); });
-
-    if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
-    if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
-
     if (!hasPoints || !refMap || !ovlMap) {
+        removeAllShapes();
+        removeMeasureLabels();
         if (rotateGizmoRef && rotateGizmoRef._map) rotateGizmoRef.remove();
         if (rotateGizmoOvl && rotateGizmoOvl._map) rotateGizmoOvl.remove();
         if (moveGizmoRef && moveGizmoRef._map) moveGizmoRef.remove();
         if (moveGizmoOvl && moveGizmoOvl._map) moveGizmoOvl.remove();
+        return;
     }
 
     if (hasPoints && refMap && ovlMap) {
@@ -1442,22 +1471,47 @@ function update() {
         const polyRef = pRef;
         const polyOvl = pOvl;
         if (isArea) {
-            shapes.aRefBg.addTo(refMap).setLatLngs(polyRef);
-            shapes.aRef.addTo(refMap).setLatLngs(polyRef);
-            shapes.aOvlBg.addTo(ovlMap).setLatLngs(polyOvl);
-            shapes.aOvl.addTo(ovlMap).setLatLngs(polyOvl);
+            ensureLayer(refMap, shapes.sRefBg, false);
+            ensureLayer(refMap, shapes.sRef, false);
+            ensureLayer(ovlMap, shapes.sOvlBg, false);
+            ensureLayer(ovlMap, shapes.sOvl, false);
+
+            ensureLayer(refMap, shapes.aRefBg, true);
+            ensureLayer(refMap, shapes.aRef, true);
+            ensureLayer(ovlMap, shapes.aOvlBg, true);
+            ensureLayer(ovlMap, shapes.aOvl, true);
+
+            shapes.aRefBg.setLatLngs(polyRef);
+            shapes.aRef.setLatLngs(polyRef);
+            shapes.aOvlBg.setLatLngs(polyOvl);
+            shapes.aOvl.setLatLngs(polyOvl);
         } else {
-            shapes.sRefBg.addTo(refMap).setLatLngs(polyRef);
-            shapes.sRef.addTo(refMap).setLatLngs(polyRef);
-            shapes.sOvlBg.addTo(ovlMap).setLatLngs(polyOvl);
-            shapes.sOvl.addTo(ovlMap).setLatLngs(polyOvl);
+            ensureLayer(refMap, shapes.aRefBg, false);
+            ensureLayer(refMap, shapes.aRef, false);
+            ensureLayer(ovlMap, shapes.aOvlBg, false);
+            ensureLayer(ovlMap, shapes.aOvl, false);
+
+            ensureLayer(refMap, shapes.sRefBg, true);
+            ensureLayer(refMap, shapes.sRef, true);
+            ensureLayer(ovlMap, shapes.sOvlBg, true);
+            ensureLayer(ovlMap, shapes.sOvl, true);
+
+            shapes.sRefBg.setLatLngs(polyRef);
+            shapes.sRef.setLatLngs(polyRef);
+            shapes.sOvlBg.setLatLngs(polyOvl);
+            shapes.sOvl.setLatLngs(polyOvl);
         }
 
         markersRef.forEach((m, i) => { if (pRef[i]) m.setLatLng(pRef[i]); });
         markersOvl.forEach((m, i) => { if (pOvl[i]) m.setLatLng(pOvl[i]); });
 
         const isComplete = pRef.length >= (isArea ? 3 : 2);
-        if (!isComplete) return;
+        if (!isComplete) {
+            removeMeasureLabels();
+            ensureLayer(refMap, shapes.bbRef, false);
+            ensureLayer(ovlMap, shapes.bbOvl, false);
+            return;
+        }
 
         ensureGizmoMarkers();
 
@@ -1465,8 +1519,13 @@ function update() {
         const bbO = getAabb(polyOvl);
 
         if (showAabb) {
-            if (bbR) shapes.bbRef.addTo(refMap).setBounds([[bbR.south, bbR.west], [bbR.north, bbR.east]]);
-            if (bbO) shapes.bbOvl.addTo(ovlMap).setBounds([[bbO.south, bbO.west], [bbO.north, bbO.east]]);
+            ensureLayer(refMap, shapes.bbRef, !!bbR);
+            ensureLayer(ovlMap, shapes.bbOvl, !!bbO);
+            if (bbR) shapes.bbRef.setBounds([[bbR.south, bbR.west], [bbR.north, bbR.east]]);
+            if (bbO) shapes.bbOvl.setBounds([[bbO.south, bbO.west], [bbO.north, bbO.east]]);
+        } else {
+            ensureLayer(refMap, shapes.bbRef, false);
+            ensureLayer(ovlMap, shapes.bbOvl, false);
         }
 
         if (bbR) {
@@ -1593,33 +1652,51 @@ function update() {
             const pctRef = fmtPct(-pctDeltaVsRef);
             const pctOvl = fmtPct(pctDeltaVsRef);
 
-            measureLabelRef = L.marker(labelPoint(polyRef, isArea), {
-                interactive: true,
-                keyboard: false,
-                icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)', true)
-            }).addTo(refMap);
-
-            measureLabelOvl = L.marker(labelPoint(polyOvl, isArea), {
-                interactive: true,
-                keyboard: false,
-                icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)', false)
-            }).addTo(ovlMap);
-
-            // Prevent clicks on measurement labels from creating new points
             const preventLabelClick = (marker) => {
-                const labelElement = marker.getElement();
-                if (labelElement) {
-                    labelElement.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                    });
-                    labelElement.addEventListener('touchstart', (e) => {
-                        e.stopPropagation();
-                    }, { passive: true });
-                }
+                const labelElement = marker && marker.getElement ? marker.getElement() : null;
+                if (!labelElement) return;
+                if (labelElement.dataset && labelElement.dataset.stopprop === '1') return;
+                if (labelElement.dataset) labelElement.dataset.stopprop = '1';
+                labelElement.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+                labelElement.addEventListener('touchstart', (e) => {
+                    e.stopPropagation();
+                }, { passive: true });
             };
-            
-            preventLabelClick(measureLabelRef);
-            preventLabelClick(measureLabelOvl);
+
+            const refLabelPos = labelPoint(polyRef, isArea);
+            const ovlLabelPos = labelPoint(polyOvl, isArea);
+
+            if (refLabelPos) {
+                if (!measureLabelRef) {
+                    measureLabelRef = L.marker(refLabelPos, {
+                        interactive: true,
+                        keyboard: false,
+                        icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)', true)
+                    }).addTo(refMap);
+                } else {
+                    if (!measureLabelRef._map) measureLabelRef.addTo(refMap);
+                    measureLabelRef.setLatLng(refLabelPos);
+                    measureLabelRef.setIcon(makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)', true));
+                }
+                preventLabelClick(measureLabelRef);
+            }
+
+            if (ovlLabelPos) {
+                if (!measureLabelOvl) {
+                    measureLabelOvl = L.marker(ovlLabelPos, {
+                        interactive: true,
+                        keyboard: false,
+                        icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)', false)
+                    }).addTo(ovlMap);
+                } else {
+                    if (!measureLabelOvl._map) measureLabelOvl.addTo(ovlMap);
+                    measureLabelOvl.setLatLng(ovlLabelPos);
+                    measureLabelOvl.setIcon(makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)', false));
+                }
+                preventLabelClick(measureLabelOvl);
+            }
         }
     }
 }
