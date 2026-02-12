@@ -1024,6 +1024,58 @@ body.share-overlay-open {
     box-shadow: 0 0 0 var(--point-outline) var(--text-inv), 0 0 5px var(--bg-overlay-light);
 }
 
+ .gizmo {
+     width: 28px;
+     height: 28px;
+     border-radius: var(--radius-full);
+     box-shadow: 0 0 0 var(--point-outline) var(--text-inv), 0 6px 18px rgba(0, 0, 0, 0.45);
+     cursor: grab;
+     touch-action: none;
+     display: grid;
+     place-items: center;
+     background: #ffffff;
+     border: var(--point-border) solid transparent;
+     --gizmo-fg: rgba(0, 0, 0, 0.95);
+ }
+
+ .gizmo-glyph {
+     color: var(--gizmo-fg);
+     font-size: 24px;
+     line-height: 1;
+     font-weight: 700;
+     font-family: system-ui, -apple-system, Segoe UI Symbol, Noto Sans Symbols, Noto Sans Symbols 2, Noto Sans, Arial, sans-serif;
+     width: 1em;
+     height: 1em;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     text-align: center;
+ }
+
+ .gizmo-rotate .gizmo-glyph {
+     transform: translate(0.5px, -0.5px);
+ }
+
+ .gizmo-move .gizmo-glyph {
+     transform: translate(0px, -0.25px);
+ }
+
+ .gizmo:active {
+     cursor: grabbing;
+ }
+
+ .gizmo-ref {
+     background: var(--accent-blue);
+     border-color: var(--accent-blue);
+     --gizmo-fg: rgba(0, 0, 0, 0.95);
+ }
+
+ .gizmo-ovl {
+     background: var(--accent-yellow);
+     border-color: var(--accent-yellow);
+     --gizmo-fg: rgba(0, 0, 0, 0.95);
+ }
+
 .measurement-label {
     pointer-events: auto;
     cursor: pointer;
