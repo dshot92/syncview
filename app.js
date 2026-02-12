@@ -733,7 +733,7 @@ const searchCache = new Map(); // Cache for search results
 
 function toggleSearch(idx) {
     const lens = document.getElementById('lens' + idx);
-    const wrapper = lens.closest('.search-wrapper');
+    const wrapper = lens.closest('.tool__search-wrapper');
     const input = document.getElementById('search' + idx);
     const list = document.getElementById('results' + idx);
 
@@ -953,7 +953,7 @@ window.onclick = (e) => {
             options.classList.remove('open');
         }
     }
-    if (!e.target.closest('.search-wrapper')) {
+    if (!e.target.closest('.tool__search-wrapper')) {
         document.querySelectorAll('.suggestions').forEach(s => s.classList.remove('visible'));
     }
     if (!e.target.closest('#ctx-menu')) hideCtx();
@@ -966,7 +966,7 @@ window.addEventListener('touchstart', (e) => {
             options.classList.remove('open');
         }
     }
-    if (!e.target.closest('.search-wrapper')) {
+    if (!e.target.closest('.tool__search-wrapper')) {
         document.querySelectorAll('.suggestions').forEach(s => s.classList.remove('visible'));
     }
     if (!e.target.closest('#ctx-menu')) hideCtx();
@@ -1291,12 +1291,12 @@ function endMoveGizmo() {
 
 function setMode(m) {
     mode = m;
-    document.querySelectorAll('.tool-btn').forEach(b => b.classList.toggle('active', b.id === 'btn-' + m));
+    document.querySelectorAll('.navbar-btn').forEach(b => b.classList.toggle('active', b.id === 'btn-' + m));
     
     // Update data-active attribute for sliding animation
-    const toolGroup = document.getElementById('toolGroup');
-    if (toolGroup) {
-        toolGroup.setAttribute('data-active', m);
+    const navbarGroup = document.getElementById('navbarGroup');
+    if (navbarGroup) {
+        navbarGroup.setAttribute('data-active', m);
     }
     
     document.querySelectorAll('.map-instance').forEach(div => div.style.cursor = 'crosshair');

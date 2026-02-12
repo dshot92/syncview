@@ -1,7 +1,5 @@
 :root {
     --bg-body: #000;
-    --bg-panel: rgba(26, 26, 27, 0.98);
-
     --bg-overlay-light: rgba(0, 0, 0, 0.3);
     --bg-overlay-hover: rgba(0, 0, 0, 0.5);
 
@@ -24,9 +22,6 @@
     /* Border Radius */
     --radius: 0.375rem;
     --radius-full: 50%;
-    
-    /* Buttons */
-    --bg-tool: rgba(42, 42, 44, 0.9);
 
     /* Unified Hover States */
     --hover-bg: var(--accent-blue);
@@ -106,7 +101,7 @@ body.share-overlay-open {
 
 /* Advanced Search UI */
 /* Search Grid Layout */
-.search-wrapper {
+.tool__search-wrapper {
     position: absolute;
     top: 12px;
     left: 12px;
@@ -126,13 +121,13 @@ body.share-overlay-open {
     width: var(--ui-btn-size-sm);
 }
 
-.search-wrapper.expanded {
+.tool__search-wrapper.expanded {
     width: 280px;
     border-radius: var(--radius);
     overflow: visible;
 }
 
-.lens-btn {
+.tool__lens-btn {
     grid-area: lens;
     width: var(--ui-btn-size-sm);
     height: var(--ui-btn-size-sm);
@@ -162,7 +157,7 @@ body.share-overlay-open {
 }
 
 
-.search-container {
+.tool__search-container {
     grid-area: container;
     position: relative;
     pointer-events: auto;
@@ -174,7 +169,7 @@ body.share-overlay-open {
     height: 100%;
 }
 
-.search-box {
+.tool__search-box {
     grid-area: input;
     background: transparent;
     border: none;
@@ -193,7 +188,7 @@ body.share-overlay-open {
     color: var(--text-muted);
 }
 
-.search-clear-btn {
+.tool__search-clear-btn {
     display: none;
 }
 
@@ -235,7 +230,7 @@ body.share-overlay-open {
 }
 
 /* Location Button Grid */
-.location-btn {
+.tool__location-btn {
     position: absolute;
     top: 54px;
     left: 12px;
@@ -288,7 +283,7 @@ body.share-overlay-open {
     cursor: crosshair;
 }
 
-.map-label {
+.tool__map-label {
     position: absolute;
     top: 10px;
     right: 10px;
@@ -413,7 +408,7 @@ body.share-overlay-open {
     outline: none;
 }
 
-.tool-group {
+.navbar-group {
     grid-area: tools;
     display: grid;
     grid-template-areas: "dist area";
@@ -427,7 +422,7 @@ body.share-overlay-open {
     opacity: 1;
 }
 
-.tool-group::before {
+.navbar-group::before {
     content: '';
     position: absolute;
     top: 2px;
@@ -441,12 +436,12 @@ body.share-overlay-open {
     z-index: 0;
 }
 
-.tool-group[data-active="area"]::before {
+.navbar-group[data-active="area"]::before {
     transform: translateX(100%);
     border-radius: 0 calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0;
 }
 
-.tool-btn {
+.navbar-btn {
     background: transparent;
     border: none;
     color: var(--text-white);
@@ -463,30 +458,30 @@ body.share-overlay-open {
     place-items: center;
 }
 
-.tool-btn:first-child {
+.navbar-btn:first-child {
     grid-area: dist;
     border-radius: var(--radius) 0 0 var(--radius);
 }
 
-.tool-btn:last-child {
+.navbar-btn:last-child {
     grid-area: area;
     border-radius: 0 var(--radius) var(--radius) 0;
 }
 
-.tool-btn:hover {
+.navbar-btn:hover {
     opacity: 1;
     color: var(--text-white);
 }
 
-.tool-btn:first-child:hover {
+.navbar-btn:first-child:hover {
     border-radius: var(--radius) 0 0 var(--radius);
 }
 
-.tool-btn:last-child:hover {
+.navbar-btn:last-child:hover {
     border-radius: 0 var(--radius) var(--radius) 0;
 }
 
-.tool-btn.active {
+.navbar-btn.active {
     color: white;
     opacity: 1;
 }
@@ -510,23 +505,7 @@ body.share-overlay-open {
     opacity: 0;
 }
 
-.clear-btn.visible {
-    visibility: visible;
-    opacity: 1;
-}
-
-.clear-btn:hover {
-    background: var(--accent-red);
-    color: var(--text-white);
-    border-color: #ffffff;
-}
-
-.clear-btn:active {
-    background: var(--accent-red);
-    color: white;
-}
-
-.back-btn-map {
+.tool__back-btn {
     position: absolute;
     top: calc(54px + var(--ui-btn-size-sm) + var(--button-gap));
     left: 12px;
@@ -540,33 +519,33 @@ body.share-overlay-open {
     display: grid;
     place-items: center;
     z-index: 1000;
-    transition: var(--hover-transition);
+    transition: all 0.2s;
     padding: 0;
     visibility: hidden;
     opacity: 0;
 }
 
- .back-btn-map svg {
-    width: var(--ui-icon-size);
-    height: var(--ui-icon-size);
- }
-
-.back-btn-map.visible {
+.tool__back-btn.visible {
     visibility: visible;
     opacity: 1;
 }
 
-.back-btn-map:hover {
+.tool__back-btn svg {
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
+}
+
+.tool__back-btn:hover {
     background: var(--hover-bg);
     border-color: var(--hover-border);
     color: var(--hover-text);
 }
 
-.back-btn-map:active {
+.tool__back-btn:active {
     transform: scale(0.95);
 }
 
-.clear-btn-map {
+.tool__clear-btn {
     position: absolute;
     top: calc(54px + (var(--ui-btn-size-sm) + var(--button-gap)) * 2);
     left: 12px;
@@ -586,18 +565,18 @@ body.share-overlay-open {
     opacity: 0;
 }
 
-.clear-btn-map.visible {
+.tool__clear-btn.visible {
     visibility: visible;
     opacity: 1;
 }
 
-.clear-btn-map:hover {
+.tool__clear-btn:hover {
     background: var(--accent-red);
     color: var(--text-white);
     border-color: #ffffff;
 }
 
-.clear-btn-map:active {
+.tool__clear-btn:active {
     transform: scale(0.95);
 }
 
@@ -1158,55 +1137,55 @@ body.share-overlay-open {
         border-left: none;
     }
     /* First map search button - just above divisor line */
-    .map-wrapper:first-child .search-wrapper {
+    .map-wrapper:first-child .tool__search-wrapper {
         top: auto;
         bottom: calc(18px + var(--button-gap));
         transform: none;
     }
 
     /* Second map search button - just below divisor line */
-    .map-wrapper:last-child .search-wrapper {
+    .map-wrapper:last-child .tool__search-wrapper {
         top: calc(18px + var(--button-gap));
         transform: none;
     }
 
     /* First map location button - under search button */
-    .map-wrapper:first-child .location-btn {
+    .map-wrapper:first-child .tool__location-btn {
         top: auto;
         bottom: calc(18px + var(--button-gap) + 42px);
         left: 12px;
     }
 
     /* Second map location button - under search button */
-    .map-wrapper:last-child .location-btn {
+    .map-wrapper:last-child .tool__location-btn {
         top: calc(18px + var(--button-gap) + 42px);
         bottom: auto;
         left: 12px;
     }
 
     /* First map clear button - vertically next to location button without overlap (top map) */
-    .map-wrapper:first-child .clear-btn-map {
+    .map-wrapper:first-child .tool__clear-btn {
         top: auto;
         bottom: calc(18px + var(--button-gap) + 126px);
         left: 12px;
     }
 
     /* Second map clear button - vertically next to location button without overlap (bottom map) */
-    .map-wrapper:last-child .clear-btn-map {
+    .map-wrapper:last-child .tool__clear-btn {
         top: calc(18px + var(--button-gap) + 126px);
         bottom: auto;
         left: 12px;
     }
 
     /* First map back button - between location and clear (top map) */
-    .map-wrapper:first-child .back-btn-map {
+    .map-wrapper:first-child .tool__back-btn {
         top: auto;
         bottom: calc(18px + var(--button-gap) + 84px);
         left: 12px;
     }
 
     /* Second map back button - between location and clear (bottom map) */
-    .map-wrapper:last-child .back-btn-map {
+    .map-wrapper:last-child .tool__back-btn {
         top: calc(18px + var(--button-gap) + 84px);
         bottom: auto;
         left: 12px;

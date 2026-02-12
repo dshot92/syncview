@@ -37,39 +37,39 @@
 
     <div class="map-container">
         <div class="map-wrapper">
-            <div class="search-wrapper">
-                <div class="lens-btn" id="lens1" onclick="toggleSearch(1)">
+            <div class="tool__search-wrapper">
+                <div class="tool__lens-btn" id="lens1" onclick="toggleSearch(1)">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                         stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </div>
-                <div class="search-container" id="searchContainer1">
-                    <input type="text" id="search1" class="search-box" placeholder="Search Map 1..." autocomplete="off">
-                    <button type="button" class="search-clear-btn" onclick="document.getElementById('search1').value=''; this.style.display='none';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <div class="tool__search-container" id="searchContainer1">
+                    <input type="text" id="search1" class="tool__search-box" placeholder="Search Map 1..." autocomplete="off">
+                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search1').value=''; this.style.display='none';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                     <div id="results1" class="suggestions"></div>
                 </div>
             </div>
-            <button class="location-btn" id="locationBtn1" onclick="setLocationFromDevice(1)">
+            <button class="tool__location-btn" id="locationBtn1" onclick="setLocationFromDevice(1)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                 </svg>
             </button>
-            <button class="back-btn-map" id="backBtn1" onclick="undoLastPoint()" aria-label="Undo">
+            <button class="tool__back-btn" id="backBtn1" onclick="undoLastPoint()" aria-label="Undo">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M9 14l-4-4 4-4"></path>
                     <path d="M20 20v-7a4 4 0 0 0-4-4H5"></path>
                 </svg>
             </button>
-            <button class="clear-btn-map" id="clearBtn1" onclick="clearAll()">
+            <button class="tool__clear-btn" id="clearBtn1" onclick="clearAll()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
             </button>
             <div id="map1" class="map-instance"></div>
-            <div class="map-label" id="label1">Map 1</div>
+            <div class="tool__map-label" id="label1">Map 1</div>
         </div>
         <div class="divisor-area">
             <button class="info-btn info-btn-mobile" onclick="openInfoMenu()" aria-label="Info">
@@ -81,39 +81,39 @@
             </button>
         </div>
         <div class="map-wrapper">
-            <div class="search-wrapper">
-                <div class="lens-btn" id="lens2" onclick="toggleSearch(2)">
+            <div class="tool__search-wrapper">
+                <div class="tool__lens-btn" id="lens2" onclick="toggleSearch(2)">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                         stroke-linecap="round" stroke-linejoin="round">
                         <circle cx="11" cy="11" r="8"></circle>
                         <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                     </svg>
                 </div>
-                <div class="search-container" id="searchContainer2">
-                    <input type="text" id="search2" class="search-box" placeholder="Search Map 2..." autocomplete="off">
-                    <button type="button" class="search-clear-btn" onclick="document.getElementById('search2').value=''; this.style.display='none';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                <div class="tool__search-container" id="searchContainer2">
+                    <input type="text" id="search2" class="tool__search-box" placeholder="Search Map 2..." autocomplete="off">
+                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search2').value=''; this.style.display='none';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
                     <div id="results2" class="suggestions"></div>
                 </div>
             </div>
-            <button class="location-btn" id="locationBtn2" onclick="setLocationFromDevice(2)">
+            <button class="tool__location-btn" id="locationBtn2" onclick="setLocationFromDevice(2)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                     <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
                 </svg>
             </button>
-            <button class="back-btn-map" id="backBtn2" onclick="undoLastPoint()" aria-label="Undo">
+            <button class="tool__back-btn" id="backBtn2" onclick="undoLastPoint()" aria-label="Undo">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <path d="M9 14l-4-4 4-4"></path>
                     <path d="M20 20v-7a4 4 0 0 0-4-4H5"></path>
                 </svg>
             </button>
-            <button class="clear-btn-map" id="clearBtn2" onclick="clearAll()">
+            <button class="tool__clear-btn" id="clearBtn2" onclick="clearAll()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
                     <line x1="18" y1="6" x2="6" y2="18"></line>
                     <line x1="6" y1="6" x2="18" y2="18"></line>
                 </svg>
             </button>
             <div id="map2" class="map-instance"></div>
-            <div class="map-label" id="label2">Map 2</div>
+            <div class="tool__map-label" id="label2">Map 2</div>
         </div>
     </div>
 
@@ -135,9 +135,9 @@
                 </div>
             </div>
 
-            <div class="tool-group" id="toolGroup">
-                <button class="tool-btn" id="btn-dist" onclick="setMode('dist')">Line</button>
-                <button class="tool-btn" id="btn-area" onclick="setMode('area')">Area</button>
+            <div class="navbar-group" id="navbarGroup">
+                <button class="navbar-btn" id="btn-dist" onclick="setMode('dist')">Line</button>
+                <button class="navbar-btn" id="btn-area" onclick="setMode('area')">Area</button>
             </div>
             <button class="share-btn" onclick="openShareMenu()">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
