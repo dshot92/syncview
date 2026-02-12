@@ -17,6 +17,122 @@ const hybridRef = 'https://services.arcgisonline.com/ArcGIS/rest/services/Refere
 const map1 = L.map('map1', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], 12);
 const map2 = L.map('map2', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], 12);
 
+function formatLat(lat) {
+    const a = Math.abs(lat);
+    const hemi = lat >= 0 ? 'N' : 'S';
+    return `${a.toFixed(a >= 10 ? 1 : 2)}°${hemi}`;
+}
+
+function formatLng(lng) {
+    let x = ((lng + 180) % 360 + 360) % 360 - 180;
+    const a = Math.abs(x);
+    const hemi = x >= 0 ? 'E' : 'W';
+    return `${a.toFixed(a >= 10 ? 1 : 2)}°${hemi}`;
+}
+
+function pickGridStepDegrees(bounds) {
+    const w = bounds.getWest();
+    const e = bounds.getEast();
+    const s = bounds.getSouth();
+    const n = bounds.getNorth();
+
+    const lngSpan = Math.max(0.000001, Math.abs(e - w));
+    const latSpan = Math.max(0.000001, Math.abs(n - s));
+    const span = Math.max(lngSpan, latSpan);
+
+    const candidates = [
+        90, 45, 30, 20, 10, 5, 2, 1,
+        0.5, 0.2, 0.1, 0.05, 0.02, 0.01
+    ];
+    const targetLines = 6;
+    const approx = span / targetLines;
+
+    for (let i = 0; i < candidates.length; i++) {
+        if (candidates[i] <= approx) return candidates[i];
+    }
+    return candidates[candidates.length - 1];
+}
+
+function createLatLngGrid(map) {
+    const layer = L.layerGroup([], { interactive: false });
+    layer.addTo(map);
+
+    let raf = null;
+    let idleTimer = null;
+    const updateGrid = () => {
+        if (raf) cancelAnimationFrame(raf);
+        raf = requestAnimationFrame(() => {
+            raf = null;
+            if (!map) return;
+            const b = map.getBounds();
+            const step = pickGridStepDegrees(b);
+            const west = b.getWest();
+            const east = b.getEast();
+            const south = b.getSouth();
+            const north = b.getNorth();
+
+            const startLat = Math.floor(south / step) * step;
+            const startLng = Math.floor(west / step) * step;
+
+            layer.clearLayers();
+
+            const labeledLats = new Set();
+            for (let lat = startLat; lat < north + step; lat += step) {
+                const ll1 = L.latLng(lat, west);
+                const ll2 = L.latLng(lat, east);
+                L.polyline([ll1, ll2], { interactive: false, weight: 1, opacity: 1, className: 'grid-line' }).addTo(layer);
+
+                if (!labeledLats.has(lat)) {
+                    labeledLats.add(lat);
+                    const labelPos = L.latLng(lat, east);
+                    const icon = L.divIcon({
+                        className: 'grid-label',
+                        html: `<div class="grid-label-inner grid-label-right">${formatLat(lat)}</div>`,
+                        iconSize: null
+                    });
+                    L.marker(labelPos, { interactive: false, keyboard: false, icon }).addTo(layer);
+                }
+            }
+
+            for (let lng = startLng; lng <= east + step; lng += step) {
+                const ll1 = L.latLng(south, lng);
+                const ll2 = L.latLng(north, lng);
+                L.polyline([ll1, ll2], { interactive: false, weight: 1, opacity: 1, className: 'grid-line' }).addTo(layer);
+            }
+        });
+    };
+
+    const fadeOut = () => {
+        clearTimeout(idleTimer);
+        layer.eachLayer((l) => {
+            if (l.getElement && l.getElement()) {
+                l.getElement().classList.add('fade');
+            }
+        });
+    };
+    const fadeIn = () => {
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => {
+            layer.eachLayer((l) => {
+                if (l.getElement && l.getElement()) {
+                    l.getElement().classList.remove('fade');
+                }
+            });
+        }, 200);
+    };
+
+    map.on('movestart zoomstart', fadeOut);
+    map.on('moveend zoomend resize', () => {
+        updateGrid();
+        fadeIn();
+    });
+    updateGrid();
+    return { layer, updateGrid };
+}
+
+const grid1 = createLatLngGrid(map1);
+const grid2 = createLatLngGrid(map2);
+
 let currentMapType = 'hybrid'; // Track current map type
 
 function b64UrlEncodeUtf8(str) {

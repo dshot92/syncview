@@ -1333,6 +1333,40 @@ body.share-overlay-open {
     fill: none;
 }
 
+.grid-line {
+    stroke: rgba(255, 255, 255, 0);
+    stroke-width: var(--line-stroke-width);
+    stroke-dasharray: var(--line-stroke-dasharray);
+    fill: none;
+    pointer-events: none;
+}
+
+.grid-label {
+    pointer-events: none;
+}
+
+.grid-label-inner {
+    font-size: 0.6875rem;
+    line-height: 1;
+    color: rgba(255, 255, 255, 0.85);
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
+    transform: translate(0.25rem, 0.25rem);
+    transition: opacity 0.2s ease-in-out;
+}
+.grid-label-right {
+    transform: translate(calc(-100% - 0.25rem), 0.25rem);
+}
+.grid-label-top {
+    transform: translate(0.25rem, calc(-100% - 0.25rem));
+}
+.grid-label.fade .grid-label-inner {
+    opacity: 0;
+}
+
 @media (min-width: 48em) {
     .map-container {
         grid-template-areas: var(--grid-desktop);
