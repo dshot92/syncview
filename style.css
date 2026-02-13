@@ -45,6 +45,14 @@
     /* Grid Template Areas */
     --grid-desktop: "map1 divisor map2";
     --grid-mobile: "map1" "divisor" "map2";
+
+    /* Spacing System (gap only, no padding) */
+    --gap-xs: 0.125rem;
+    --gap-sm: 0.25rem;
+    --gap-md: 0.5rem;
+    --gap-lg: 0.75rem;
+    --gap-xl: 0.875rem;
+    --gap-2xl: 1rem;
 }
 
 /* Main Layout Grid */
@@ -219,7 +227,8 @@ body.share-overlay-open {
     border-radius: 0 0 var(--radius) var(--radius);
     max-height: 12.5rem;
     overflow-y: auto;
-    display: none;
+    display: grid;
+    gap: 0;
     z-index: 2000;
     backdrop-filter: none;
     box-shadow: none;
@@ -230,7 +239,10 @@ body.share-overlay-open {
 }
 
 .suggestion-item {
-    padding: 0.5rem 0.75rem;
+    display: grid;
+    align-items: center;
+    min-height: 2rem;
+    padding-inline: var(--gap-lg);
     font-size: 0.75rem;
     color: var(--text-muted);
     cursor: pointer;
@@ -321,19 +333,19 @@ body.share-overlay-open {
 #dashboard {
     grid-area: dashboard;
     position: fixed;
-    bottom: 1rem;
-    left: 1rem;
-    right: 1rem;
+    bottom: var(--gap-2xl);
+    left: var(--gap-2xl);
+    right: var(--gap-2xl);
     z-index: 2000;
     background: var(--bg-body);
     backdrop-filter: none;
     border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
-    padding: 0.5rem;
+    padding: var(--gap-md);
     pointer-events: auto;
     display: grid;
     grid-template-areas: "nav";
-    gap: 0.5rem;
+    gap: var(--gap-md);
     max-width: 27.5rem;
     margin: 0 auto;
     box-shadow: var(--shadow);
@@ -345,7 +357,7 @@ body.share-overlay-open {
     grid-template-areas: "dropdown tools share";
     grid-template-columns: var(--ui-btn-size) 1fr var(--ui-btn-size);
     align-items: stretch;
-    gap: 0.75rem;
+    gap: var(--gap-lg);
     height: var(--ui-btn-size);
 }
 
@@ -377,21 +389,19 @@ body.share-overlay-open {
 
 .select-trigger:hover {
     background: var(--hover-bg);
-    color: var(--hover-text);
 }
 
 .select-options {
     position: absolute;
-    bottom: calc(100% + 0.25rem);
+    bottom: calc(100% + var(--gap-sm));
     left: 50%;
     transform: translateX(-50%);
     background: var(--bg-body);
     border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
-    padding: 0.25rem;
+    padding: var(--gap-sm);
     display: none;
     z-index: 2100;
-    /* Remove all visual effects that cause black overlay */
     backdrop-filter: none;
     box-shadow: none;
     min-width: 6.25rem;
@@ -402,7 +412,7 @@ body.share-overlay-open {
 }
 
 .option {
-    padding: 0.5rem 0.625rem;
+    padding: var(--gap-md) 0.625rem;
     font-size: 0.75rem;
     font-weight: 500;
     cursor: pointer;
@@ -434,7 +444,8 @@ body.share-overlay-open {
     background: var(--bg-body);
     border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
-    padding: 0.125rem;
+    gap: var(--gap-xs);
+    padding: var(--gap-xs);
     position: relative;
     backdrop-filter: none;
     opacity: 1;
@@ -504,23 +515,51 @@ body.share-overlay-open {
     opacity: 1;
 }
 
-.clear-btn {
+.clear-btn,
+.tool__clear-btn {
+    position: absolute;
+    top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 3);
+    left: var(--tool-offset);
+    width: var(--ui-btn-size-sm);
+    height: var(--ui-btn-size-sm);
     background: var(--accent-red);
-    color: var(--text-white);
     border: 0.0625rem solid #ffffff;
-    padding: 0;
-    width: var(--ui-btn-size);
-    height: var(--ui-btn-size);
     border-radius: var(--radius);
-    font-size: 0.6875rem;
-    font-weight: 800;
-    text-transform: uppercase;
+    color: var(--text-white);
     cursor: pointer;
-    transition: var(--hover-transition);
     display: grid;
     place-items: center;
+    z-index: 1000;
+    transition: all 0.2s;
+    padding: 0;
     visibility: hidden;
     opacity: 0;
+    box-shadow: var(--shadow);
+}
+
+.clear-btn.visible,
+.tool__clear-btn.visible {
+    visibility: visible;
+    opacity: 1;
+}
+
+.clear-btn:hover,
+.tool__clear-btn:hover {
+    background: var(--accent-red);
+    color: var(--text-white);
+    border-color: #ffffff;
+}
+
+.clear-btn:active,
+.tool__clear-btn:active {
+    transform: scale(0.95);
+}
+
+.clear-btn svg,
+.tool__clear-btn svg {
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
+    display: block;
 }
 
 .tool__back-btn {
@@ -549,12 +588,6 @@ body.share-overlay-open {
     opacity: 1;
 }
 
-.tool__back-btn svg {
-    width: var(--ui-icon-size);
-    height: var(--ui-icon-size);
-    display: block;
-}
-
 .tool__back-btn:hover {
     background: var(--hover-bg);
     border-color: var(--hover-border);
@@ -565,43 +598,7 @@ body.share-overlay-open {
     transform: scale(0.95);
 }
 
-.tool__clear-btn {
-    position: absolute;
-    top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 3);
-    left: var(--tool-offset);
-    width: var(--ui-btn-size-sm);
-    height: var(--ui-btn-size-sm);
-    background: var(--accent-red);
-    border: 0.0625rem solid #ffffff;
-    border-radius: var(--radius);
-    color: var(--text-white);
-    cursor: pointer;
-    display: grid;
-    place-items: center;
-    z-index: 1000;
-    transition: all 0.2s;
-    padding: 0;
-    visibility: hidden;
-    opacity: 0;
-    box-shadow: var(--shadow);
-}
-
-.tool__clear-btn.visible {
-    visibility: visible;
-    opacity: 1;
-}
-
-.tool__clear-btn:hover {
-    background: var(--accent-red);
-    color: var(--text-white);
-    border-color: #ffffff;
-}
-
-.tool__clear-btn:active {
-    transform: scale(0.95);
-}
-
-.tool__clear-btn svg {
+.tool__back-btn svg {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
     display: block;
@@ -646,7 +643,7 @@ body.share-overlay-open {
  .info-btn {
     position: absolute;
     right: calc(var(--ui-btn-size) * -1.5);
-    top: 0.5rem;
+    top: var(--gap-md);
     background: var(--bg-body);
     color: var(--text-white);
     border: 0.0625rem solid var(--border);
@@ -686,11 +683,6 @@ body.share-overlay-open {
         display: none;
     }
 
-    .nav-row {
-        grid-template-areas: "dropdown tools share";
-        grid-template-columns: var(--ui-btn-size) 1fr var(--ui-btn-size);
-    }
-
     .divisor-area {
         position: relative;
         overflow: visible;
@@ -717,7 +709,7 @@ body.share-overlay-open {
      background: rgba(0, 0, 0, 0.85);
      border: 0.0625rem solid rgba(255, 255, 255, 0.18);
      color: var(--text-white);
-     padding: 0.625rem 0.75rem;
+     padding: var(--gap-md) var(--gap-lg);
      border-radius: 0.75rem;
      font-size: 0.75rem;
      font-weight: 800;
@@ -734,7 +726,11 @@ body.share-overlay-open {
      transform: translateX(-50%) translateY(-0.25rem);
  }
 
- .overlay {
+ .suggestions.visible {
+    display: grid;
+}
+
+.overlay {
     grid-area: overlay;
     position: fixed;
     inset: 0;
@@ -743,11 +739,11 @@ body.share-overlay-open {
     backdrop-filter: blur(0.375rem);
     display: grid;
     place-items: center;
-    padding: 1rem;
+    padding: var(--gap-2xl);
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease, visibility 0.3s ease;
- }
+}
 
  .overlay.visible {
     opacity: 1;
@@ -782,7 +778,7 @@ body.share-overlay-open {
      grid-template-areas: "title close";
      grid-template-columns: 1fr auto;
      align-items: center;
-     padding: 0.75rem 0.75rem 0.625rem 0.875rem;
+     padding: var(--gap-lg);
      border-bottom: 0.0625rem solid rgba(255, 255, 255, 0.08);
  }
 
@@ -820,8 +816,8 @@ body.share-overlay-open {
          "twitter facebook"
          "linkedin email";
      grid-template-columns: 1fr 1fr;
-     gap: 0.5rem;
-     padding: 0.875rem;
+     gap: var(--gap-md);
+     padding: var(--gap-xl);
  }
 
  .share-action[data-sharer="twitter"] {
@@ -862,12 +858,13 @@ body.share-overlay-open {
 
  .share-copy {
     grid-area: copy;
-     padding: 0 0.875rem 0.875rem 0.875rem;
-     display: grid;
-     grid-template-areas: "button input";
-     grid-template-columns: 6.875rem 1fr;
-     gap: 0.625rem;
- }
+    padding-inline: var(--gap-xl);
+    padding-bottom: var(--gap-xl);
+    display: grid;
+    grid-template-areas: "button input";
+    grid-template-columns: 6.875rem 1fr;
+    gap: var(--gap-md);
+}
 
  .share-copy-btn {
      grid-area: button;
@@ -889,68 +886,68 @@ body.share-overlay-open {
     border-color: var(--hover-border);
  }
 
- .share-link {
-     grid-area: input;
-     height: 2.5rem;
-     border-radius: 0.75rem;
-     border: 0.0625rem solid var(--border);
-     background: var(--bg-body);
-     color: var(--text-white);
-     font-size: 0.75rem;
-     padding: 0 0.5rem;
-     outline: none;
-     box-sizing: border-box;
- }
+.share-link {
+    grid-area: input;
+    height: 2.5rem;
+    border-radius: 0.75rem;
+    border: 0.0625rem solid var(--border);
+    background: var(--bg-body);
+    color: var(--text-white);
+    font-size: 0.75rem;
+    padding-inline: var(--gap-md);
+    outline: none;
+    box-sizing: border-box;
+}
 
  .info-content {
     grid-area: grid;
-    padding: 0.875rem;
+    padding: var(--gap-xl);
     max-height: 60vh;
     overflow-y: auto;
- }
+    display: grid;
+    gap: var(--gap-2xl);
+}
 
  .info-section {
-    margin-bottom: 1rem;
- }
-
- .info-section:last-child {
-    margin-bottom: 0;
- }
+    display: grid;
+    gap: var(--gap-md);
+}
 
  .info-section h3 {
     font-size: 0.875rem;
     font-weight: 900;
     color: var(--text-white);
-    margin: 0 0 0.5rem 0;
+    margin: 0;
     letter-spacing: 0.02em;
- }
+}
 
  .info-section p {
     font-size: 0.75rem;
     line-height: 1.5;
     color: var(--text-muted);
-    margin: 0 0 0.5rem 0;
- }
+    margin: 0;
+}
 
  .info-section ul {
     margin: 0;
-    padding-left: 1rem;
- }
+    padding-left: var(--gap-2xl);
+    display: grid;
+    gap: var(--gap-xs);
+}
 
  .info-section li {
     font-size: 0.75rem;
     line-height: 1.5;
     color: var(--text-muted);
-    margin-bottom: 0.25rem;
- }
+}
 
  .info-section li strong {
     color: var(--text-white);
     font-weight: 600;
- }
+}
 
  .creator {
-    margin-top: 0.5rem;
+    margin-top: var(--gap-md);
  }
 
  .creator a {
@@ -965,15 +962,15 @@ body.share-overlay-open {
 
  .github-buttons {
     display: flex;
-    gap: 0.5rem;
+    gap: var(--gap-md);
     justify-content: center;
 }
 
  .github-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.75rem;
+    gap: var(--gap-md);
+    padding: var(--gap-md) var(--gap-lg);
     background: var(--bg-body);
     border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
@@ -1006,12 +1003,12 @@ body.share-overlay-open {
     background: var(--bg-body);
     border: 0.0625rem solid var(--border);
     border-radius: var(--radius);
-    padding: 0.25rem;
+    padding: var(--gap-sm);
     box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.5);
 }
 
 .ctx-item {
-    padding: 0.25rem 0.75rem;
+    padding: var(--gap-sm) var(--gap-lg);
     font-size: 0.75rem;
     color: var(--accent-red);
     font-weight: 600;
@@ -1123,10 +1120,10 @@ body.share-overlay-open {
 .measurement-label-inner {
     display: grid;
     grid-template-areas: "primary" "secondary";
-    gap: 0.125rem;
+    gap: var(--gap-xs);
     border: var(--point-border) solid var(--text-black);
     border-radius: 0.625rem;
-    padding: 0.375rem 0.625rem;
+    padding: var(--gap-sm) var(--gap-md);
     text-align: center;
     font-weight: 900;
     backdrop-filter: blur(0.75rem);
@@ -1244,43 +1241,18 @@ body.share-overlay-open {
         width: var(--ui-btn-size);
     }
 
-    .select-trigger {
-        height: 100%;
-        background: var(--bg-body);
-        color: var(--text-white);
-        border: 0.0625rem solid var(--border);
-        border-radius: var(--radius);
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0;
-        display: grid;
-        place-items: center;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .select-trigger svg {
-        transition: transform 0.2s;
-    }
-
-    .select-trigger:hover {
-        background: var(--hover-bg);
-        color: var(--hover-text);
-    }
-
     .select-options {
         position: absolute;
-        bottom: calc(100% + 0.25rem);
+        bottom: calc(100% + var(--gap-sm));
         left: 0;
         right: auto;
         transform: none;
         background: var(--bg-body);
         border: 0.0625rem solid var(--border);
         border-radius: var(--radius);
-        padding: 0.25rem;
+        padding: var(--gap-sm);
         display: none;
         z-index: 2100;
-        /* Remove all visual effects that cause black overlay */
         backdrop-filter: none;
         box-shadow: none;
         min-width: 5rem;
@@ -1290,31 +1262,6 @@ body.share-overlay-open {
 
     .select-options.open {
         display: block;
-    }
-
-    .option {
-        padding: 0.5rem 0.625rem;
-        font-size: 0.75rem;
-        font-weight: 500;
-        cursor: pointer;
-        border-radius: var(--radius);
-        color: var(--text-muted);
-        transition: all 0.2s;
-        background: transparent;
-        border: none;
-        outline: none;
-    }
-
-    .option:hover {
-        background: var(--hover-bg);
-        color: var(--hover-text);
-    }
-
-    .option:active,
-    .option:focus {
-        background: transparent;
-        color: var(--text-muted);
-        outline: none;
     }
 }
 
@@ -1332,6 +1279,22 @@ body.share-overlay-open {
     stroke-width: var(--line-stroke-width);
     stroke-dasharray: var(--line-stroke-dasharray);
     fill: none;
+}
+
+.tool__map-label {
+    position: absolute;
+    top: var(--gap-md);
+    right: var(--gap-md);
+    z-index: 1000;
+    background: var(--bg-body);
+    padding: var(--gap-xs) var(--gap-md);
+    border-radius: var(--radius);
+    font-size: 0.625rem;
+    font-weight: 800;
+    border: 0.0625rem solid var(--border);
+    color: var(--text-white);
+    text-transform: uppercase;
+    pointer-events: none;
 }
 
 .grid-line {
@@ -1352,7 +1315,7 @@ body.share-overlay-open {
     color: rgba(255, 255, 255, 0.85);
     background: rgba(0, 0, 0, 0.45);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    padding: 0.125rem 0.25rem;
+    padding: var(--gap-xs) var(--gap-sm);
     border-radius: 0.25rem;
     white-space: nowrap;
     transform: translate(0.25rem, 0.25rem);

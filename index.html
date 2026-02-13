@@ -39,78 +39,50 @@
         <div class="map-wrapper">
             <div class="tool__search-wrapper">
                 <div class="tool__lens-btn" id="lens1" onclick="toggleSearch(1)">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
+                    <svg width="18" height="18"><use href="images/icons.svg#icon-search"/></svg>
                 </div>
                 <div class="tool__search-container" id="searchContainer1">
                     <input type="text" id="search1" class="tool__search-box" placeholder="Search Map 1..." autocomplete="off">
-                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search1').value=''; this.style.display='none';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search1').value=''; this.style.display='none';"><svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg></button>
                     <div id="results1" class="suggestions"></div>
                 </div>
             </div>
             <button class="tool__location-btn" id="locationBtn1" onclick="setLocationFromDevice(1)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
+                <svg width="16" height="16"><use href="images/icons.svg#icon-location"/></svg>
             </button>
             <button class="tool__back-btn" id="backBtn1" onclick="undoLastPoint()" aria-label="Undo">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 14l-4-4 4-4"></path>
-                    <path d="M20 20v-7a4 4 0 0 0-4-4H5"></path>
-                </svg>
+                <svg width="16" height="16"><use href="images/icons.svg#icon-undo"/></svg>
             </button>
             <button class="tool__clear-btn" id="clearBtn1" onclick="clearAll()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
+                <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
             </button>
             <div id="map1" class="map-instance"></div>
             <div class="tool__map-label" id="label1">Map 1</div>
         </div>
         <div class="divisor-area">
             <button class="info-btn info-btn-mobile" onclick="openInfoMenu()" aria-label="Info">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
+                <svg width="14" height="14"><use href="images/icons.svg#icon-info"/></svg>
             </button>
         </div>
         <div class="map-wrapper">
             <div class="tool__search-wrapper">
                 <div class="tool__lens-btn" id="lens2" onclick="toggleSearch(2)">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
-                        stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="11" cy="11" r="8"></circle>
-                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-                    </svg>
+                    <svg width="18" height="18"><use href="images/icons.svg#icon-search"/></svg>
                 </div>
                 <div class="tool__search-container" id="searchContainer2">
                     <input type="text" id="search2" class="tool__search-box" placeholder="Search Map 2..." autocomplete="off">
-                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search2').value=''; this.style.display='none';"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search2').value=''; this.style.display='none';"><svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg></button>
                     <div id="results2" class="suggestions"></div>
                 </div>
             </div>
             <button class="tool__location-btn" id="locationBtn2" onclick="setLocationFromDevice(2)">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
-                </svg>
+                <svg width="16" height="16"><use href="images/icons.svg#icon-location"/></svg>
             </button>
             <button class="tool__back-btn" id="backBtn2" onclick="undoLastPoint()" aria-label="Undo">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M9 14l-4-4 4-4"></path>
-                    <path d="M20 20v-7a4 4 0 0 0-4-4H5"></path>
-                </svg>
+                <svg width="16" height="16"><use href="images/icons.svg#icon-undo"/></svg>
             </button>
             <button class="tool__clear-btn" id="clearBtn2" onclick="clearAll()">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
+                <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
             </button>
             <div id="map2" class="map-instance"></div>
             <div class="tool__map-label" id="label2">Map 2</div>
@@ -122,11 +94,7 @@
             <!-- Custom Dropdown -->
             <div class="custom-select" id="layerDropdown">
                 <div class="select-trigger" id="layerTrigger">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M1 6l11-4 11 4-11 4-11-4z"></path>
-                        <path d="M1 12l11 4 11-4"></path>
-                        <path d="M1 18l11 4 11-4"></path>
-                    </svg>
+                    <svg width="18" height="18"><use href="images/icons.svg#icon-layers"/></svg>
                 </div>
                 <div class="select-options" id="layerOptions">
                     <div class="option" data-value="hybrid">Hybrid</div>
@@ -140,20 +108,10 @@
                 <button class="navbar-btn" id="btn-area" onclick="setMode('area')">Area</button>
             </div>
             <button class="share-btn" onclick="openShareMenu()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="18" cy="5" r="3"></circle>
-                    <circle cx="6" cy="12" r="3"></circle>
-                    <circle cx="18" cy="19" r="3"></circle>
-                    <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-                    <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-                </svg>
+                <svg width="14" height="14"><use href="images/icons.svg#icon-share"/></svg>
             </button>
             <button class="info-btn" onclick="openInfoMenu()">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="12" r="10"></circle>
-                    <line x1="12" y1="16" x2="12" y2="12"></line>
-                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
-                </svg>
+                <svg width="14" height="14"><use href="images/icons.svg#icon-info"/></svg>
             </button>
         </div>
 
@@ -174,10 +132,7 @@
             <div class="overlay-header">
                 <div class="overlay-title">Share</div>
                 <button class="overlay-close" onclick="closeShareMenu()" aria-label="Close">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+                    <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
                 </button>
             </div>
 
@@ -208,10 +163,7 @@
             <div class="overlay-header">
                 <div class="overlay-title">About Sync View</div>
                 <button class="overlay-close" onclick="closeInfoMenu()" aria-label="Close">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18"></line>
-                        <line x1="6" y1="6" x2="18" y2="18"></line>
-                    </svg>
+                    <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
                 </button>
             </div>
 
@@ -235,15 +187,11 @@
                 <div class="info-section">
                     <div class="github-buttons">
                         <a href="https://github.com/dshot92/syncview" target="_blank" rel="noopener" class="github-link">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                            </svg>
+                            <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
                             Sync View
                         </a>
                         <a href="https://github.com/dshot92" target="_blank" rel="noopener" class="github-link">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
-                            </svg>
+                            <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
                             dshot92
                         </a>
                     </div>
