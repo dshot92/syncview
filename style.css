@@ -809,32 +809,28 @@ body.share-overlay-open {
     color: var(--text-white);
  }
 
- .share-grid {
+ .share-grid-socials {
     grid-area: grid;
-     display: grid;
-     grid-template-areas: 
-         "twitter facebook"
-         "whatsapp telegram";
-     grid-template-columns: 1fr 1fr;
-     gap: var(--gap-md);
-     padding: var(--gap-xl);
- }
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--gap-md);
+    padding: var(--gap-xl);
+}
 
- .share-action[data-sharer="twitter"] {
-    grid-area: twitter;
- }
+.share-grid-socials > *:nth-child(5):last-child {
+    grid-column: 1 / -1;
+    justify-self: center;
+    width: 50%;
+}
 
- .share-action[data-sharer="facebook"] {
-    grid-area: facebook;
- }
+.share-grid-copy {
+    padding-inline: var(--gap-xl);
+    padding-bottom: var(--gap-xl);
+}
 
- .share-action[data-sharer="whatsapp"] {
-    grid-area: whatsapp;
- }
-
- .share-action[data-sharer="telegram"] {
-    grid-area: telegram;
- }
+.share-grid-copy .share-action {
+    width: 100%;
+}
 
  .share-action {
      height: 2.5rem;
@@ -858,15 +854,15 @@ body.share-overlay-open {
     color: var(--text-white);
 }
 
- .share-copy {
-    grid-area: copy;
-    padding-inline: var(--gap-xl);
-    padding-bottom: var(--gap-xl);
-    display: grid;
-    grid-template-areas: "input button";
-    grid-template-columns: 1fr 1fr;
-    gap: var(--gap-md);
+.share-action svg {
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
+
+ .share-copy {
+    display: none;
+ }
 
  .share-copy-btn {
      grid-area: button;
@@ -899,6 +895,7 @@ body.share-overlay-open {
     padding-inline: var(--gap-md);
     outline: none;
     box-sizing: border-box;
+    display: none;
 }
 
  .info-content {

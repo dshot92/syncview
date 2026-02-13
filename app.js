@@ -659,6 +659,55 @@ function closeShareMenu() {
     }, 300); // Match transition duration
 }
 
+async function shareToInstagram() {
+    try {
+        // Copy the link to clipboard
+        const link = getSharableLink();
+        
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(link);
+        } else {
+            const input = document.getElementById('share-link');
+            input.value = link;
+            input.select();
+            document.execCommand('copy');
+        }
+        
+        closeShareMenu();
+        
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        
+        if (isMobile) {
+            window.location.href = 'instagram://';
+            setTimeout(() => {
+                window.open('https://instagram.com', '_blank');
+            }, 1000);
+            showToast('Link copied! Open Instagram and paste in DMs');
+        } else {
+            window.open('https://instagram.com', '_blank');
+            showToast('Link copied! Paste in Instagram DMs');
+        }
+    } catch (err) {
+        console.error('Instagram share failed:', err);
+        showToast('Could not share to Instagram');
+    }
+}
+
+function shareToTelegram() {
+    const link = getSharableLink();
+    const url = 'https://t.me/share/url?url=' + encodeURIComponent(link);
+    
+    closeShareMenu();
+    
+    // Use same window for mobile to allow Telegram app to open
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+        window.location.href = url;
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
 async function copyShareLink() {
     const link = getSharableLink();
     setShareMenuUrl(link);
