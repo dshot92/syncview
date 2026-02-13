@@ -728,34 +728,43 @@ async function copyShareLink() {
     const link = getSharableLink();
     setShareMenuUrl(link);
 
-    const input = document.getElementById('share-link');
-
+    // Try modern clipboard API first
     if (navigator.clipboard && navigator.clipboard.writeText) {
         try {
             await navigator.clipboard.writeText(link);
             flashShareCopied();
-            closeShareMenu(); // Close overlay immediately
+            closeShareMenu();
             return;
         } catch (_) {
+            // Fall through to textarea method
         }
     }
 
-    if (input) {
-        try {
-            input.focus({ preventScroll: true });
-            input.select();
-            input.setSelectionRange(0, input.value.length);
-            const ok = document.execCommand && document.execCommand('copy');
-            if (ok) {
-                flashShareCopied();
-                closeShareMenu(); // Close overlay immediately
-                return;
-            }
-        } catch (_) {
+    // Fallback: use temporary textarea (works reliably across browsers)
+    const textarea = document.createElement('textarea');
+    textarea.value = link;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.appendChild(textarea);
+    
+    try {
+        textarea.focus();
+        textarea.select();
+        textarea.setSelectionRange(0, link.length);
+        
+        const ok = document.execCommand('copy');
+        if (ok) {
+            flashShareCopied();
+            closeShareMenu();
+        } else {
+            console.error('Copy failed');
         }
+    } catch (err) {
+        console.error('Copy error:', err);
+    } finally {
+        document.body.removeChild(textarea);
     }
-
-    // Select and copy the link
 }
 
 function openInfoGizmo() {

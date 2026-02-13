@@ -8,4 +8,3 @@ Live demo: https://dshot92.github.io/syncview
 ## Libraries used
 
 - [Leaflet](https://leafletjs.com/)
-- [Turf.js](https://turfjs.org/) (area calculation for self-intersecting polygons)
