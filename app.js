@@ -724,6 +724,53 @@ function shareToTelegram() {
     }
 }
 
+function shareToTwitter() {
+    const link = getSharableLink();
+    const text = 'SyncView';
+    const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(link);
+    
+    closeShareMenu();
+    
+    // Use same window for mobile to allow Twitter app to open
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+        window.location.href = url;
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
+function shareToFacebook() {
+    const link = getSharableLink();
+    const url = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(link);
+    
+    closeShareMenu();
+    
+    // Use same window for mobile to allow Facebook app to open
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+        window.location.href = url;
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
+function shareToWhatsApp() {
+    const link = getSharableLink();
+    const text = 'SyncView: ' + link;
+    const url = 'https://wa.me/?text=' + encodeURIComponent(text);
+    
+    closeShareMenu();
+    
+    // Use same window for mobile to allow WhatsApp app to open
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+        window.location.href = url;
+    } else {
+        window.open(url, '_blank');
+    }
+}
+
 async function copyShareLink() {
     const link = getSharableLink();
     setShareMenuUrl(link);
