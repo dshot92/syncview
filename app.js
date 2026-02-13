@@ -1653,53 +1653,24 @@ function positionGizmos(bb, map, rotateGizmo, moveGizmo, labelPos, isSmallShape)
     if (!bb) return;
     
     const topMidLL = L.latLng(bb.north, (bb.west + bb.east) / 2);
-    const brLL = L.latLng(bb.south, bb.east);
 
     const topMidPt = map.latLngToContainerPoint(topMidLL);
-    const brPt = map.latLngToContainerPoint(brLL);
     
     const rotatePt = L.point(topMidPt.x, topMidPt.y - CONSTANTS.GIZMO_OFFSET_PX);
     
-    let movePt;
-    
-    // For small shapes, align move gizmo with label on same horizontal line
-    if (isSmallShape && labelPos) {
-        const labelPt = map.latLngToContainerPoint(labelPos);
-        // Position gizmo to the right of the label at the same Y level using same offset
-        const moveX = labelPt.x + 80; // Space for label width + padding
-        const moveY = labelPt.y; // Same Y as label
-        movePt = L.point(moveX, moveY);
-    } else {
-        // Normal positioning - bottom right corner
-        let moveX = brPt.x + CONSTANTS.GIZMO_OFFSET_PX;
-        const moveY = brPt.y + CONSTANTS.GIZMO_OFFSET_PX;
-        
-        // If label position is provided, check for overlap and move gizmo right if needed
-        if (labelPos) {
-            const labelPt = map.latLngToContainerPoint(labelPos);
-            const labelRadius = 60;
-            const gizmoRadius = CONSTANTS.GIZMO_RADIUS_PX;
-            const minDistance = labelRadius + gizmoRadius + 20;
-            
-            const horizontalDistance = Math.abs(moveX - labelPt.x);
-            const verticalDistance = Math.abs(moveY - labelPt.y);
-            
-            if (horizontalDistance < minDistance && verticalDistance < minDistance) {
-                moveX = labelPt.x + minDistance;
-            }
-        }
-        
-        movePt = L.point(moveX, moveY);
-    }
+    // Move gizmo: to the right of the right AABB edge, at the vertical middle
+    const rightMidLL = L.latLng((bb.north + bb.south) / 2, bb.east);
+    const rightMidPt = map.latLngToContainerPoint(rightMidLL);
+    const movePt = L.point(rightMidPt.x + CONSTANTS.GIZMO_OFFSET_PX, rightMidPt.y);
 
     const clampedRotatePt = clampToView(map, rotatePt, CONSTANTS.GIZMO_RADIUS_PX);
     const clampedMovePt = clampToView(map, movePt, CONSTANTS.GIZMO_RADIUS_PX);
 
     const topMid = map.containerPointToLatLng(clampedRotatePt);
-    const brOut = map.containerPointToLatLng(clampedMovePt);
+    const rightOut = map.containerPointToLatLng(clampedMovePt);
 
     rotateGizmo.setLatLng(topMid);
-    moveGizmo.setLatLng(brOut);
+    moveGizmo.setLatLng(rightOut);
     if (!rotateGizmo._map) rotateGizmo.addTo(map);
     if (!moveGizmo._map) moveGizmo.addTo(map);
 }
@@ -1823,12 +1794,13 @@ function labelPoint(pts, isAreaShape, map) {
         }
     }
     
-    // Label doesn't fit inside - position below AABB bottom edge
+    // Label doesn't fit inside - position at the bottom edge of AABB, in the middle
     if (!aabb) return c || L.polygon(pts).getBounds().getCenter();
     
-    // For small shapes, return the bottom-center position (same Y for both label and gizmo)
+    // For small shapes, position label at bottom edge of AABB (centered horizontally)
     const bottomCenterPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabbCenterX));
-    const offsetPt = L.point(bottomCenterPt.x, bottomCenterPt.y + CONSTANTS.LABEL_OFFSET_PX);
+    // Add a small offset so label sits just outside the bottom edge
+    const offsetPt = L.point(bottomCenterPt.x, bottomCenterPt.y + CONSTANTS.GIZMO_OFFSET_PX);
     const clampedPt = clampToView(map, offsetPt, 50);
     return map.containerPointToLatLng(clampedPt);
 }
