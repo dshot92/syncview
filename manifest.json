@@ -1,5 +1,5 @@
 {
-  "name": "Sync View - Synchronized Map Comparison",
+  "name": "Sync View",
   "short_name": "Sync View",
   "description": "Synchronized dual-map viewer for comparing locations and distances",
   "start_url": "/syncview/",
