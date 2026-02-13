@@ -1649,7 +1649,7 @@ function updateShapes(isArea, pRef, pOvl) {
 }
 
 // Position gizmos based on bounding box
-function positionGizmos(bb, map, rotateGizmo, moveGizmo) {
+function positionGizmos(bb, map, rotateGizmo, moveGizmo, labelPos, isSmallShape) {
     if (!bb) return;
     
     const topMidLL = L.latLng(bb.north, (bb.west + bb.east) / 2);
@@ -1659,7 +1659,38 @@ function positionGizmos(bb, map, rotateGizmo, moveGizmo) {
     const brPt = map.latLngToContainerPoint(brLL);
     
     const rotatePt = L.point(topMidPt.x, topMidPt.y - CONSTANTS.GIZMO_OFFSET_PX);
-    const movePt = L.point(brPt.x + CONSTANTS.GIZMO_OFFSET_PX, brPt.y + CONSTANTS.GIZMO_OFFSET_PX);
+    
+    let movePt;
+    
+    // For small shapes, align move gizmo with label on same horizontal line
+    if (isSmallShape && labelPos) {
+        const labelPt = map.latLngToContainerPoint(labelPos);
+        // Position gizmo to the right of the label at the same Y level using same offset
+        const moveX = labelPt.x + 80; // Space for label width + padding
+        const moveY = labelPt.y; // Same Y as label
+        movePt = L.point(moveX, moveY);
+    } else {
+        // Normal positioning - bottom right corner
+        let moveX = brPt.x + CONSTANTS.GIZMO_OFFSET_PX;
+        const moveY = brPt.y + CONSTANTS.GIZMO_OFFSET_PX;
+        
+        // If label position is provided, check for overlap and move gizmo right if needed
+        if (labelPos) {
+            const labelPt = map.latLngToContainerPoint(labelPos);
+            const labelRadius = 60;
+            const gizmoRadius = CONSTANTS.GIZMO_RADIUS_PX;
+            const minDistance = labelRadius + gizmoRadius + 20;
+            
+            const horizontalDistance = Math.abs(moveX - labelPt.x);
+            const verticalDistance = Math.abs(moveY - labelPt.y);
+            
+            if (horizontalDistance < minDistance && verticalDistance < minDistance) {
+                moveX = labelPt.x + minDistance;
+            }
+        }
+        
+        movePt = L.point(moveX, moveY);
+    }
 
     const clampedRotatePt = clampToView(map, rotatePt, CONSTANTS.GIZMO_RADIUS_PX);
     const clampedMovePt = clampToView(map, movePt, CONSTANTS.GIZMO_RADIUS_PX);
@@ -1771,45 +1802,34 @@ function labelPoint(pts, isAreaShape, map) {
         return map.containerPointToLatLng(clampedPt);
     }
     
+    // For area shapes, check if label fits inside first
     const aabb = getAabb(pts);
     const aabbCenterX = aabb ? (aabb.west + aabb.east) / 2 : null;
     
     const c = polyCentroid(pts);
     const fitCheck = doesLabelFitInShape(pts, map, isAreaShape);
     
-    let targetLatLng;
+    // If label fits inside, position at centroid with AABB center X
     if (c && fitCheck.fits) {
         if (aabbCenterX !== null) {
-            targetLatLng = L.latLng(c.lat, aabbCenterX);
+            const targetLatLng = L.latLng(c.lat, aabbCenterX);
+            const targetPt = map.latLngToContainerPoint(targetLatLng);
+            const clampedPt = clampToView(map, targetPt, 50);
+            return map.containerPointToLatLng(clampedPt);
         } else {
-            targetLatLng = c;
+            const targetPt = map.latLngToContainerPoint(c);
+            const clampedPt = clampToView(map, targetPt, 50);
+            return map.containerPointToLatLng(clampedPt);
         }
-    } else {
-        if (!aabb) return c || L.polygon(pts).getBounds().getCenter();
-        
-        const brPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabb.east));
-        const gizmoPt = L.point(brPt.x + CONSTANTS.GIZMO_OFFSET_PX, brPt.y + CONSTANTS.GIZMO_OFFSET_PX);
-        
-        const bottomCenterPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabbCenterX));
-        
-        const labelRadius = 50;
-        const gizmoRadius = 14;
-        const minDistance = labelRadius + gizmoRadius + 10;
-        
-        let verticalOffset = CONSTANTS.LABEL_OFFSET_PX;
-        const horizontalDistance = Math.abs(bottomCenterPt.x - gizmoPt.x);
-        
-        if (horizontalDistance < minDistance) {
-            verticalOffset = CONSTANTS.LABEL_LARGE_OFFSET_PX;
-        }
-        
-        const offsetPt = L.point(bottomCenterPt.x, bottomCenterPt.y + verticalOffset);
-        const clampedPt = clampToView(map, offsetPt, labelRadius);
-        return map.containerPointToLatLng(clampedPt);
     }
     
-    const targetPt = map.latLngToContainerPoint(targetLatLng);
-    const clampedPt = clampToView(map, targetPt, 50);
+    // Label doesn't fit inside - position below AABB bottom edge
+    if (!aabb) return c || L.polygon(pts).getBounds().getCenter();
+    
+    // For small shapes, return the bottom-center position (same Y for both label and gizmo)
+    const bottomCenterPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabbCenterX));
+    const offsetPt = L.point(bottomCenterPt.x, bottomCenterPt.y + CONSTANTS.LABEL_OFFSET_PX);
+    const clampedPt = clampToView(map, offsetPt, 50);
     return map.containerPointToLatLng(clampedPt);
 }
 
@@ -1858,9 +1878,6 @@ function update() {
         ensureLayer(ovlMap, shapes.bbOvl, false);
     }
 
-    positionGizmos(bbR, refMap, rotateGizmoRef, moveGizmoRef);
-    positionGizmos(bbO, ovlMap, rotateGizmoOvl, moveGizmoOvl);
-
     // Update measurement labels
     const vRef = isArea ? getArea(pRef) : getDist(pRef);
     const vOvl = isArea ? getArea(pOvl) : getDist(pOvl);
@@ -1870,6 +1887,16 @@ function update() {
 
     const refLabelPos = labelPoint(pRef, isArea, refMap);
     const ovlLabelPos = labelPoint(pOvl, isArea, ovlMap);
+
+    // Check if shapes are small (label doesn't fit inside)
+    const refFitCheck = doesLabelFitInShape(pRef, refMap, isArea);
+    const ovlFitCheck = doesLabelFitInShape(pOvl, ovlMap, isArea);
+    const isRefSmall = isArea && !refFitCheck.fits;
+    const isOvlSmall = isArea && !ovlFitCheck.fits;
+
+    // Position gizmos with label positions and small shape flag
+    positionGizmos(bbR, refMap, rotateGizmoRef, moveGizmoRef, refLabelPos, isRefSmall);
+    positionGizmos(bbO, ovlMap, rotateGizmoOvl, moveGizmoOvl, ovlLabelPos, isOvlSmall);
 
     if (refLabelPos) {
         if (!measureLabelRef) {
