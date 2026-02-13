@@ -14,8 +14,153 @@ const tiles = {
 };
 const hybridRef = 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
 
-const map1 = L.map('map1', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], 12);
-const map2 = L.map('map2', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], 12);
+// Constants
+const CONSTANTS = {
+    ZOOM_MIN: 0,
+    ZOOM_MAX: 22,
+    DEFAULT_ZOOM: 12,
+    TOLERANCE_PX: 15,
+    LABEL_OFFSET_PX: 40,
+    LABEL_LARGE_OFFSET_PX: 100,
+    GIZMO_RADIUS_PX: 14,
+    GIZMO_OFFSET_PX: 28,
+    MAX_NATIVE_ZOOM: 18,
+    MAX_ZOOM: 20,
+    URL_UPDATE_DELAY: 150,
+    GRID_TARGET_LINES: 6,
+    MARKER_SIZE: 14,
+    MARKER_ANCHOR: 7,
+    LAT_MIN: -85.05112878,
+    LAT_MAX: 85.05112878,
+    LNG_MIN: -180,
+    LNG_MAX: 180
+};
+
+// Default tile layer options
+const TILE_LAYER_DEFAULTS = {
+    fadeAnimation: false,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    keepBuffer: 0,
+    maxNativeZoom: CONSTANTS.MAX_NATIVE_ZOOM,
+    maxZoom: CONSTANTS.MAX_ZOOM
+};
+
+const HYBRID_LAYER_DEFAULTS = {
+    opacity: 0.9,
+    fadeAnimation: false,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    keepBuffer: 0,
+    maxNativeZoom: CONSTANTS.MAX_NATIVE_ZOOM,
+    maxZoom: CONSTANTS.MAX_ZOOM
+};
+
+// Create base tile layer for a map
+function createBaseTileLayer(mapType) {
+    const layer = L.tileLayer(tiles[mapType], TILE_LAYER_DEFAULTS);
+    layer.on('tileerror', handleTileError);
+    return layer;
+}
+
+// Create hybrid reference layer
+function createHybridLayer() {
+    const layer = L.tileLayer(hybridRef, HYBRID_LAYER_DEFAULTS);
+    layer.on('tileerror', handleTileError);
+    return layer;
+}
+
+// Create both layers for a map type
+function createTileLayers(mapType) {
+    return {
+        base: createBaseTileLayer(mapType),
+        hybrid: mapType === 'hybrid' ? createHybridLayer() : null
+    };
+}
+
+// Apply tile layers to both maps
+function applyTileLayersToMaps(mapType) {
+    // Remove existing layers
+    [map1, map2].forEach(map => {
+        [l1, l2, h1, h2].forEach(layer => {
+            if (layer && map.hasLayer(layer)) map.removeLayer(layer);
+        });
+    });
+
+    // Create new layers
+    const layers = createTileLayers(mapType);
+    l1 = layers.base.addTo(map1);
+    l2 = createBaseTileLayer(mapType).addTo(map2);
+
+    if (layers.hybrid) {
+        h1 = layers.hybrid.addTo(map1);
+        h2 = createHybridLayer().addTo(map2);
+    } else {
+        h1 = null;
+        h2 = null;
+    }
+
+    // Force redraw
+    setTimeout(() => {
+        map1.invalidateSize({ reset: true, animate: false });
+        map2.invalidateSize({ reset: true, animate: false });
+    }, 100);
+}
+
+// Marker factory - creates handle markers with consistent styling and event binding
+function createHandleMarker(latlng, isGhost = false, map) {
+    const className = isGhost ? 'ghost-handle' : 'handle';
+    const marker = L.marker(latlng, {
+        icon: L.divIcon({
+            className,
+            iconSize: [CONSTANTS.MARKER_SIZE, CONSTANTS.MARKER_SIZE],
+            iconAnchor: [CONSTANTS.MARKER_ANCHOR, CONSTANTS.MARKER_ANCHOR]
+        }),
+        draggable: true
+    });
+
+    if (map) marker.addTo(map);
+
+    bindHandleInteractionLock(marker);
+
+    // Only add context menu to reference markers
+    if (!isGhost) {
+        marker.on('contextmenu', (e) => showCtx(e, marker));
+        marker.on('click', L.DomEvent.stopPropagation);
+    }
+
+    return marker;
+}
+
+// Create a pair of markers (ref and ovl) for a point
+function createMarkerPair(latlng, refMap, ovlMap, isOvlGhost = false) {
+    const mR = createHandleMarker(latlng, false, refMap);
+    const mO = createHandleMarker(latlng, true, ovlMap);
+
+    // Add drag handlers
+    mR.on('drag', (de) => {
+        const i = markersRef.indexOf(mR);
+        if (i > -1) {
+            setMasterFromRefLatLng(i, de.target.getLatLng());
+            update();
+            scheduleUrlUpdate();
+        }
+    });
+
+    mO.on('drag', (de) => {
+        const i = markersOvl.indexOf(mO);
+        if (i > -1) {
+            setMasterFromOvlLatLng(i, de.target.getLatLng());
+            update();
+            scheduleUrlUpdate();
+        }
+    });
+
+    return { ref: mR, ovl: mO };
+}
+
+const map1 = L.map('map1', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], CONSTANTS.DEFAULT_ZOOM);
+const map2 = L.map('map2', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], CONSTANTS.DEFAULT_ZOOM);
 
 function formatLat(lat) {
     const a = Math.abs(lat);
@@ -135,29 +280,14 @@ const grid2 = createLatLngGrid(map2);
 
 let currentMapType = 'hybrid'; // Track current map type
 
-function b64UrlEncodeUtf8(str) {
-    const bytes = new TextEncoder().encode(str);
+// Unified base64 URL-safe encoding/decoding
+function b64UrlEncode(data) {
     let bin = '';
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    for (let i = 0; i < data.length; i++) bin += String.fromCharCode(data[i]);
     return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function b64UrlDecodeUtf8(b64u) {
-    const b64 = String(b64u).replace(/-/g, '+').replace(/_/g, '/');
-    const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
-    const bin = atob(padded);
-    const bytes = new Uint8Array(bin.length);
-    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-    return new TextDecoder().decode(bytes);
-}
-
-function b64UrlEncodeBytes(bytes) {
-    let bin = '';
-    for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
-}
-
-function b64UrlDecodeBytes(b64u) {
+function b64UrlDecode(b64u) {
     const b64 = String(b64u).replace(/-/g, '+').replace(/_/g, '/');
     const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
     const bin = atob(padded);
@@ -165,6 +295,19 @@ function b64UrlDecodeBytes(b64u) {
     for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return bytes;
 }
+
+// String-specific wrappers
+function b64UrlEncodeUtf8(str) {
+    return b64UrlEncode(new TextEncoder().encode(str));
+}
+
+function b64UrlDecodeUtf8(b64u) {
+    return new TextDecoder().decode(b64UrlDecode(b64u));
+}
+
+// Byte-specific wrappers (aliases for unified functions)
+const b64UrlEncodeBytes = b64UrlEncode;
+const b64UrlDecodeBytes = b64UrlDecode;
 
 function clamp(n, min, max) {
     const x = Number(n);
@@ -181,7 +324,7 @@ function round(n, dp = 6) {
 
 function safeLatLng(ll) {
     if (!ll || typeof ll.lat !== 'number' || typeof ll.lng !== 'number') return null;
-    return [clamp(ll.lat, -85.05112878, 85.05112878), clamp(ll.lng, -180, 180)];
+    return [clamp(ll.lat, CONSTANTS.LAT_MIN, CONSTANTS.LAT_MAX), clamp(ll.lng, CONSTANTS.LNG_MIN, CONSTANTS.LNG_MAX)];
 }
 
 function safeLatLngLike(arr) {
@@ -189,7 +332,7 @@ function safeLatLngLike(arr) {
     const lat = Number(arr[0]);
     const lng = Number(arr[1]);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
-    return [clamp(lat, -85.05112878, 85.05112878), clamp(lng, -180, 180)];
+    return [clamp(lat, CONSTANTS.LAT_MIN, CONSTANTS.LAT_MAX), clamp(lng, CONSTANTS.LNG_MIN, CONSTANTS.LNG_MAX)];
 }
 
 function encodeMapType(mapType) {
@@ -330,61 +473,7 @@ function applyDecodedState(state) {
         // Apply map type first
         if (mapType !== currentMapType) {
             currentMapType = mapType;
-            
-            // Remove existing layers
-            map1.removeLayer(l1);
-            map2.removeLayer(l2);
-            if (map1.hasLayer(h1)) map1.removeLayer(h1);
-            if (map2.hasLayer(h2)) map2.removeLayer(h2);
-            
-            // Create new tile layers
-            l1 = L.tileLayer(tiles[mapType], { 
-                fadeAnimation: false,
-                updateWhenIdle: false,
-                updateWhenZooming: true,
-                keepBuffer: 0,
-                maxNativeZoom: 18,
-                maxZoom: 20
-            }).addTo(map1);
-            
-            l2 = L.tileLayer(tiles[mapType], { 
-                fadeAnimation: false,
-                updateWhenIdle: false,
-                updateWhenZooming: true,
-                keepBuffer: 0,
-                maxNativeZoom: 18,
-                maxZoom: 20
-            }).addTo(map2);
-
-            // Add error handling to new layers
-            l1.on('tileerror', handleTileError);
-            l2.on('tileerror', handleTileError);
-
-            // Add hybrid reference layer for hybrid maps
-            if (mapType === 'hybrid') {
-                h1 = L.tileLayer(hybridRef, { 
-                    opacity: 0.9, 
-                    fadeAnimation: false,
-                    updateWhenIdle: false,
-                    updateWhenZooming: true,
-                    keepBuffer: 0,
-                    maxNativeZoom: 18,
-                    maxZoom: 20
-                }).addTo(map1);
-                h2 = L.tileLayer(hybridRef, { 
-                    opacity: 0.9, 
-                    fadeAnimation: false,
-                    updateWhenIdle: false,
-                    updateWhenZooming: true,
-                    keepBuffer: 0,
-                    maxNativeZoom: 18,
-                    maxZoom: 20
-                }).addTo(map2);
-                
-                // Add error handling to hybrid layers
-                h1.on('tileerror', handleTileError);
-                h2.on('tileerror', handleTileError);
-            }
+            applyTileLayersToMaps(mapType);
         }
 
         setMode(decodedMode);
@@ -412,33 +501,10 @@ function applyDecodedState(state) {
                 const ll = L.latLng(llArr[0], llArr[1]);
                 masterVertices.push({ latlng: ll });
 
-                const ghostLL = ll;
-
-                const mR = L.marker(ll, { icon: L.divIcon({ className: 'handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(refMap);
-                const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(ovlMap);
-
-                bindHandleInteractionLock(mR);
-                bindHandleInteractionLock(mO);
-
-                mR.on('contextmenu', (e) => showCtx(e, mR));
-                mR.on('click', L.DomEvent.stopPropagation);
-
-                mR.on('drag', (de) => {
-                    const i = markersRef.indexOf(mR);
-                    setMasterFromRefLatLng(i, de.target.getLatLng());
-                    update();
-                    scheduleUrlUpdate();
-                });
-
-                mO.on('drag', (de) => {
-                    const i = markersOvl.indexOf(mO);
-                    setMasterFromOvlLatLng(i, de.target.getLatLng());
-                    update();
-                    scheduleUrlUpdate();
-                });
+                const { ref: mR, ovl: mO } = createMarkerPair(ll, refMap, ovlMap);
 
                 verticesRef.push({ latlng: ll });
-                verticesOvl.push({ latlng: ghostLL });
+                verticesOvl.push({ latlng: ll });
                 markersRef.push(mR);
                 markersOvl.push(mO);
             });
@@ -737,40 +803,13 @@ document.addEventListener('click', (e) => {
     }
 });
 
-let l1 = L.tileLayer(tiles.hybrid, { 
-    fadeAnimation: false,
-    updateWhenIdle: false,
-    updateWhenZooming: true,
-    keepBuffer: 0,
-    maxNativeZoom: 18,
-    maxZoom: 20
-}).addTo(map1);
-let l2 = L.tileLayer(tiles.hybrid, { 
-    fadeAnimation: false,
-    updateWhenIdle: false,
-    updateWhenZooming: true,
-    keepBuffer: 0,
-    maxNativeZoom: 18,
-    maxZoom: 20
-}).addTo(map2);
-let h1 = L.tileLayer(hybridRef, { 
-    opacity: 0.9, 
-    fadeAnimation: false,
-    updateWhenIdle: false,
-    updateWhenZooming: true,
-    keepBuffer: 0,
-    maxNativeZoom: 18,
-    maxZoom: 20
-}).addTo(map1);
-let h2 = L.tileLayer(hybridRef, { 
-    opacity: 0.9, 
-    fadeAnimation: false,
-    updateWhenIdle: false,
-    updateWhenZooming: true,
-    keepBuffer: 0,
-    maxNativeZoom: 18,
-    maxZoom: 20
-}).addTo(map2);
+// Initialize tile layers using factory
+let { base: l1, hybrid: h1 } = createTileLayers('hybrid');
+let { base: l2, hybrid: h2 } = createTileLayers('hybrid');
+l1.addTo(map1);
+l2.addTo(map2);
+if (h1) h1.addTo(map1);
+if (h2) h2.addTo(map2);
 
 // Tile error handling to prevent black screens
 function handleTileError(e) {
@@ -789,11 +828,6 @@ function handleTileError(e) {
     }, 1000);
 }
 
-// Add error handling to initial layers
-l1.on('tileerror', handleTileError);
-l2.on('tileerror', handleTileError);
-h1.on('tileerror', handleTileError);
-h2.on('tileerror', handleTileError);
 let zoomTimeout = null;
 let isSyncing = false;
 const syncZoom = (e) => {
@@ -1001,72 +1035,9 @@ trigger.onclick = () => {
 document.querySelectorAll('.option').forEach(opt => {
     opt.onclick = () => {
         const val = opt.getAttribute('data-value');
-        currentMapType = val; // Update current map type
-        
+        currentMapType = val;
         options.classList.remove('open');
-
-        // Remove existing layers to prevent cache issues
-        map1.removeLayer(l1);
-        map2.removeLayer(l2);
-        
-        // Remove hybrid reference layers if they exist
-        if (map1.hasLayer(h1)) map1.removeLayer(h1);
-        if (map2.hasLayer(h2)) map2.removeLayer(h2);
-
-        // Create new tile layers with fresh cache
-        l1 = L.tileLayer(tiles[val], { 
-            fadeAnimation: false,
-            updateWhenIdle: false,
-            updateWhenZooming: true,
-            keepBuffer: 0,
-            maxNativeZoom: 18,
-            maxZoom: 20
-        }).addTo(map1);
-        
-        l2 = L.tileLayer(tiles[val], { 
-            fadeAnimation: false,
-            updateWhenIdle: false,
-            updateWhenZooming: true,
-            keepBuffer: 0,
-            maxNativeZoom: 18,
-            maxZoom: 20
-        }).addTo(map2);
-
-        // Add error handling to new layers
-        l1.on('tileerror', handleTileError);
-        l2.on('tileerror', handleTileError);
-
-        // Add hybrid reference layer for hybrid maps
-        if (val === 'hybrid') {
-            h1 = L.tileLayer(hybridRef, { 
-                opacity: 0.9, 
-                fadeAnimation: false,
-                updateWhenIdle: false,
-                updateWhenZooming: true,
-                keepBuffer: 0,
-                maxNativeZoom: 18,
-                maxZoom: 20
-            }).addTo(map1);
-            h2 = L.tileLayer(hybridRef, { 
-                opacity: 0.9, 
-                fadeAnimation: false,
-                updateWhenIdle: false,
-                updateWhenZooming: true,
-                keepBuffer: 0,
-                maxNativeZoom: 18,
-                maxZoom: 20
-            }).addTo(map2);
-            
-            // Add error handling to hybrid layers
-            h1.on('tileerror', handleTileError);
-            h2.on('tileerror', handleTileError);
-        }
-
-        // Force map redraw to prevent black screen on mobile
-        setTimeout(() => {
-            map1.invalidateSize({ reset: true, animate: false });
-            map2.invalidateSize({ reset: true, animate: false });
-        }, 100);
+        applyTileLayersToMaps(val);
     };
 });
 window.onclick = (e) => {
@@ -1140,17 +1111,6 @@ let moveOriginalLatLngs = [];
 let moveStartOffsetMerc = null;
 
 let suppressMapClickUntil = 0;
-
-// Movement state variables
-let isMovingAllPoints = false;
-let moveStartPoint = null;
-let originalVerticesRef = [];
-let originalVerticesOvl = [];
-let activeMoveLabel = null;
-let draggedLabel = null;
-let hasStartedDragging = false;
-let originalMercAnchorRef = null;
-let originalMercAnchorOvl = null;
 
 let mapsDisabledForLabelDrag = false;
 let mapInteractionLockCount = 0;
@@ -1508,410 +1468,388 @@ function ctxResetAll() {
     hideCtx();
 }
 
-function update() {
-    if (isZoomAnimating) return;
-    const hasPoints = masterVertices.length > 0;
-
-    const ensureLayer = (map, layer, want) => {
-        if (!layer) return;
-        if (!map) {
-            if (layer._map) layer.remove();
-            return;
-        }
-        if (want) {
-            if (!layer._map) layer.addTo(map);
-        } else {
-            if (layer._map) layer.remove();
-        }
-    };
-
-    const removeAllShapes = () => {
-        Object.values(shapes).forEach((s) => {
-            if (s && s._map) s.remove();
-        });
-    };
-
-    const removeMeasureLabels = () => {
-        if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
-        if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
-    };
-
-    if (hasPoints && refMap && ovlMap && mercAnchorRef && mercAnchorOvl) {
-        const baseMerc = getMasterMerc();
-        const refMerc = applyTransformMerc(baseMerc, shapeTransforms.ref);
-        const ovlBaseMerc = baseMerc.map((p) => L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y)));
-        const ovlMerc = applyTransformMerc(ovlBaseMerc, shapeTransforms.ovl);
-
-        verticesRef = refMerc.map(p => ({ latlng: fromMerc(p) }));
-        verticesOvl = ovlMerc.map(p => ({ latlng: fromMerc(p) }));
+// Layer management helpers
+function ensureLayer(map, layer, want) {
+    if (!layer) return;
+    if (!map) {
+        if (layer._map) layer.remove();
+        return;
     }
+    if (want) {
+        if (!layer._map) layer.addTo(map);
+    } else {
+        if (layer._map) layer.remove();
+    }
+}
 
+function removeAllShapes() {
+    Object.values(shapes).forEach((s) => {
+        if (s && s._map) s.remove();
+    });
+}
+
+function removeMeasureLabels() {
+    if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
+    if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
+}
+
+function removeGizmos() {
+    if (rotateGizmoRef && rotateGizmoRef._map) rotateGizmoRef.remove();
+    if (rotateGizmoOvl && rotateGizmoOvl._map) rotateGizmoOvl.remove();
+    if (moveGizmoRef && moveGizmoRef._map) moveGizmoRef.remove();
+    if (moveGizmoOvl && moveGizmoOvl._map) moveGizmoOvl.remove();
+}
+
+// Update vertex positions based on transforms
+function updateVertexPositions() {
+    if (!refMap || !ovlMap || !mercAnchorRef || !mercAnchorOvl || masterVertices.length === 0) return;
+    const baseMerc = getMasterMerc();
+    const refMerc = applyTransformMerc(baseMerc, shapeTransforms.ref);
+    const ovlBaseMerc = baseMerc.map((p) => L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y)));
+    const ovlMerc = applyTransformMerc(ovlBaseMerc, shapeTransforms.ovl);
+
+    verticesRef = refMerc.map(p => ({ latlng: fromMerc(p) }));
+    verticesOvl = ovlMerc.map(p => ({ latlng: fromMerc(p) }));
+}
+
+// Update marker positions on both maps
+function updateMarkerPositions() {
     const pRef = verticesRef.map(v => v.latlng);
     const pOvl = verticesOvl.map(v => v.latlng);
+    markersRef.forEach((m, i) => { if (pRef[i]) m.setLatLng(pRef[i]); });
+    markersOvl.forEach((m, i) => { if (pOvl[i]) m.setLatLng(pOvl[i]); });
+}
 
-    // Show/hide clear button based on drawing state
+// Update UI button visibility based on state
+function updateUiVisibility() {
+    const hasPoints = masterVertices.length > 0;
     const clearBtn1 = document.getElementById('clearBtn1');
     const clearBtn2 = document.getElementById('clearBtn2');
     const backBtn1 = document.getElementById('backBtn1');
     const backBtn2 = document.getElementById('backBtn2');
     
-    // Hide both clear buttons first
-    clearBtn1.classList.remove('visible');
-    clearBtn2.classList.remove('visible');
-    if (backBtn1) backBtn1.classList.remove('visible');
-    if (backBtn2) backBtn2.classList.remove('visible');
+    clearBtn1?.classList.remove('visible');
+    clearBtn2?.classList.remove('visible');
+    backBtn1?.classList.remove('visible');
+    backBtn2?.classList.remove('visible');
     
-    // Only show clear button on the reference map when drawing
     if (hasPoints && refMap) {
         if (refMap === map1) {
-            clearBtn1.classList.add('visible');
-            if (backBtn1) backBtn1.classList.add('visible');
+            clearBtn1?.classList.add('visible');
+            backBtn1?.classList.add('visible');
         } else if (refMap === map2) {
-            clearBtn2.classList.add('visible');
-            if (backBtn2) backBtn2.classList.add('visible');
+            clearBtn2?.classList.add('visible');
+            backBtn2?.classList.add('visible');
         }
     }
+}
+
+// Clamp point to stay within viewport
+function clampToView(map, pt, radius) {
+    const containerSize = map.getSize();
+    const isMobile = window.innerWidth <= 767;
+    const constrainToNav = isMobile && map === map2;
+    let maxY = containerSize.y - radius;
+    
+    if (constrainToNav) {
+        const dashboard = document.querySelector('#dashboard');
+        const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
+        const margin = 8;
+        maxY = containerSize.y - navbarHeight - radius - margin;
+    }
+    
+    return L.point(
+        Math.max(radius, Math.min(containerSize.x - radius, pt.x)),
+        Math.max(radius, Math.min(maxY, pt.y))
+    );
+}
+
+// Update shape layers based on mode
+function updateShapes(isArea, pRef, pOvl) {
+    if (isArea) {
+        ensureLayer(refMap, shapes.sRefBg, false);
+        ensureLayer(refMap, shapes.sRef, false);
+        ensureLayer(ovlMap, shapes.sOvlBg, false);
+        ensureLayer(ovlMap, shapes.sOvl, false);
+
+        ensureLayer(refMap, shapes.aRefBg, true);
+        ensureLayer(refMap, shapes.aRef, true);
+        ensureLayer(ovlMap, shapes.aOvlBg, true);
+        ensureLayer(ovlMap, shapes.aOvl, true);
+
+        shapes.aRefBg.setLatLngs(pRef);
+        shapes.aRef.setLatLngs(pRef);
+        shapes.aOvlBg.setLatLngs(pOvl);
+        shapes.aOvl.setLatLngs(pOvl);
+    } else {
+        ensureLayer(refMap, shapes.aRefBg, false);
+        ensureLayer(refMap, shapes.aRef, false);
+        ensureLayer(ovlMap, shapes.aOvlBg, false);
+        ensureLayer(ovlMap, shapes.aOvl, false);
+
+        ensureLayer(refMap, shapes.sRefBg, true);
+        ensureLayer(refMap, shapes.sRef, true);
+        ensureLayer(ovlMap, shapes.sOvlBg, true);
+        ensureLayer(ovlMap, shapes.sOvl, true);
+
+        shapes.sRefBg.setLatLngs(pRef);
+        shapes.sRef.setLatLngs(pRef);
+        shapes.sOvlBg.setLatLngs(pOvl);
+        shapes.sOvl.setLatLngs(pOvl);
+    }
+}
+
+// Position gizmos based on bounding box
+function positionGizmos(bb, map, rotateGizmo, moveGizmo) {
+    if (!bb) return;
+    
+    const topMidLL = L.latLng(bb.north, (bb.west + bb.east) / 2);
+    const brLL = L.latLng(bb.south, bb.east);
+
+    const topMidPt = map.latLngToContainerPoint(topMidLL);
+    const brPt = map.latLngToContainerPoint(brLL);
+    
+    const rotatePt = L.point(topMidPt.x, topMidPt.y - CONSTANTS.GIZMO_OFFSET_PX);
+    const movePt = L.point(brPt.x + CONSTANTS.GIZMO_OFFSET_PX, brPt.y + CONSTANTS.GIZMO_OFFSET_PX);
+
+    const clampedRotatePt = clampToView(map, rotatePt, CONSTANTS.GIZMO_RADIUS_PX);
+    const clampedMovePt = clampToView(map, movePt, CONSTANTS.GIZMO_RADIUS_PX);
+
+    const topMid = map.containerPointToLatLng(clampedRotatePt);
+    const brOut = map.containerPointToLatLng(clampedMovePt);
+
+    rotateGizmo.setLatLng(topMid);
+    moveGizmo.setLatLng(brOut);
+    if (!rotateGizmo._map) rotateGizmo.addTo(map);
+    if (!moveGizmo._map) moveGizmo.addTo(map);
+}
+
+// Format percentage for display
+function formatPct(pct) {
+    const p = Number(pct);
+    const sign = p >= 0 ? '+' : '-';
+    return `${sign}${Math.abs(p).toFixed(1)}%`;
+}
+
+// Create measurement label icon
+function makeMeasureLabel(valueText, pctText, color) {
+    return L.divIcon({
+        className: 'measurement-label',
+        html: `<div class="measurement-label-wrap">
+            <div class="measurement-label-inner" style="background-color:${color}; border-color:rgba(0, 0, 0, 0.3);">
+                <div class="measurement-label-primary" style="color:#000000">${valueText}</div>
+                ${color === 'var(--accent-yellow)' ? `<div class="measurement-label-secondary" style="color:#000000">${pctText}</div>` : ''}
+            </div>
+        </div>`,
+        iconSize: null
+    });
+}
+
+// Prevent clicks on measurement labels from propagating to map
+function preventLabelClick(marker) {
+    const labelElement = marker?.getElement?.();
+    if (!labelElement) return;
+    if (labelElement.dataset?.stopprop === '1') return;
+    labelElement.dataset.stopprop = '1';
+    labelElement.addEventListener('click', (e) => e.stopPropagation());
+    labelElement.addEventListener('touchstart', (e) => e.stopPropagation(), { passive: true });
+}
+
+// Check if label fits inside shape (uses Turf.js if available)
+function doesLabelFitInShape(pts, map, isAreaShape) {
+    if (!isAreaShape || typeof turf === 'undefined' || !turf || pts.length < 3) return { fits: true, reason: 'line' };
+    
+    let aabbWidthPx = 0;
+    let aabbHeightPx = 0;
+    
+    try {
+        const bounds = L.polygon(pts).getBounds();
+        const nw = map.latLngToContainerPoint(bounds.getNorthWest());
+        const se = map.latLngToContainerPoint(bounds.getSouthEast());
+        
+        aabbWidthPx = Math.abs(se.x - nw.x);
+        aabbHeightPx = Math.abs(se.y - nw.y);
+        
+        const labelWidthPx = 100;
+        const labelHeightPx = 50;
+        
+        if (aabbWidthPx < labelWidthPx || aabbHeightPx < labelHeightPx) {
+            return { fits: false, reason: 'too_small' };
+        }
+        
+        const centroid = polyCentroid(pts);
+        if (!centroid) return { fits: false, reason: 'no_centroid' };
+        
+        const centerPt = map.latLngToContainerPoint(centroid);
+        const halfWidthLatLng = map.containerPointToLatLng(L.point(centerPt.x - labelWidthPx/2, centerPt.y));
+        const halfHeightLatLng = map.containerPointToLatLng(L.point(centerPt.x, centerPt.y - labelHeightPx/2));
+        
+        const dLng = Math.abs(centroid.lng - halfWidthLatLng.lng);
+        const dLat = Math.abs(centroid.lat - halfHeightLatLng.lat);
+        
+        const labelRing = [
+            [centroid.lng - dLng, centroid.lat - dLat],
+            [centroid.lng + dLng, centroid.lat - dLat],
+            [centroid.lng + dLng, centroid.lat + dLat],
+            [centroid.lng - dLng, centroid.lat + dLat],
+            [centroid.lng - dLng, centroid.lat - dLat]
+        ];
+        
+        const polyRing = pts.map(p => [p.lng, p.lat]);
+        if (polyRing.length > 0 && (polyRing[0][0] !== polyRing[polyRing.length-1][0] || polyRing[0][1] !== polyRing[polyRing.length-1][1])) {
+            polyRing.push([polyRing[0][0], polyRing[0][1]]);
+        }
+        
+        const labelPoly = turf.polygon([labelRing]);
+        const shapePoly = turf.polygon([polyRing]);
+        
+        const isContained = turf.booleanContains(shapePoly, labelPoly) || turf.booleanWithin(labelPoly, shapePoly);
+        
+        return { fits: isContained, reason: isContained ? 'fits' : 'not_contained' };
+    } catch (e) {
+        return { fits: aabbWidthPx >= 100 && aabbHeightPx >= 50, reason: 'fallback' };
+    }
+}
+
+// Calculate position for measurement label
+function labelPoint(pts, isAreaShape, map) {
+    if (!pts.length) return null;
+    if (!isAreaShape) {
+        const mid = lineMidpoint(pts);
+        if (!mid) return null;
+        const midPt = map.latLngToContainerPoint(mid);
+        const clampedPt = clampToView(map, midPt, 50);
+        return map.containerPointToLatLng(clampedPt);
+    }
+    
+    const aabb = getAabb(pts);
+    const aabbCenterX = aabb ? (aabb.west + aabb.east) / 2 : null;
+    
+    const c = polyCentroid(pts);
+    const fitCheck = doesLabelFitInShape(pts, map, isAreaShape);
+    
+    let targetLatLng;
+    if (c && fitCheck.fits) {
+        if (aabbCenterX !== null) {
+            targetLatLng = L.latLng(c.lat, aabbCenterX);
+        } else {
+            targetLatLng = c;
+        }
+    } else {
+        if (!aabb) return c || L.polygon(pts).getBounds().getCenter();
+        
+        const brPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabb.east));
+        const gizmoPt = L.point(brPt.x + CONSTANTS.GIZMO_OFFSET_PX, brPt.y + CONSTANTS.GIZMO_OFFSET_PX);
+        
+        const bottomCenterPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabbCenterX));
+        
+        const labelRadius = 50;
+        const gizmoRadius = 14;
+        const minDistance = labelRadius + gizmoRadius + 10;
+        
+        let verticalOffset = CONSTANTS.LABEL_OFFSET_PX;
+        const horizontalDistance = Math.abs(bottomCenterPt.x - gizmoPt.x);
+        
+        if (horizontalDistance < minDistance) {
+            verticalOffset = CONSTANTS.LABEL_LARGE_OFFSET_PX;
+        }
+        
+        const offsetPt = L.point(bottomCenterPt.x, bottomCenterPt.y + verticalOffset);
+        const clampedPt = clampToView(map, offsetPt, labelRadius);
+        return map.containerPointToLatLng(clampedPt);
+    }
+    
+    const targetPt = map.latLngToContainerPoint(targetLatLng);
+    const clampedPt = clampToView(map, targetPt, 50);
+    return map.containerPointToLatLng(clampedPt);
+}
+
+// Main update function - orchestrates all sub-updates
+function update() {
+    if (isZoomAnimating) return;
+    const hasPoints = masterVertices.length > 0;
+
+    updateVertexPositions();
+    updateUiVisibility();
+
+    const pRef = verticesRef.map(v => v.latlng);
+    const pOvl = verticesOvl.map(v => v.latlng);
 
     if (!hasPoints || !refMap || !ovlMap) {
         removeAllShapes();
         removeMeasureLabels();
-        if (rotateGizmoRef && rotateGizmoRef._map) rotateGizmoRef.remove();
-        if (rotateGizmoOvl && rotateGizmoOvl._map) rotateGizmoOvl.remove();
-        if (moveGizmoRef && moveGizmoRef._map) moveGizmoRef.remove();
-        if (moveGizmoOvl && moveGizmoOvl._map) moveGizmoOvl.remove();
+        removeGizmos();
         return;
     }
 
-    if (hasPoints && refMap && ovlMap) {
-        const isArea = mode === 'area';
-        const polyRef = pRef;
-        const polyOvl = pOvl;
+    const isArea = mode === 'area';
+    updateShapes(isArea, pRef, pOvl);
+    updateMarkerPositions();
 
-        // Unified clamping function for gizmos and labels
-        const clampToView = (map, pt, radius) => {
-            const containerSize = map.getSize();
-            
-            // On mobile, constrain to stay above the navbar area (bottom view only)
-            const isMobile = window.innerWidth <= 767;
-            const constrainToNav = isMobile && map === map2;
-            let maxY = containerSize.y - radius;
-            
-            if (constrainToNav) {
-                const dashboard = document.querySelector('#dashboard');
-                const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
-                const margin = 8;
-                maxY = containerSize.y - navbarHeight - radius - margin;
-            }
-            
-            return L.point(
-                Math.max(radius, Math.min(containerSize.x - radius, pt.x)),
-                Math.max(radius, Math.min(maxY, pt.y))
-            );
-        };
+    const isComplete = pRef.length >= (isArea ? 3 : 2);
+    if (!isComplete) {
+        removeMeasureLabels();
+        ensureLayer(refMap, shapes.bbRef, false);
+        ensureLayer(ovlMap, shapes.bbOvl, false);
+        return;
+    }
 
-        if (isArea) {
-            ensureLayer(refMap, shapes.sRefBg, false);
-            ensureLayer(refMap, shapes.sRef, false);
-            ensureLayer(ovlMap, shapes.sOvlBg, false);
-            ensureLayer(ovlMap, shapes.sOvl, false);
+    ensureGizmoMarkers();
 
-            ensureLayer(refMap, shapes.aRefBg, true);
-            ensureLayer(refMap, shapes.aRef, true);
-            ensureLayer(ovlMap, shapes.aOvlBg, true);
-            ensureLayer(ovlMap, shapes.aOvl, true);
+    const bbR = getAabb(pRef);
+    const bbO = getAabb(pOvl);
 
-            shapes.aRefBg.setLatLngs(polyRef);
-            shapes.aRef.setLatLngs(polyRef);
-            shapes.aOvlBg.setLatLngs(polyOvl);
-            shapes.aOvl.setLatLngs(polyOvl);
+    if (showAabb) {
+        ensureLayer(refMap, shapes.bbRef, !!bbR);
+        ensureLayer(ovlMap, shapes.bbOvl, !!bbO);
+        if (bbR) shapes.bbRef.setBounds([[bbR.south, bbR.west], [bbR.north, bbR.east]]);
+        if (bbO) shapes.bbOvl.setBounds([[bbO.south, bbO.west], [bbO.north, bbO.east]]);
+    } else {
+        ensureLayer(refMap, shapes.bbRef, false);
+        ensureLayer(ovlMap, shapes.bbOvl, false);
+    }
+
+    positionGizmos(bbR, refMap, rotateGizmoRef, moveGizmoRef);
+    positionGizmos(bbO, ovlMap, rotateGizmoOvl, moveGizmoOvl);
+
+    // Update measurement labels
+    const vRef = isArea ? getArea(pRef) : getDist(pRef);
+    const vOvl = isArea ? getArea(pOvl) : getDist(pOvl);
+    const pctDeltaVsRef = vRef > 0 ? ((vOvl - vRef) / vRef) * 100 : 0;
+    const pctRef = formatPct(-pctDeltaVsRef);
+    const pctOvl = formatPct(pctDeltaVsRef);
+
+    const refLabelPos = labelPoint(pRef, isArea, refMap);
+    const ovlLabelPos = labelPoint(pOvl, isArea, ovlMap);
+
+    if (refLabelPos) {
+        if (!measureLabelRef) {
+            measureLabelRef = L.marker(refLabelPos, {
+                interactive: true,
+                keyboard: false,
+                icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)')
+            }).addTo(refMap);
         } else {
-            ensureLayer(refMap, shapes.aRefBg, false);
-            ensureLayer(refMap, shapes.aRef, false);
-            ensureLayer(ovlMap, shapes.aOvlBg, false);
-            ensureLayer(ovlMap, shapes.aOvl, false);
-
-            ensureLayer(refMap, shapes.sRefBg, true);
-            ensureLayer(refMap, shapes.sRef, true);
-            ensureLayer(ovlMap, shapes.sOvlBg, true);
-            ensureLayer(ovlMap, shapes.sOvl, true);
-
-            shapes.sRefBg.setLatLngs(polyRef);
-            shapes.sRef.setLatLngs(polyRef);
-            shapes.sOvlBg.setLatLngs(polyOvl);
-            shapes.sOvl.setLatLngs(polyOvl);
+            if (!measureLabelRef._map) measureLabelRef.addTo(refMap);
+            measureLabelRef.setLatLng(refLabelPos);
+            measureLabelRef.setIcon(makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)'));
         }
+        preventLabelClick(measureLabelRef);
+    }
 
-        markersRef.forEach((m, i) => { if (pRef[i]) m.setLatLng(pRef[i]); });
-        markersOvl.forEach((m, i) => { if (pOvl[i]) m.setLatLng(pOvl[i]); });
-
-        const isComplete = pRef.length >= (isArea ? 3 : 2);
-        if (!isComplete) {
-            removeMeasureLabels();
-            ensureLayer(refMap, shapes.bbRef, false);
-            ensureLayer(ovlMap, shapes.bbOvl, false);
-            return;
-        }
-
-        ensureGizmoMarkers();
-
-        const bbR = getAabb(polyRef);
-        const bbO = getAabb(polyOvl);
-
-        if (showAabb) {
-            ensureLayer(refMap, shapes.bbRef, !!bbR);
-            ensureLayer(ovlMap, shapes.bbOvl, !!bbO);
-            if (bbR) shapes.bbRef.setBounds([[bbR.south, bbR.west], [bbR.north, bbR.east]]);
-            if (bbO) shapes.bbOvl.setBounds([[bbO.south, bbO.west], [bbO.north, bbO.east]]);
+    if (ovlLabelPos) {
+        if (!measureLabelOvl) {
+            measureLabelOvl = L.marker(ovlLabelPos, {
+                interactive: true,
+                keyboard: false,
+                icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)')
+            }).addTo(ovlMap);
         } else {
-            ensureLayer(refMap, shapes.bbRef, false);
-            ensureLayer(ovlMap, shapes.bbOvl, false);
+            if (!measureLabelOvl._map) measureLabelOvl.addTo(ovlMap);
+            measureLabelOvl.setLatLng(ovlLabelPos);
+            measureLabelOvl.setIcon(makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)'));
         }
-
-        if (bbR) {
-            const topMidLL = L.latLng(bbR.north, (bbR.west + bbR.east) / 2);
-            const brLL = L.latLng(bbR.south, bbR.east);
-
-            const topMidPt = refMap.latLngToContainerPoint(topMidLL);
-            const brPt = refMap.latLngToContainerPoint(brLL);
-            
-            const rotatePt = L.point(topMidPt.x, topMidPt.y - 28);
-            const movePt = L.point(brPt.x + 28, brPt.y + 28);
-
-            const clampedRotatePt = clampToView(refMap, rotatePt, 14);
-            const clampedMovePt = clampToView(refMap, movePt, 14);
-
-            const topMid = refMap.containerPointToLatLng(clampedRotatePt);
-            const brOut = refMap.containerPointToLatLng(clampedMovePt);
-
-            rotateGizmoRef.setLatLng(topMid);
-            moveGizmoRef.setLatLng(brOut);
-            if (!rotateGizmoRef._map) rotateGizmoRef.addTo(refMap);
-            if (!moveGizmoRef._map) moveGizmoRef.addTo(refMap);
-        }
-        if (bbO) {
-            const topMidLL = L.latLng(bbO.north, (bbO.west + bbO.east) / 2);
-            const brLL = L.latLng(bbO.south, bbO.east);
-
-            const topMidPt = ovlMap.latLngToContainerPoint(topMidLL);
-            const brPt = ovlMap.latLngToContainerPoint(brLL);
-            
-            const rotatePt = L.point(topMidPt.x, topMidPt.y - 28);
-            const movePt = L.point(brPt.x + 28, brPt.y + 28);
-
-            const clampedRotatePt = clampToView(ovlMap, rotatePt, 14);
-            const clampedMovePt = clampToView(ovlMap, movePt, 14);
-
-            const topMid = ovlMap.containerPointToLatLng(clampedRotatePt);
-            const brOut = ovlMap.containerPointToLatLng(clampedMovePt);
-
-            rotateGizmoOvl.setLatLng(topMid);
-            moveGizmoOvl.setLatLng(brOut);
-            if (!rotateGizmoOvl._map) rotateGizmoOvl.addTo(ovlMap);
-            if (!moveGizmoOvl._map) moveGizmoOvl.addTo(ovlMap);
-        }
-
-        if (isComplete) {
-            const vRef = isArea ? getArea(polyRef) : getDist(polyRef);
-            const vOvl = isArea ? getArea(polyOvl) : getDist(polyOvl);
-
-            const pctDeltaVsRef = vRef > 0 ? ((vOvl - vRef) / vRef) * 100 : 0;
-            const fmtPct = (pct) => {
-                const p = Number(pct);
-                const sign = p >= 0 ? '+' : '-';
-                return `${sign}${Math.abs(p).toFixed(1)}%`;
-            };
-
-            const doesLabelFitInShape = (pts, map, isAreaShape) => {
-                if (!isAreaShape || !turf || pts.length < 3) return { fits: true, reason: 'line' };
-                
-                // Initialize fallback dimensions in case of early error
-                let aabbWidthPx = 0;
-                let aabbHeightPx = 0;
-                
-                try {
-                    // Get AABB in pixel space to estimate label dimensions needed
-                    const bounds = L.polygon(pts).getBounds();
-                    const nw = map.latLngToContainerPoint(bounds.getNorthWest());
-                    const se = map.latLngToContainerPoint(bounds.getSouthEast());
-                    
-                    aabbWidthPx = Math.abs(se.x - nw.x);
-                    aabbHeightPx = Math.abs(se.y - nw.y);
-                    
-                    // Estimate label size (roughly 100x50px for typical measurement display)
-                    const labelWidthPx = 100;
-                    const labelHeightPx = 50;
-                    
-                    // If AABB is smaller than label, it definitely won't fit
-                    if (aabbWidthPx < labelWidthPx || aabbHeightPx < labelHeightPx) {
-                        return { fits: false, reason: 'too_small' };
-                    }
-                    
-                    // Use Turf to check if a label-sized rectangle at centroid would be contained
-                    const centroid = polyCentroid(pts);
-                    if (!centroid) return { fits: false, reason: 'no_centroid' };
-                    
-                    // Convert pixel dimensions to approximate lat/lng offsets
-                    const centerPt = map.latLngToContainerPoint(centroid);
-                    const halfWidthLatLng = map.containerPointToLatLng(L.point(centerPt.x - labelWidthPx/2, centerPt.y));
-                    const halfHeightLatLng = map.containerPointToLatLng(L.point(centerPt.x, centerPt.y - labelHeightPx/2));
-                    
-                    const dLng = Math.abs(centroid.lng - halfWidthLatLng.lng);
-                    const dLat = Math.abs(centroid.lat - halfHeightLatLng.lat);
-                    
-                    // Create a rectangle representing the label bounds
-                    const labelRing = [
-                        [centroid.lng - dLng, centroid.lat - dLat],
-                        [centroid.lng + dLng, centroid.lat - dLat],
-                        [centroid.lng + dLng, centroid.lat + dLat],
-                        [centroid.lng - dLng, centroid.lat + dLat],
-                        [centroid.lng - dLng, centroid.lat - dLat]
-                    ];
-                    
-                    const polyRing = pts.map(p => [p.lng, p.lat]);
-                    // Close the ring
-                    if (polyRing.length > 0 && (polyRing[0][0] !== polyRing[polyRing.length-1][0] || polyRing[0][1] !== polyRing[polyRing.length-1][1])) {
-                        polyRing.push([polyRing[0][0], polyRing[0][1]]);
-                    }
-                    
-                    const labelPoly = turf.polygon([labelRing]);
-                    const shapePoly = turf.polygon([polyRing]);
-                    
-                    // Check if label polygon is fully contained within shape
-                    const isContained = turf.booleanContains(shapePoly, labelPoly) || turf.booleanWithin(labelPoly, shapePoly);
-                    
-                    return { fits: isContained, reason: isContained ? 'fits' : 'not_contained' };
-                } catch (e) {
-                    // If Turf check fails, fall back to simple size check
-                    return { fits: aabbWidthPx >= 100 && aabbHeightPx >= 50, reason: 'fallback' };
-                }
-            };
-
-            const labelPoint = (pts, isAreaShape, map) => {
-                if (!pts.length) return null;
-                if (!isAreaShape) {
-                    const mid = lineMidpoint(pts);
-                    if (!mid) return null;
-                    // Clamp line midpoint to viewport
-                    const midPt = map.latLngToContainerPoint(mid);
-                    const clampedPt = clampToView(map, midPt, 50);
-                    return map.containerPointToLatLng(clampedPt);
-                }
-                
-                // Get AABB for horizontal center calculation
-                const aabb = getAabb(pts);
-                const aabbCenterX = aabb ? (aabb.west + aabb.east) / 2 : null;
-                
-                const c = polyCentroid(pts);
-                const fitCheck = doesLabelFitInShape(pts, map, isAreaShape);
-                
-                let targetLatLng;
-                if (c && fitCheck.fits) {
-                    // Label fits inside - center horizontally on AABB center, use centroid Y
-                    if (aabbCenterX !== null) {
-                        targetLatLng = L.latLng(c.lat, aabbCenterX);
-                    } else {
-                        targetLatLng = c;
-                    }
-                } else {
-                    // Label doesn't fit - position it below the AABB bottom edge with offset
-                    // Center horizontally on AABB center
-                    if (!aabb) return c || L.polygon(pts).getBounds().getCenter();
-                    
-                    // Calculate gizmo position to avoid collision
-                    const brPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabb.east));
-                    const gizmoPt = L.point(brPt.x + 28, brPt.y + 28); // gizmo at bottom-right + 28px
-                    
-                    // Calculate offset in pixels and convert to lat/lng
-                    // Position below the shape, centered horizontally on AABB center
-                    const bottomCenterPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabbCenterX));
-                    
-                    // Check if label would overlap with gizmo (label ~50px radius, gizmo ~14px radius)
-                    // If gizmo is close to label's intended position, increase vertical offset
-                    const labelRadius = 50;
-                    const gizmoRadius = 14;
-                    const minDistance = labelRadius + gizmoRadius + 10; // 10px padding
-                    
-                    let verticalOffset = 40; // default 40px below
-                    const horizontalDistance = Math.abs(bottomCenterPt.x - gizmoPt.x);
-                    
-                    // If horizontally close to gizmo, push label further down
-                    if (horizontalDistance < minDistance) {
-                        verticalOffset = 100; // push further down when near gizmo
-                    }
-                    
-                    const offsetPt = L.point(bottomCenterPt.x, bottomCenterPt.y + verticalOffset);
-                    const clampedPt = clampToView(map, offsetPt, labelRadius);
-                    const offsetLatLng = map.containerPointToLatLng(clampedPt);
-                    
-                    return offsetLatLng;
-                }
-                
-                // Clamp the target position to viewport (for when label fits inside)
-                const targetPt = map.latLngToContainerPoint(targetLatLng);
-                const clampedPt = clampToView(map, targetPt, 50);
-                return map.containerPointToLatLng(clampedPt);
-            };
-
-            const makeMeasureLabel = (valueText, pctText, color, isRef) => L.divIcon({
-                className: 'measurement-label',
-                html: `<div class="measurement-label-wrap">
-                    <div class="measurement-label-inner" style="background-color:${color}; border-color:rgba(0, 0, 0, 0.3);">
-                        <div class="measurement-label-primary" style="color:#000000">${valueText}</div>
-                        ${color === 'var(--accent-yellow)' ? `<div class="measurement-label-secondary" style="color:#000000">${pctText}</div>` : ''}
-                    </div>
-                </div>`,
-                iconSize: null
-            });
-
-            const pctRef = fmtPct(-pctDeltaVsRef);
-            const pctOvl = fmtPct(pctDeltaVsRef);
-
-            const preventLabelClick = (marker) => {
-                const labelElement = marker && marker.getElement ? marker.getElement() : null;
-                if (!labelElement) return;
-                if (labelElement.dataset && labelElement.dataset.stopprop === '1') return;
-                if (labelElement.dataset) labelElement.dataset.stopprop = '1';
-                labelElement.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                });
-                labelElement.addEventListener('touchstart', (e) => {
-                    e.stopPropagation();
-                }, { passive: true });
-            };
-
-            const refLabelPos = labelPoint(polyRef, isArea, refMap);
-            const ovlLabelPos = labelPoint(polyOvl, isArea, ovlMap);
-
-            if (refLabelPos) {
-                if (!measureLabelRef) {
-                    measureLabelRef = L.marker(refLabelPos, {
-                        interactive: true,
-                        keyboard: false,
-                        icon: makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)', true)
-                    }).addTo(refMap);
-                } else {
-                    if (!measureLabelRef._map) measureLabelRef.addTo(refMap);
-                    measureLabelRef.setLatLng(refLabelPos);
-                    measureLabelRef.setIcon(makeMeasureLabel(fmt(vRef, mode), pctRef, 'var(--accent-blue)', true));
-                }
-                preventLabelClick(measureLabelRef);
-            }
-
-            if (ovlLabelPos) {
-                if (!measureLabelOvl) {
-                    measureLabelOvl = L.marker(ovlLabelPos, {
-                        interactive: true,
-                        keyboard: false,
-                        icon: makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)', false)
-                    }).addTo(ovlMap);
-                } else {
-                    if (!measureLabelOvl._map) measureLabelOvl.addTo(ovlMap);
-                    measureLabelOvl.setLatLng(ovlLabelPos);
-                    measureLabelOvl.setIcon(makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)', false));
-                }
-                preventLabelClick(measureLabelOvl);
-            }
-        }
+        preventLabelClick(measureLabelOvl);
     }
 }
 
@@ -2090,28 +2028,7 @@ function handleMapClick(e, src) {
         masterLL = fromMerc(mMerc);
     }
 
-    const mR = L.marker(e.latlng, { icon: L.divIcon({ className: 'handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(refMap);
-    const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(ovlMap);
-
-    bindHandleInteractionLock(mR);
-    bindHandleInteractionLock(mO);
-
-    mR.on('contextmenu', (e) => showCtx(e, mR));
-    mR.on('click', L.DomEvent.stopPropagation);
-
-    mR.on('drag', (de) => {
-        const i = markersRef.indexOf(mR);
-        setMasterFromRefLatLng(i, de.target.getLatLng());
-        update();
-        scheduleUrlUpdate();
-    });
-
-    mO.on('drag', (de) => {
-        const i = markersOvl.indexOf(mO);
-        setMasterFromOvlLatLng(i, de.target.getLatLng());
-        update();
-        scheduleUrlUpdate();
-    });
+    const { ref: mR, ovl: mO } = createMarkerPair(e.latlng, refMap, ovlMap);
 
     masterVertices.push({ latlng: masterLL });
     verticesRef.push({ latlng: e.latlng });
@@ -2188,28 +2105,7 @@ function insertIntermediatePoint(index, latlng, src) {
         masterLL = fromMerc(mMerc);
     }
 
-    const mR = L.marker(latlng, { icon: L.divIcon({ className: 'handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(refMap);
-    const mO = L.marker(ghostLL, { icon: L.divIcon({ className: 'ghost-handle', iconSize: [14, 14], iconAnchor: [7, 7] }), draggable: true }).addTo(ovlMap);
-
-    bindHandleInteractionLock(mR);
-    bindHandleInteractionLock(mO);
-
-    mR.on('contextmenu', (e) => showCtx(e, mR));
-    mR.on('click', L.DomEvent.stopPropagation);
-
-    mR.on('drag', (de) => {
-        const i = markersRef.indexOf(mR);
-        setMasterFromRefLatLng(i, de.target.getLatLng());
-        update();
-        scheduleUrlUpdate();
-    });
-
-    mO.on('drag', (de) => {
-        const i = markersOvl.indexOf(mO);
-        setMasterFromOvlLatLng(i, de.target.getLatLng());
-        update();
-        scheduleUrlUpdate();
-    });
+    const { ref: mR, ovl: mO } = createMarkerPair(latlng, refMap, ovlMap);
 
     // Insert at the specified index
     masterVertices.splice(index, 0, { latlng: masterLL });
@@ -2252,10 +2148,6 @@ function getLatLngFromDomEvent(map, ev) {
         : ev;
     const containerPoint = map.mouseEventToContainerPoint(src);
     return map.containerPointToLatLng(containerPoint);
-}
-
-function bindMeasurementLabelDrag(marker, labelType) {
-    return;
 }
 
 function bindHandleInteractionLock(marker) {
@@ -2609,15 +2501,15 @@ function handleLabelDrag(e) {
     }
     
     // Update the dragged label position using the appropriate points
-    const labelPoint = activeMoveLabel === 'ref' ? 
+    const labelPoints = activeMoveLabel === 'ref' ? 
         verticesRef.map(v => v.latlng) : verticesOvl.map(v => v.latlng);
     
-    if (labelPoint.length > 0) {
+    if (labelPoints.length > 0) {
         const isArea = mode === 'area';
         const newPosition = isArea ? 
-            (polyCentroid(labelPoint) && pointInPolygon(polyCentroid(labelPoint), labelPoint) ? 
-                polyCentroid(labelPoint) : L.polygon(labelPoint).getBounds().getCenter()) :
-            lineMidpoint(labelPoint);
+            (polyCentroid(labelPoints) && pointInPolygon(polyCentroid(labelPoints), labelPoints) ? 
+                polyCentroid(labelPoints) : L.polygon(labelPoints).getBounds().getCenter()) :
+            lineMidpoint(labelPoints);
         
         if (newPosition) {
             draggedLabel.setLatLng(newPosition);
