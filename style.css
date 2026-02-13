@@ -814,7 +814,7 @@ body.share-overlay-open {
      display: grid;
      grid-template-areas: 
          "twitter facebook"
-         "linkedin email";
+         "whatsapp telegram";
      grid-template-columns: 1fr 1fr;
      gap: var(--gap-md);
      padding: var(--gap-xl);
@@ -828,12 +828,12 @@ body.share-overlay-open {
     grid-area: facebook;
  }
 
- .share-action[data-sharer="linkedin"] {
-    grid-area: linkedin;
+ .share-action[data-sharer="whatsapp"] {
+    grid-area: whatsapp;
  }
 
- .share-action[data-sharer="email"] {
-    grid-area: email;
+ .share-action[data-sharer="telegram"] {
+    grid-area: telegram;
  }
 
  .share-action {
@@ -846,8 +846,10 @@ body.share-overlay-open {
      font-weight: 800;
      cursor: pointer;
      transition: var(--hover-transition);
-     display: grid;
-     place-items: center;
+     display: flex;
+     align-items: center;
+     justify-content: center;
+     gap: var(--gap-sm);
  }
 
  .share-action:hover {
@@ -861,8 +863,8 @@ body.share-overlay-open {
     padding-inline: var(--gap-xl);
     padding-bottom: var(--gap-xl);
     display: grid;
-    grid-template-areas: "button input";
-    grid-template-columns: 6.875rem 1fr;
+    grid-template-areas: "input button";
+    grid-template-columns: 1fr 1fr;
     gap: var(--gap-md);
 }
 
