@@ -1894,7 +1894,8 @@ function labelPoint(pts, isAreaShape, map) {
 
 // Main update function - orchestrates all sub-updates
 function update() {
-    // Allow updates during zoom animation to keep gizmos positioned correctly
+    // Skip gizmo/label positioning during zoom animation to prevent desync with shapes
+    // Shapes use CSS transforms during animations, but latLngToContainerPoint uses target state
     const hasPoints = masterVertices.length > 0;
 
     updateVertexPositions();
@@ -1911,7 +1912,11 @@ function update() {
     }
 
     const isArea = mode === 'area';
-    updateShapes(isArea, pRef, pOvl);
+    
+    // Skip shape updates during zoom animation - let Leaflet handle smooth animation like markers
+    if (!isZoomAnimating) {
+        updateShapes(isArea, pRef, pOvl);
+    }
     updateMarkerPositions();
 
     const isComplete = pRef.length >= (isArea ? 3 : 2);
@@ -1921,6 +1926,9 @@ function update() {
         ensureLayer(ovlMap, shapes.bbOvl, false);
         return;
     }
+
+    // Skip gizmo/label updates during zoom animation - shapes and markers still update
+    if (isZoomAnimating) return;
 
     ensureGizmoMarkers();
 
