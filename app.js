@@ -473,6 +473,7 @@ function decodeAppState(hash) {
 }
 
 let isApplyingUrlState = false;
+let modeChanged = false;
 
 function applyDecodedState(state) {
     if (!state || typeof state !== 'object') return;
@@ -817,9 +818,28 @@ async function copyShareLink() {
 function openInfoGizmo() {
     const gizmo = document.getElementById('info-gizmo');
     if (!gizmo) return;
+
+    gizmo.dataset.userDragged = '0';
+    recalcInfoGizmoPosition();
+    gizmo.classList.add('visible');
+
+    requestAnimationFrame(() => {
+        const rect = gizmo.getBoundingClientRect();
+        if (rect && rect.width && rect.height) {
+            gizmo.dataset.cachedWidth = String(rect.width);
+            gizmo.dataset.cachedHeight = String(rect.height);
+        }
+    });
+
+    startInfoGizmoRafLoop();
+}
+
+function recalcInfoGizmoPosition() {
+    const gizmo = document.getElementById('info-gizmo');
+    if (!gizmo) return;
     
-    const gizmoWidth = gizmo.offsetWidth || 320;
-    const gizmoHeight = gizmo.offsetHeight || 200;
+    const gizmoWidth = Number(gizmo.dataset.cachedWidth) || 320;
+    const gizmoHeight = Number(gizmo.dataset.cachedHeight) || 200;
     const pointRadius = 30; // Marker radius + buffer
     
     // Try to position based on actual polygon shapes first
@@ -834,52 +854,15 @@ function openInfoGizmo() {
             // Calculate combined bounds from both shapes' actual geometry
             let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
             let hasValidPoints = false;
-            
-            // Use Turf.js to get actual polygon bounds if available
-            if (typeof turf !== 'undefined' && turf) {
-                try {
-                    const refRing = verticesRef.map(v => [v.latlng.lng, v.latlng.lat]);
-                    const ovlRing = verticesOvl.map(v => [v.latlng.lng, v.latlng.lat]);
-                    
-                    if (refRing.length > 2) {
-                        const refPoly = turf.polygon([refRing.concat([refRing[0]])]);
-                        const refBbox = turf.bbox(refPoly);
-                        // refBbox is [minX, minY, maxX, maxY] in lng/lat
-                        const sw = refMap.latLngToContainerPoint(L.latLng(refBbox[1], refBbox[0]));
-                        const ne = refMap.latLngToContainerPoint(L.latLng(refBbox[3], refBbox[2]));
-                        minX = Math.min(minX, sw.x, ne.x);
-                        maxX = Math.max(maxX, sw.x, ne.x);
-                        minY = Math.min(minY, sw.y, ne.y);
-                        maxY = Math.max(maxY, sw.y, ne.y);
-                        hasValidPoints = true;
-                    }
-                    
-                    if (ovlRing.length > 2) {
-                        const ovlPoly = turf.polygon([ovlRing.concat([ovlRing[0]])]);
-                        const ovlBbox = turf.bbox(ovlPoly);
-                        const sw = ovlMap.latLngToContainerPoint(L.latLng(ovlBbox[1], ovlBbox[0]));
-                        const ne = ovlMap.latLngToContainerPoint(L.latLng(ovlBbox[3], ovlBbox[2]));
-                        minX = Math.min(minX, sw.x, ne.x);
-                        maxX = Math.max(maxX, sw.x, ne.x);
-                        minY = Math.min(minY, sw.y, ne.y);
-                        maxY = Math.max(maxY, sw.y, ne.y);
-                        hasValidPoints = true;
-                    }
-                } catch (_) {
-                    // Fall through to AABB calculation
-                }
-            }
-            
-            // If Turf failed or isn't available, use point-based AABB
-            if (!hasValidPoints) {
-                [...pRef, ...pOvl].forEach(pt => {
-                    minX = Math.min(minX, pt.x);
-                    maxX = Math.max(maxX, pt.x);
-                    minY = Math.min(minY, pt.y);
-                    maxY = Math.max(maxY, pt.y);
-                });
-                hasValidPoints = pRef.length > 0 || pOvl.length > 0;
-            }
+
+            // Use point-based AABB (avoid heavy geometry operations in per-frame updates)
+            [...pRef, ...pOvl].forEach(pt => {
+                minX = Math.min(minX, pt.x);
+                maxX = Math.max(maxX, pt.x);
+                minY = Math.min(minY, pt.y);
+                maxY = Math.max(maxY, pt.y);
+            });
+            hasValidPoints = pRef.length > 0 || pOvl.length > 0;
             
             if (hasValidPoints) {
                 const shapeWidth = maxX - minX;
@@ -992,7 +975,7 @@ function openInfoGizmo() {
         gizmoLeft = shapeBasedPosition.left;
         gizmoTop = shapeBasedPosition.top;
     } else {
-        // Fall back to checking for overlap with any markers
+        // Fall back to positioning based on point geometry
         const markerPositions = [];
         if (refMap && verticesRef.length > 0) {
             verticesRef.forEach(v => {
@@ -1006,24 +989,16 @@ function openInfoGizmo() {
                 markerPositions.push({ x: pt.x, y: pt.y });
             });
         }
-        
-        // Check if default position overlaps
-        const overlaps = markerPositions.some(pt => 
-            pt.x >= gizmoLeft - pointRadius && 
-            pt.x <= gizmoLeft + gizmoWidth + pointRadius &&
-            pt.y >= gizmoTop - pointRadius && 
-            pt.y <= gizmoTop + gizmoHeight + pointRadius
-        );
-        
-        if (overlaps && markerPositions.length > 0) {
-            // Fall back to AABB-based bottom edge
+
+        if (markerPositions.length > 0) {
+            // Place below the current point AABB (works for line mode and area mode)
             let minX = Infinity, maxX = -Infinity, maxY = -Infinity;
             markerPositions.forEach(pt => {
                 minX = Math.min(minX, pt.x);
                 maxX = Math.max(maxX, pt.x);
                 maxY = Math.max(maxY, pt.y);
             });
-            
+
             gizmoLeft = (minX + maxX) / 2 - gizmoWidth / 2;
             gizmoTop = maxY + 40;
         }
@@ -1046,8 +1021,6 @@ function openInfoGizmo() {
     gizmo.style.left = gizmoLeft + 'px';
     gizmo.style.top = gizmoTop + 'px';
     gizmo.style.right = 'auto';
-    
-    gizmo.classList.add('visible');
 }
 
 function closeInfoGizmo() {
@@ -1060,79 +1033,61 @@ function closeInfoGizmo() {
 function updateInfoGizmoPosition() {
     const gizmo = document.getElementById('info-gizmo');
     if (!gizmo || !gizmo.classList.contains('visible')) return;
-    
-    // Only update if user hasn't manually dragged it (check if position was set by openInfoGizmo)
-    // We detect manual drag by checking if position has changed from last calculated position
-    const currentLeft = parseFloat(gizmo.style.left) || 0;
-    const currentTop = parseFloat(gizmo.style.top) || 0;
-    
-    // Check if current position still overlaps with points
-    const gizmoWidth = gizmo.offsetWidth || 320;
-    const gizmoHeight = gizmo.offsetHeight || 200;
-    const pointBuffer = 40;
-    
-    const markerPositions = [];
-    if (refMap && verticesRef.length > 0) {
-        verticesRef.forEach(v => {
-            const pt = refMap.latLngToContainerPoint(v.latlng);
-            markerPositions.push({ x: pt.x, y: pt.y });
-        });
-    }
-    if (ovlMap && verticesOvl.length > 0) {
-        verticesOvl.forEach(v => {
-            const pt = ovlMap.latLngToContainerPoint(v.latlng);
-            markerPositions.push({ x: pt.x, y: pt.y });
-        });
-    }
-    
-    // Also check measurement labels
-    const labelPositions = [];
-    if (measureLabelRef && refMap) {
-        const labelPt = refMap.latLngToContainerPoint(measureLabelRef.getLatLng());
-        labelPositions.push({ x: labelPt.x, y: labelPt.y });
-    }
-    if (measureLabelOvl && ovlMap) {
-        const labelPt = ovlMap.latLngToContainerPoint(measureLabelOvl.getLatLng());
-        labelPositions.push({ x: labelPt.x, y: labelPt.y });
-    }
-    
-    const overlapsPoints = markerPositions.some(pt => 
-        pt.x >= currentLeft - pointBuffer && 
-        pt.x <= currentLeft + gizmoWidth + pointBuffer &&
-        pt.y >= currentTop - pointBuffer && 
-        pt.y <= currentTop + gizmoHeight + pointBuffer
-    );
-    
-    const overlapsLabels = labelPositions.some(pt => 
-        pt.x >= currentLeft - pointBuffer && 
-        pt.x <= currentLeft + gizmoWidth + pointBuffer &&
-        pt.y >= currentTop - pointBuffer && 
-        pt.y <= currentTop + gizmoHeight + pointBuffer
-    );
-    
-    // If overlaps, recalculate position
-    if (overlapsPoints || overlapsLabels) {
-        // Close and reopen to recalculate position
-        closeInfoGizmo();
-        openInfoGizmo();
-    }
+
+    if (isZoomAnimating) return;
+    if (GIZMO_STATE.rotate.active || GIZMO_STATE.move.active) return;
+
+    if (gizmo.dataset.userDragged === '1') return;
+
+    recalcInfoGizmoPosition();
+}
+
+let infoGizmoRaf = null;
+function startInfoGizmoRafLoop() {
+    if (infoGizmoRaf) return;
+
+    const tick = () => {
+        infoGizmoRaf = requestAnimationFrame(tick);
+        updateInfoGizmoPosition();
+    };
+
+    infoGizmoRaf = requestAnimationFrame(tick);
 }
 
 // Make info gizmo draggable using unified utility
-(function initInfoGizmoDrag() {
+function initInfoGizmoDrag() {
     const gizmo = document.getElementById('info-gizmo');
     const header = document.getElementById('info-gizmo-header');
     if (!gizmo || !header) return;
 
     makeDraggable(gizmo, header, {
-        skipSelector: '.info-gizmo-close'
+        skipSelector: '.info-gizmo-close',
+        onStart: () => {
+            gizmo.dataset.userDragged = '1';
+        }
+    });
+
+    startInfoGizmoRafLoop();
+
+    window.addEventListener('resize', () => {
+        const rect = gizmo.getBoundingClientRect();
+        if (rect && rect.width && rect.height) {
+            gizmo.dataset.cachedWidth = String(rect.width);
+            gizmo.dataset.cachedHeight = String(rect.height);
+        }
     });
 
     // Close on Escape key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') closeInfoGizmo();
     });
-})();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initInfoGizmoDrag);
+} else {
+    initInfoGizmoDrag();
+}
 
 // Legacy functions for backward compatibility
 function openInfoMenu() { openInfoGizmo(); }
@@ -1818,6 +1773,8 @@ function endGizmoAction(type) {
         GIZMO_STATE.move.startOffsetMerc = null;
     }
     suppressMapClickUntil = Date.now() + 400;
+
+    updateInfoGizmoPosition();
 }
 
 // Glyph templates - SVG size based on GIZMO_RADIUS_PX
@@ -1931,7 +1888,11 @@ let isAnyMarkerDragging = false;
 let cachedLabelPositions = { ref: null, ovl: null };
 
 function setMode(m) {
+    const prevMode = mode;
     mode = m;
+    if (prevMode !== m) {
+        modeChanged = true;
+    }
     document.querySelectorAll('.navbar-btn').forEach(b => b.classList.toggle('active', b.id === 'btn-' + m));
     
     // Update data-active attribute for sliding animation
@@ -2421,9 +2382,12 @@ function update() {
     // Calculate label positions
     // - Always recalculate when dragging markers
     // - Always recalculate when label is outside shape (small shapes)
-    // - Use cache when label is inside shape and not dragging
+    // - Always recalculate in line mode (line midpoint changes with geometry)
+    // - Always recalculate when mode just changed
+    // - Use cache only in area mode when label fits inside and not dragging
     let refLabelPos, ovlLabelPos;
-    if (isAnyMarkerDragging || isRefSmall || isOvlSmall) {
+    const needsRecalc = isAnyMarkerDragging || isRefSmall || isOvlSmall || !isArea || modeChanged;
+    if (needsRecalc) {
         // Recalculate position dynamically
         refLabelPos = labelPoint(pRef, isArea, refMap);
         ovlLabelPos = labelPoint(pOvl, isArea, ovlMap);
@@ -2471,11 +2435,8 @@ function update() {
         }
         preventLabelClick(measureLabelOvl);
     }
-    // Update info gizmo position if it overlaps with new shape positions
-    // Skip during zoom animation to prevent desync
-    if (!isZoomAnimating) {
-        updateInfoGizmoPosition();
-    }
+    // Info gizmo position is updated in a RAF loop while visible
+    modeChanged = false;
 }
 
 function getArea(ll) {
