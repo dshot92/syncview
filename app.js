@@ -1804,24 +1804,29 @@ function preventLabelClick(marker) {
 
 // Check if label fits inside shape (uses Turf.js if available)
 function doesLabelFitInShape(pts, map, isAreaShape) {
-    if (!isAreaShape || typeof turf === 'undefined' || !turf || pts.length < 3) return { fits: true, reason: 'line' };
+    if (!isAreaShape || pts.length < 3) return { fits: true, reason: 'line' };
     
-    let aabbWidthPx = 0;
-    let aabbHeightPx = 0;
-    
+    // First check: AABB size test (always works, no Turf needed)
     try {
         const bounds = L.polygon(pts).getBounds();
         const nw = map.latLngToContainerPoint(bounds.getNorthWest());
         const se = map.latLngToContainerPoint(bounds.getSouthEast());
         
-        aabbWidthPx = Math.abs(se.x - nw.x);
-        aabbHeightPx = Math.abs(se.y - nw.y);
+        const aabbWidthPx = Math.abs(se.x - nw.x);
+        const aabbHeightPx = Math.abs(se.y - nw.y);
         
         const labelWidthPx = 100;
         const labelHeightPx = 50;
         
+        // If AABB is smaller than label, shape is definitely too small
         if (aabbWidthPx < labelWidthPx || aabbHeightPx < labelHeightPx) {
             return { fits: false, reason: 'too_small' };
+        }
+        
+        // Second check: Turf.js containment test (if available)
+        if (typeof turf === 'undefined' || !turf || !turf.booleanContains) {
+            // No Turf.js - use AABB test as fallback
+            return { fits: true, reason: 'aabb_ok' };
         }
         
         const centroid = polyCentroid(pts);
@@ -1854,7 +1859,17 @@ function doesLabelFitInShape(pts, map, isAreaShape) {
         
         return { fits: isContained, reason: isContained ? 'fits' : 'not_contained' };
     } catch (e) {
-        return { fits: aabbWidthPx >= 100 && aabbHeightPx >= 50, reason: 'fallback' };
+        // If anything fails, check AABB size as final fallback
+        try {
+            const bounds = L.polygon(pts).getBounds();
+            const nw = map.latLngToContainerPoint(bounds.getNorthWest());
+            const se = map.latLngToContainerPoint(bounds.getSouthEast());
+            const width = Math.abs(se.x - nw.x);
+            const height = Math.abs(se.y - nw.y);
+            return { fits: width >= 100 && height >= 50, reason: 'error_fallback' };
+        } catch (_) {
+            return { fits: true, reason: 'complete_failure' };
+        }
     }
 }
 
