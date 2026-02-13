@@ -1088,6 +1088,7 @@ body.share-overlay-open {
     cursor: pointer;
     transition: all 0.2s;
     touch-action: none;
+    z-index: 3000 !important;
 }
 
 .measurement-label:hover {

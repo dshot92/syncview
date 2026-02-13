@@ -824,8 +824,8 @@ map2.on('zoomend', update);
 let isZoomAnimating = false;
 map1.on('zoomstart', () => { isZoomAnimating = true; });
 map2.on('zoomstart', () => { isZoomAnimating = true; });
-map1.on('zoomend', () => { isZoomAnimating = false; });
-map2.on('zoomend', () => { isZoomAnimating = false; });
+map1.on('zoomend', () => { isZoomAnimating = false; update(); });
+map2.on('zoomend', () => { isZoomAnimating = false; update(); });
 
 const recalcAabbAndGizmosOnInteraction = (e) => {
     if (!masterVertices || masterVertices.length === 0) return;
@@ -1586,6 +1586,29 @@ function update() {
         const isArea = mode === 'area';
         const polyRef = pRef;
         const polyOvl = pOvl;
+
+        // Unified clamping function for gizmos and labels
+        const clampToView = (map, pt, radius) => {
+            const containerSize = map.getSize();
+            
+            // On mobile, constrain to stay above the navbar area (bottom view only)
+            const isMobile = window.innerWidth <= 767;
+            const constrainToNav = isMobile && map === map2;
+            let maxY = containerSize.y - radius;
+            
+            if (constrainToNav) {
+                const dashboard = document.querySelector('#dashboard');
+                const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
+                const margin = 8;
+                maxY = containerSize.y - navbarHeight - radius - margin;
+            }
+            
+            return L.point(
+                Math.max(radius, Math.min(containerSize.x - radius, pt.x)),
+                Math.max(radius, Math.min(maxY, pt.y))
+            );
+        };
+
         if (isArea) {
             ensureLayer(refMap, shapes.sRefBg, false);
             ensureLayer(refMap, shapes.sRef, false);
@@ -1650,36 +1673,12 @@ function update() {
 
             const topMidPt = refMap.latLngToContainerPoint(topMidLL);
             const brPt = refMap.latLngToContainerPoint(brLL);
-
-            const containerSize = refMap.getSize();
-            const gizmoRadius = 14;
             
             const rotatePt = L.point(topMidPt.x, topMidPt.y - 28);
             const movePt = L.point(brPt.x + 28, brPt.y + 28);
 
-            // On mobile, constrain gizmos to stay above the navbar area (bottom view only)
-            const isMobile = window.innerWidth <= 767;
-            const constrainToNav = isMobile && refMap === map2;
-            let maxY = containerSize.y - gizmoRadius;
-            
-            if (constrainToNav) {
-                // Calculate actual navbar height dynamically
-                const dashboard = document.querySelector('#dashboard');
-                const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
-                const gizmoSize = 28; // full gizmo diameter
-                const pointSize = 14; // point diameter
-                const margin = 8;
-                maxY = containerSize.y - navbarHeight - gizmoSize - pointSize - margin;
-            }
-
-            const clampedRotatePt = L.point(
-                Math.max(gizmoRadius, Math.min(containerSize.x - gizmoRadius, rotatePt.x)),
-                Math.max(gizmoRadius, Math.min(maxY, rotatePt.y))
-            );
-            const clampedMovePt = L.point(
-                Math.max(gizmoRadius, Math.min(containerSize.x - gizmoRadius, movePt.x)),
-                Math.max(gizmoRadius, Math.min(maxY, movePt.y))
-            );
+            const clampedRotatePt = clampToView(refMap, rotatePt, 14);
+            const clampedMovePt = clampToView(refMap, movePt, 14);
 
             const topMid = refMap.containerPointToLatLng(clampedRotatePt);
             const brOut = refMap.containerPointToLatLng(clampedMovePt);
@@ -1695,36 +1694,12 @@ function update() {
 
             const topMidPt = ovlMap.latLngToContainerPoint(topMidLL);
             const brPt = ovlMap.latLngToContainerPoint(brLL);
-
-            const containerSize = ovlMap.getSize();
-            const gizmoRadius = 14;
             
             const rotatePt = L.point(topMidPt.x, topMidPt.y - 28);
             const movePt = L.point(brPt.x + 28, brPt.y + 28);
 
-            // On mobile, constrain gizmos to stay above the navbar area (bottom view only)
-            const isMobile = window.innerWidth <= 767;
-            const constrainToNav = isMobile && ovlMap === map2;
-            let maxY = containerSize.y - gizmoRadius;
-            
-            if (constrainToNav) {
-                // Calculate actual navbar height dynamically
-                const dashboard = document.querySelector('#dashboard');
-                const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
-                const gizmoSize = 28; // full gizmo diameter
-                const pointSize = 14; // point diameter
-                const margin = 8;
-                maxY = containerSize.y - navbarHeight - gizmoSize - pointSize - margin;
-            }
-
-            const clampedRotatePt = L.point(
-                Math.max(gizmoRadius, Math.min(containerSize.x - gizmoRadius, rotatePt.x)),
-                Math.max(gizmoRadius, Math.min(maxY, rotatePt.y))
-            );
-            const clampedMovePt = L.point(
-                Math.max(gizmoRadius, Math.min(containerSize.x - gizmoRadius, movePt.x)),
-                Math.max(gizmoRadius, Math.min(maxY, movePt.y))
-            );
+            const clampedRotatePt = clampToView(ovlMap, rotatePt, 14);
+            const clampedMovePt = clampToView(ovlMap, movePt, 14);
 
             const topMid = ovlMap.containerPointToLatLng(clampedRotatePt);
             const brOut = ovlMap.containerPointToLatLng(clampedMovePt);
@@ -1746,12 +1721,135 @@ function update() {
                 return `${sign}${Math.abs(p).toFixed(1)}%`;
             };
 
-            const labelPoint = (pts, isAreaShape) => {
+            const doesLabelFitInShape = (pts, map, isAreaShape) => {
+                if (!isAreaShape || !turf || pts.length < 3) return { fits: true, reason: 'line' };
+                
+                // Initialize fallback dimensions in case of early error
+                let aabbWidthPx = 0;
+                let aabbHeightPx = 0;
+                
+                try {
+                    // Get AABB in pixel space to estimate label dimensions needed
+                    const bounds = L.polygon(pts).getBounds();
+                    const nw = map.latLngToContainerPoint(bounds.getNorthWest());
+                    const se = map.latLngToContainerPoint(bounds.getSouthEast());
+                    
+                    aabbWidthPx = Math.abs(se.x - nw.x);
+                    aabbHeightPx = Math.abs(se.y - nw.y);
+                    
+                    // Estimate label size (roughly 100x50px for typical measurement display)
+                    const labelWidthPx = 100;
+                    const labelHeightPx = 50;
+                    
+                    // If AABB is smaller than label, it definitely won't fit
+                    if (aabbWidthPx < labelWidthPx || aabbHeightPx < labelHeightPx) {
+                        return { fits: false, reason: 'too_small' };
+                    }
+                    
+                    // Use Turf to check if a label-sized rectangle at centroid would be contained
+                    const centroid = polyCentroid(pts);
+                    if (!centroid) return { fits: false, reason: 'no_centroid' };
+                    
+                    // Convert pixel dimensions to approximate lat/lng offsets
+                    const centerPt = map.latLngToContainerPoint(centroid);
+                    const halfWidthLatLng = map.containerPointToLatLng(L.point(centerPt.x - labelWidthPx/2, centerPt.y));
+                    const halfHeightLatLng = map.containerPointToLatLng(L.point(centerPt.x, centerPt.y - labelHeightPx/2));
+                    
+                    const dLng = Math.abs(centroid.lng - halfWidthLatLng.lng);
+                    const dLat = Math.abs(centroid.lat - halfHeightLatLng.lat);
+                    
+                    // Create a rectangle representing the label bounds
+                    const labelRing = [
+                        [centroid.lng - dLng, centroid.lat - dLat],
+                        [centroid.lng + dLng, centroid.lat - dLat],
+                        [centroid.lng + dLng, centroid.lat + dLat],
+                        [centroid.lng - dLng, centroid.lat + dLat],
+                        [centroid.lng - dLng, centroid.lat - dLat]
+                    ];
+                    
+                    const polyRing = pts.map(p => [p.lng, p.lat]);
+                    // Close the ring
+                    if (polyRing.length > 0 && (polyRing[0][0] !== polyRing[polyRing.length-1][0] || polyRing[0][1] !== polyRing[polyRing.length-1][1])) {
+                        polyRing.push([polyRing[0][0], polyRing[0][1]]);
+                    }
+                    
+                    const labelPoly = turf.polygon([labelRing]);
+                    const shapePoly = turf.polygon([polyRing]);
+                    
+                    // Check if label polygon is fully contained within shape
+                    const isContained = turf.booleanContains(shapePoly, labelPoly) || turf.booleanWithin(labelPoly, shapePoly);
+                    
+                    return { fits: isContained, reason: isContained ? 'fits' : 'not_contained' };
+                } catch (e) {
+                    // If Turf check fails, fall back to simple size check
+                    return { fits: aabbWidthPx >= 100 && aabbHeightPx >= 50, reason: 'fallback' };
+                }
+            };
+
+            const labelPoint = (pts, isAreaShape, map) => {
                 if (!pts.length) return null;
-                if (!isAreaShape) return lineMidpoint(pts);
+                if (!isAreaShape) {
+                    const mid = lineMidpoint(pts);
+                    if (!mid) return null;
+                    // Clamp line midpoint to viewport
+                    const midPt = map.latLngToContainerPoint(mid);
+                    const clampedPt = clampToView(map, midPt, 50);
+                    return map.containerPointToLatLng(clampedPt);
+                }
+                
+                // Get AABB for horizontal center calculation
+                const aabb = getAabb(pts);
+                const aabbCenterX = aabb ? (aabb.west + aabb.east) / 2 : null;
+                
                 const c = polyCentroid(pts);
-                if (c && pointInPolygon(c, pts)) return c;
-                return L.polygon(pts).getBounds().getCenter();
+                const fitCheck = doesLabelFitInShape(pts, map, isAreaShape);
+                
+                let targetLatLng;
+                if (c && fitCheck.fits) {
+                    // Label fits inside - center horizontally on AABB center, use centroid Y
+                    if (aabbCenterX !== null) {
+                        targetLatLng = L.latLng(c.lat, aabbCenterX);
+                    } else {
+                        targetLatLng = c;
+                    }
+                } else {
+                    // Label doesn't fit - position it below the AABB bottom edge with offset
+                    // Center horizontally on AABB center
+                    if (!aabb) return c || L.polygon(pts).getBounds().getCenter();
+                    
+                    // Calculate gizmo position to avoid collision
+                    const brPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabb.east));
+                    const gizmoPt = L.point(brPt.x + 28, brPt.y + 28); // gizmo at bottom-right + 28px
+                    
+                    // Calculate offset in pixels and convert to lat/lng
+                    // Position below the shape, centered horizontally on AABB center
+                    const bottomCenterPt = map.latLngToContainerPoint(L.latLng(aabb.south, aabbCenterX));
+                    
+                    // Check if label would overlap with gizmo (label ~50px radius, gizmo ~14px radius)
+                    // If gizmo is close to label's intended position, increase vertical offset
+                    const labelRadius = 50;
+                    const gizmoRadius = 14;
+                    const minDistance = labelRadius + gizmoRadius + 10; // 10px padding
+                    
+                    let verticalOffset = 40; // default 40px below
+                    const horizontalDistance = Math.abs(bottomCenterPt.x - gizmoPt.x);
+                    
+                    // If horizontally close to gizmo, push label further down
+                    if (horizontalDistance < minDistance) {
+                        verticalOffset = 100; // push further down when near gizmo
+                    }
+                    
+                    const offsetPt = L.point(bottomCenterPt.x, bottomCenterPt.y + verticalOffset);
+                    const clampedPt = clampToView(map, offsetPt, labelRadius);
+                    const offsetLatLng = map.containerPointToLatLng(clampedPt);
+                    
+                    return offsetLatLng;
+                }
+                
+                // Clamp the target position to viewport (for when label fits inside)
+                const targetPt = map.latLngToContainerPoint(targetLatLng);
+                const clampedPt = clampToView(map, targetPt, 50);
+                return map.containerPointToLatLng(clampedPt);
             };
 
             const makeMeasureLabel = (valueText, pctText, color, isRef) => L.divIcon({
@@ -1781,8 +1879,8 @@ function update() {
                 }, { passive: true });
             };
 
-            const refLabelPos = labelPoint(polyRef, isArea);
-            const ovlLabelPos = labelPoint(polyOvl, isArea);
+            const refLabelPos = labelPoint(polyRef, isArea, refMap);
+            const ovlLabelPos = labelPoint(polyOvl, isArea, ovlMap);
 
             if (refLabelPos) {
                 if (!measureLabelRef) {
