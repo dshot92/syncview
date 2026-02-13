@@ -20,10 +20,10 @@ const CONSTANTS = {
     ZOOM_MAX: 22,
     DEFAULT_ZOOM: 12,
     TOLERANCE_PX: 15,
-    LABEL_OFFSET_PX: 40,
-    LABEL_LARGE_OFFSET_PX: 100,
-    GIZMO_RADIUS_PX: 14,
-    GIZMO_OFFSET_PX: 28,
+    // LABEL_OFFSET_PX: 40,
+    // LABEL_LARGE_OFFSET_PX: 100,
+    GIZMO_RADIUS_PX: 10,
+    GIZMO_OFFSET_PX: 32,
     MAX_NATIVE_ZOOM: 18,
     MAX_ZOOM: 20,
     URL_UPDATE_DELAY: 150,
@@ -1217,10 +1217,12 @@ function getAabb(lls) {
 // Factory for creating map gizmo markers
 function createGizmoMarker(type, which, glyph, handlers) {
     const className = `gizmo gizmo-${type} gizmo-${which}`;
+    const size = CONSTANTS.GIZMO_RADIUS_PX * 2;
+    const anchor = CONSTANTS.GIZMO_RADIUS_PX;
     const marker = L.marker([0, 0], {
         draggable: true,
         keyboard: false,
-        icon: L.divIcon({ className, html: glyph, iconSize: [28, 28], iconAnchor: [14, 14] })
+        icon: L.divIcon({ className, html: glyph, iconSize: [size, size], iconAnchor: [anchor, anchor] })
     });
     bindHandleInteractionLock(marker);
     marker.on('contextmenu', (e) => showGizmoCtx(e, which));
@@ -1393,10 +1395,11 @@ function endGizmoAction(type) {
     suppressMapClickUntil = Date.now() + 400;
 }
 
-// Glyph templates
+// Glyph templates - SVG size based on GIZMO_RADIUS_PX
+const GIZMO_GLYPH_SIZE = CONSTANTS.GIZMO_RADIUS_PX * 2;
 const GIZMO_GLYPHS = {
-    rotate: `<span class="gizmo-glyph" aria-hidden="true"><img src="images/rotate.svg" width="24" height="24" alt=""></span>`,
-    move: `<span class="gizmo-glyph" aria-hidden="true"><img src="images/move.svg" width="24" height="24" alt=""></span>`
+    rotate: `<span class="gizmo-glyph" aria-hidden="true"><img src="images/rotate.svg" width="${GIZMO_GLYPH_SIZE}" height="${GIZMO_GLYPH_SIZE}" alt=""></span>`,
+    move: `<span class="gizmo-glyph" aria-hidden="true"><img src="images/move.svg" width="${GIZMO_GLYPH_SIZE}" height="${GIZMO_GLYPH_SIZE}" alt=""></span>`
 };
 
 // Initialize map gizmos using unified factory
@@ -1747,8 +1750,8 @@ function positionGizmos(bb, map, rotateGizmo, moveGizmo, labelPos, isSmallShape)
     const rightMidPt = map.latLngToContainerPoint(rightMidLL);
     const movePt = L.point(rightMidPt.x + CONSTANTS.GIZMO_OFFSET_PX, rightMidPt.y);
 
-    const clampedRotatePt = clampToView(map, rotatePt, CONSTANTS.GIZMO_RADIUS_PX);
-    const clampedMovePt = clampToView(map, movePt, CONSTANTS.GIZMO_RADIUS_PX);
+    const clampedRotatePt = clampToView(map, rotatePt, CONSTANTS.GIZMO_RADIUS_PX * 2);
+    const clampedMovePt = clampToView(map, movePt, CONSTANTS.GIZMO_RADIUS_PX * 2);
 
     const topMid = map.containerPointToLatLng(clampedRotatePt);
     const rightOut = map.containerPointToLatLng(clampedMovePt);
