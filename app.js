@@ -923,16 +923,14 @@ map2.on('moveend', scheduleUrlUpdate);
 map1.on('zoomend', scheduleUrlUpdate);
 map2.on('zoomend', scheduleUrlUpdate);
 
-map1.on('move', () => { if (!isZoomAnimating) update(); });
-map2.on('move', () => { if (!isZoomAnimating) update(); });
+map1.on('move', update);
+map2.on('move', update);
 map1.on('zoomend', update);
 map2.on('zoomend', update);
 
 let isZoomAnimating = false;
 map1.on('zoomstart', () => { isZoomAnimating = true; });
 map2.on('zoomstart', () => { isZoomAnimating = true; });
-map1.on('zoom', () => { isZoomAnimating = true; });  // Fires continuously during pinch
-map2.on('zoom', () => { isZoomAnimating = true; });
 map1.on('zoomend', () => { isZoomAnimating = false; update(); });
 map2.on('zoomend', () => { isZoomAnimating = false; update(); });
 
