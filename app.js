@@ -138,6 +138,10 @@ function createMarkerPair(latlng, refMap, ovlMap, isOvlGhost = false) {
     const mO = createHandleMarker(latlng, true, ovlMap);
 
     // Add drag handlers
+    mR.on('dragstart', () => { 
+        isAnyMarkerDragging = true; 
+        document.querySelectorAll('.measurement-label').forEach(el => el.classList.add('no-transition'));
+    });
     mR.on('drag', (de) => {
         const i = markersRef.indexOf(mR);
         if (i > -1) {
@@ -146,7 +150,15 @@ function createMarkerPair(latlng, refMap, ovlMap, isOvlGhost = false) {
             scheduleUrlUpdate();
         }
     });
+    mR.on('dragend', () => { 
+        isAnyMarkerDragging = false; 
+        document.querySelectorAll('.measurement-label').forEach(el => el.classList.remove('no-transition'));
+    });
 
+    mO.on('dragstart', () => { 
+        isAnyMarkerDragging = true; 
+        document.querySelectorAll('.measurement-label').forEach(el => el.classList.add('no-transition'));
+    });
     mO.on('drag', (de) => {
         const i = markersOvl.indexOf(mO);
         if (i > -1) {
@@ -154,6 +166,10 @@ function createMarkerPair(latlng, refMap, ovlMap, isOvlGhost = false) {
             update();
             scheduleUrlUpdate();
         }
+    });
+    mO.on('dragend', () => { 
+        isAnyMarkerDragging = false; 
+        document.querySelectorAll('.measurement-label').forEach(el => el.classList.remove('no-transition'));
     });
 
     return { ref: mR, ovl: mO };
@@ -742,32 +758,37 @@ async function copyShareLink() {
     // Select and copy the link
 }
 
-function openInfoMenu() {
-    const overlay = document.getElementById('info-overlay');
-    if (!overlay) return;
+function openInfoGizmo() {
+    const gizmo = document.getElementById('info-gizmo');
+    if (!gizmo) return;
+    gizmo.classList.add('visible');
+}
 
-    overlay.style.display = 'grid';
-    
-    // Add visible class in next frame for transition
-    requestAnimationFrame(() => {
-        overlay.classList.add('visible');
+function closeInfoGizmo() {
+    const gizmo = document.getElementById('info-gizmo');
+    if (!gizmo) return;
+    gizmo.classList.remove('visible');
+}
+
+// Make info gizmo draggable using unified utility
+(function initInfoGizmoDrag() {
+    const gizmo = document.getElementById('info-gizmo');
+    const header = document.getElementById('info-gizmo-header');
+    if (!gizmo || !header) return;
+
+    makeDraggable(gizmo, header, {
+        skipSelector: '.info-gizmo-close'
     });
-}
 
-function closeInfoMenu() {
-    const overlay = document.getElementById('info-overlay');
-    if (!overlay) return;
-    
-    // Remove visible class to trigger transition
-    overlay.classList.remove('visible');
-    
-    // Hide overlay after transition completes
-    setTimeout(() => {
-        if (!overlay.classList.contains('visible')) {
-            overlay.style.display = 'none';
-        }
-    }, 300); // Match transition duration
-}
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') closeInfoGizmo();
+    });
+})();
+
+// Legacy functions for backward compatibility
+function openInfoMenu() { openInfoGizmo(); }
+function closeInfoMenu() { closeInfoGizmo(); }
 
 function undoLastPoint() {
     hideCtx();
@@ -828,14 +849,14 @@ document.addEventListener('keydown', (e) => {
     }
     if (e.key !== 'Escape') return;
     const shareOverlay = document.getElementById('share-overlay');
-    const infoOverlay = document.getElementById('info-overlay');
+    const infoGizmo = document.getElementById('info-gizmo');
     if (shareOverlay && shareOverlay.style.display !== 'none') closeShareMenu();
-    if (infoOverlay && infoOverlay.style.display !== 'none') closeInfoMenu();
+    if (infoGizmo && infoGizmo.classList.contains('visible')) closeInfoGizmo();
 });
 
 document.addEventListener('click', (e) => {
     const shareOverlay = document.getElementById('share-overlay');
-    const infoOverlay = document.getElementById('info-overlay');
+    const infoGizmo = document.getElementById('info-gizmo');
     
     // Handle share overlay clicks
     if (shareOverlay && shareOverlay.style.display !== 'none') {
@@ -844,11 +865,11 @@ document.addEventListener('click', (e) => {
         if (e.target === shareOverlay) closeShareMenu();
     }
     
-    // Handle info overlay clicks
-    if (infoOverlay && infoOverlay.style.display !== 'none') {
-        const infoCard = document.getElementById('info-card');
-        if (infoCard && infoCard.contains(e.target)) return;
-        if (e.target === infoOverlay) closeInfoMenu();
+    // Handle info gizmo clicks - close when clicking outside
+    if (infoGizmo && infoGizmo.classList.contains('visible')) {
+        if (!infoGizmo.contains(e.target) && !e.target.closest('.info-btn')) {
+            closeInfoGizmo();
+        }
     }
 });
 
@@ -894,6 +915,9 @@ const syncZoom = (e) => {
 };
 map1.on('zoom', syncZoom); map2.on('zoom', syncZoom);
 
+map1.on('zoom', update);
+map2.on('zoom', update);
+
 map1.on('moveend', scheduleUrlUpdate);
 map2.on('moveend', scheduleUrlUpdate);
 map1.on('zoomend', scheduleUrlUpdate);
@@ -912,7 +936,7 @@ map2.on('zoomend', () => { isZoomAnimating = false; update(); });
 
 const recalcAabbAndGizmosOnInteraction = (e) => {
     if (!masterVertices || masterVertices.length === 0) return;
-    if (isRotating || isMovingWithGizmo) return;
+    if (GIZMO_STATE.rotate.active || GIZMO_STATE.move.active) return;
 
     const oe = e && e.originalEvent ? e.originalEvent : null;
     const t = oe && oe.target ? oe.target : null;
@@ -1146,19 +1170,6 @@ const shapeTransforms = {
     ovl: { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null }
 };
 
-let isRotating = false;
-let rotateActive = null;
-let rotateCenterMerc = null;
-let rotateStartAngle = 0;
-let rotateOriginalMerc = [];
-let rotateStartRotation = 0;
-
-let isMovingWithGizmo = false;
-let moveActive = null;
-let moveStartLatLng = null;
-let moveOriginalLatLngs = [];
-let moveStartOffsetMerc = null;
-
 let suppressMapClickUntil = 0;
 
 let mapsDisabledForLabelDrag = false;
@@ -1200,65 +1211,223 @@ function getAabb(lls) {
     return { south, west, north, east };
 }
 
-function ensureGizmoMarkers() {
-    const rotateGlyph = `
-        <span class="gizmo-glyph" aria-hidden="true">
-            <img src="images/rotate.svg" width="24" height="24" alt="">
-        </span>
-    `.trim();
-    const moveGlyph = `
-        <span class="gizmo-glyph" aria-hidden="true">
-            <img src="images/move.svg" width="24" height="24" alt="">
-        </span>
-    `.trim();
+// Unified Gizmo System
+// ====================
 
+// Factory for creating map gizmo markers
+function createGizmoMarker(type, which, glyph, handlers) {
+    const className = `gizmo gizmo-${type} gizmo-${which}`;
+    const marker = L.marker([0, 0], {
+        draggable: true,
+        keyboard: false,
+        icon: L.divIcon({ className, html: glyph, iconSize: [28, 28], iconAnchor: [14, 14] })
+    });
+    bindHandleInteractionLock(marker);
+    marker.on('contextmenu', (e) => showGizmoCtx(e, which));
+    if (handlers.dragstart) marker.on('dragstart', handlers.dragstart);
+    if (handlers.drag) marker.on('drag', handlers.drag);
+    if (handlers.dragend) marker.on('dragend', handlers.dragend);
+    return marker;
+}
+
+// Generic DOM element drag utility
+function makeDraggable(element, handle, options = {}) {
+    if (!element || !handle) return null;
+
+    let isDragging = false;
+    let startX, startY, initialLeft, initialTop;
+    const onStart = options.onStart || (() => {});
+    const onMove = options.onMove || (() => {});
+    const onEnd = options.onEnd || (() => {});
+    const skipSelector = options.skipSelector || null;
+
+    function startDrag(e) {
+        if (skipSelector && e.target.closest(skipSelector)) return;
+
+        isDragging = true;
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        startX = clientX;
+        startY = clientY;
+
+        const rect = element.getBoundingClientRect();
+        initialLeft = rect.left;
+        initialTop = rect.top;
+
+        document.addEventListener('mousemove', drag);
+        document.addEventListener('mouseup', stopDrag);
+        document.addEventListener('touchmove', drag, { passive: false });
+        document.addEventListener('touchend', stopDrag);
+
+        onStart(e);
+        e.preventDefault();
+    }
+
+    function drag(e) {
+        if (!isDragging) return;
+        e.preventDefault();
+
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+        const dx = clientX - startX;
+        const dy = clientY - startY;
+
+        const newLeft = initialLeft + dx;
+        const newTop = initialTop + dy;
+
+        element.style.left = newLeft + 'px';
+        element.style.top = newTop + 'px';
+        element.style.right = 'auto';
+
+        onMove(newLeft, newTop, dx, dy);
+    }
+
+    function stopDrag(e) {
+        if (!isDragging) return;
+        isDragging = false;
+        document.removeEventListener('mousemove', drag);
+        document.removeEventListener('mouseup', stopDrag);
+        document.removeEventListener('touchmove', drag);
+        document.removeEventListener('touchend', stopDrag);
+        onEnd(e);
+    }
+
+    handle.addEventListener('mousedown', startDrag);
+    handle.addEventListener('touchstart', startDrag, { passive: false });
+
+    return { startDrag, drag, stopDrag, isDragging: () => isDragging };
+}
+
+// Unified gizmo state management
+const GIZMO_STATE = {
+    rotate: {
+        active: null,
+        centerMerc: null,
+        startAngle: 0,
+        startRotation: 0,
+        originalMerc: []
+    },
+    move: {
+        active: null,
+        startLatLng: null,
+        startOffsetMerc: null
+    }
+};
+
+// Unified gizmo action handlers
+function startGizmoAction(e, type, which) {
+    if (!refMap || !ovlMap || verticesRef.length === 0) return;
+
+    suppressMapClickUntil = Date.now() + 400;
+
+    const tf = which === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
+
+    if (type === 'rotate') {
+        GIZMO_STATE.rotate.active = which;
+        GIZMO_STATE.rotate.startRotation = Number(tf.rotation) || 0;
+
+        const baseMercMaster = getMasterMerc();
+        const baseMerc = which === 'ref'
+            ? baseMercMaster
+            : baseMercMaster.map((p) => L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y)));
+
+        if (!tf.pivotMerc) tf.pivotMerc = centroidMercFromMerc(baseMerc);
+        GIZMO_STATE.rotate.centerMerc = tf.pivotMerc;
+        GIZMO_STATE.rotate.originalMerc = baseMerc;
+
+        const startM = toMerc(e.target.getLatLng());
+        GIZMO_STATE.rotate.startAngle = Math.atan2(startM.y - GIZMO_STATE.rotate.centerMerc.y, startM.x - GIZMO_STATE.rotate.centerMerc.x);
+    } else if (type === 'move') {
+        GIZMO_STATE.move.active = which;
+        isAnyMarkerDragging = true;
+        document.querySelectorAll('.measurement-label').forEach(el => el.classList.add('no-transition'));
+        GIZMO_STATE.move.startLatLng = e.target.getLatLng();
+        GIZMO_STATE.move.startOffsetMerc = tf.offsetMerc ? L.point(tf.offsetMerc.x, tf.offsetMerc.y) : L.point(0, 0);
+    }
+}
+
+function handleGizmoAction(e, type) {
+    if (type === 'rotate') {
+        const state = GIZMO_STATE.rotate;
+        if (!state.active || !state.centerMerc || state.originalMerc.length === 0) return;
+
+        const currM = toMerc(e.target.getLatLng());
+        const currAngle = Math.atan2(currM.y - state.centerMerc.y, currM.x - state.centerMerc.x);
+        const dA = currAngle - state.startAngle;
+
+        const tf = state.active === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
+        tf.rotation = state.startRotation + dA;
+    } else if (type === 'move') {
+        const state = GIZMO_STATE.move;
+        if (!state.active || !state.startLatLng || !state.startOffsetMerc) return;
+
+        const curr = e.target.getLatLng();
+        const s = toMerc(state.startLatLng);
+        const c = toMerc(curr);
+        const dX = c.x - s.x;
+        const dY = c.y - s.y;
+
+        const tf = state.active === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
+        tf.offsetMerc = L.point(state.startOffsetMerc.x + dX, state.startOffsetMerc.y + dY);
+    }
+
+    update();
+    scheduleUrlUpdate();
+}
+
+function endGizmoAction(type) {
+    if (type === 'rotate') {
+        GIZMO_STATE.rotate.active = null;
+        GIZMO_STATE.rotate.centerMerc = null;
+        GIZMO_STATE.rotate.startAngle = 0;
+        GIZMO_STATE.rotate.originalMerc = [];
+        GIZMO_STATE.rotate.startRotation = 0;
+    } else if (type === 'move') {
+        GIZMO_STATE.move.active = null;
+        isAnyMarkerDragging = false;
+        document.querySelectorAll('.measurement-label').forEach(el => el.classList.remove('no-transition'));
+        GIZMO_STATE.move.startLatLng = null;
+        GIZMO_STATE.move.startOffsetMerc = null;
+    }
+    suppressMapClickUntil = Date.now() + 400;
+}
+
+// Glyph templates
+const GIZMO_GLYPHS = {
+    rotate: `<span class="gizmo-glyph" aria-hidden="true"><img src="images/rotate.svg" width="24" height="24" alt=""></span>`,
+    move: `<span class="gizmo-glyph" aria-hidden="true"><img src="images/move.svg" width="24" height="24" alt=""></span>`
+};
+
+// Initialize map gizmos using unified factory
+function ensureGizmoMarkers() {
     if (!rotateGizmoRef) {
-        rotateGizmoRef = L.marker([0, 0], {
-            draggable: true,
-            keyboard: false,
-            icon: L.divIcon({ className: 'gizmo gizmo-rotate gizmo-ref', html: rotateGlyph, iconSize: [28, 28], iconAnchor: [14, 14] })
+        rotateGizmoRef = createGizmoMarker('rotate', 'ref', GIZMO_GLYPHS.rotate, {
+            dragstart: (e) => startGizmoAction(e, 'rotate', 'ref'),
+            drag: (e) => handleGizmoAction(e, 'rotate'),
+            dragend: () => endGizmoAction('rotate')
         });
-        bindHandleInteractionLock(rotateGizmoRef);
-        rotateGizmoRef.on('contextmenu', (e) => showGizmoCtx(e, 'ref'));
-        rotateGizmoRef.on('dragstart', (e) => startRotateGizmo(e, 'ref'));
-        rotateGizmoRef.on('drag', handleRotateGizmo);
-        rotateGizmoRef.on('dragend', endRotateGizmo);
     }
     if (!rotateGizmoOvl) {
-        rotateGizmoOvl = L.marker([0, 0], {
-            draggable: true,
-            keyboard: false,
-            icon: L.divIcon({ className: 'gizmo gizmo-rotate gizmo-ovl', html: rotateGlyph, iconSize: [28, 28], iconAnchor: [14, 14] })
+        rotateGizmoOvl = createGizmoMarker('rotate', 'ovl', GIZMO_GLYPHS.rotate, {
+            dragstart: (e) => startGizmoAction(e, 'rotate', 'ovl'),
+            drag: (e) => handleGizmoAction(e, 'rotate'),
+            dragend: () => endGizmoAction('rotate')
         });
-        bindHandleInteractionLock(rotateGizmoOvl);
-        rotateGizmoOvl.on('contextmenu', (e) => showGizmoCtx(e, 'ovl'));
-        rotateGizmoOvl.on('dragstart', (e) => startRotateGizmo(e, 'ovl'));
-        rotateGizmoOvl.on('drag', handleRotateGizmo);
-        rotateGizmoOvl.on('dragend', endRotateGizmo);
     }
     if (!moveGizmoRef) {
-        moveGizmoRef = L.marker([0, 0], {
-            draggable: true,
-            keyboard: false,
-            icon: L.divIcon({ className: 'gizmo gizmo-move gizmo-ref', html: moveGlyph, iconSize: [28, 28], iconAnchor: [14, 14] })
+        moveGizmoRef = createGizmoMarker('move', 'ref', GIZMO_GLYPHS.move, {
+            dragstart: (e) => startGizmoAction(e, 'move', 'ref'),
+            drag: (e) => handleGizmoAction(e, 'move'),
+            dragend: () => endGizmoAction('move')
         });
-        bindHandleInteractionLock(moveGizmoRef);
-        moveGizmoRef.on('contextmenu', (e) => showGizmoCtx(e, 'ref'));
-        moveGizmoRef.on('dragstart', (e) => startMoveGizmo(e, 'ref'));
-        moveGizmoRef.on('drag', handleMoveGizmo);
-        moveGizmoRef.on('dragend', endMoveGizmo);
     }
     if (!moveGizmoOvl) {
-        moveGizmoOvl = L.marker([0, 0], {
-            draggable: true,
-            keyboard: false,
-            icon: L.divIcon({ className: 'gizmo gizmo-move gizmo-ovl', html: moveGlyph, iconSize: [28, 28], iconAnchor: [14, 14] })
+        moveGizmoOvl = createGizmoMarker('move', 'ovl', GIZMO_GLYPHS.move, {
+            dragstart: (e) => startGizmoAction(e, 'move', 'ovl'),
+            drag: (e) => handleGizmoAction(e, 'move'),
+            dragend: () => endGizmoAction('move')
         });
-        bindHandleInteractionLock(moveGizmoOvl);
-        moveGizmoOvl.on('contextmenu', (e) => showGizmoCtx(e, 'ovl'));
-        moveGizmoOvl.on('dragstart', (e) => startMoveGizmo(e, 'ovl'));
-        moveGizmoOvl.on('drag', handleMoveGizmo);
-        moveGizmoOvl.on('dragend', endMoveGizmo);
     }
 }
 
@@ -1329,96 +1498,9 @@ function isMarkerBeingDragged(marker) {
     return !!(dr && dr._moving);
 }
 
-function startRotateGizmo(e, which) {
-    if (!refMap || !ovlMap) return;
-    if (verticesRef.length === 0) return;
-
-    suppressMapClickUntil = Date.now() + 400;
-
-    isRotating = true;
-    rotateActive = which;
-
-    const tf = which === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
-    rotateStartRotation = Number(tf.rotation) || 0;
-
-    const baseMercMaster = getMasterMerc();
-    const baseMerc = which === 'ref'
-        ? baseMercMaster
-        : baseMercMaster.map((p) => L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y)));
-
-    if (!tf.pivotMerc) tf.pivotMerc = centroidMercFromMerc(baseMerc);
-    rotateCenterMerc = tf.pivotMerc;
-    rotateOriginalMerc = baseMerc;
-
-    const startM = toMerc(e.target.getLatLng());
-    rotateStartAngle = Math.atan2(startM.y - rotateCenterMerc.y, startM.x - rotateCenterMerc.x);
-}
-
-function handleRotateGizmo(e) {
-    if (!isRotating || !rotateActive || !rotateCenterMerc || rotateOriginalMerc.length === 0) return;
-
-    const currM = toMerc(e.target.getLatLng());
-    const currAngle = Math.atan2(currM.y - rotateCenterMerc.y, currM.x - rotateCenterMerc.x);
-    const dA = currAngle - rotateStartAngle;
-    const cos = Math.cos(dA);
-    const sin = Math.sin(dA);
-
-    const tf = rotateActive === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
-    tf.rotation = rotateStartRotation + dA;
-
-    update();
-    scheduleUrlUpdate();
-}
-
-function endRotateGizmo() {
-    isRotating = false;
-    rotateActive = null;
-    rotateCenterMerc = null;
-    rotateStartAngle = 0;
-    rotateOriginalMerc = [];
-    rotateStartRotation = 0;
-
-    suppressMapClickUntil = Date.now() + 400;
-}
-
-function startMoveGizmo(e, which) {
-    if (!refMap || !ovlMap) return;
-    if (verticesRef.length === 0) return;
-
-    suppressMapClickUntil = Date.now() + 400;
-
-    isMovingWithGizmo = true;
-    moveActive = which;
-    moveStartLatLng = e.target.getLatLng();
-    const tf = which === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
-    moveStartOffsetMerc = tf.offsetMerc ? L.point(tf.offsetMerc.x, tf.offsetMerc.y) : L.point(0, 0);
-    moveOriginalLatLngs = [];
-}
-
-function handleMoveGizmo(e) {
-    if (!isMovingWithGizmo || !moveActive || !moveStartLatLng || !moveStartOffsetMerc) return;
-    const curr = e.target.getLatLng();
-    const s = toMerc(moveStartLatLng);
-    const c = toMerc(curr);
-    const dX = c.x - s.x;
-    const dY = c.y - s.y;
-
-    const tf = moveActive === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
-    tf.offsetMerc = L.point(moveStartOffsetMerc.x + dX, moveStartOffsetMerc.y + dY);
-
-    update();
-    scheduleUrlUpdate();
-}
-
-function endMoveGizmo() {
-    isMovingWithGizmo = false;
-    moveActive = null;
-    moveStartLatLng = null;
-    moveOriginalLatLngs = [];
-    moveStartOffsetMerc = null;
-
-    suppressMapClickUntil = Date.now() + 400;
-}
+// State for tracking marker dragging and label positions
+let isAnyMarkerDragging = false;
+let cachedLabelPositions = { ref: null, ovl: null };
 
 function setMode(m) {
     mode = m;
@@ -1540,6 +1622,8 @@ function removeAllShapes() {
 function removeMeasureLabels() {
     if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
     if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
+    cachedLabelPositions.ref = null;
+    cachedLabelPositions.ovl = null;
 }
 
 function removeGizmos() {
@@ -1807,7 +1891,7 @@ function labelPoint(pts, isAreaShape, map) {
 
 // Main update function - orchestrates all sub-updates
 function update() {
-    if (isZoomAnimating) return;
+    // Allow updates during zoom animation to keep gizmos positioned correctly
     const hasPoints = masterVertices.length > 0;
 
     updateVertexPositions();
@@ -1857,16 +1941,33 @@ function update() {
     const pctRef = formatPct(-pctDeltaVsRef);
     const pctOvl = formatPct(pctDeltaVsRef);
 
-    const refLabelPos = labelPoint(pRef, isArea, refMap);
-    const ovlLabelPos = labelPoint(pOvl, isArea, ovlMap);
-
     // Check if shapes are small (label doesn't fit inside)
     const refFitCheck = doesLabelFitInShape(pRef, refMap, isArea);
     const ovlFitCheck = doesLabelFitInShape(pOvl, ovlMap, isArea);
     const isRefSmall = isArea && !refFitCheck.fits;
     const isOvlSmall = isArea && !ovlFitCheck.fits;
 
-    // Position gizmos with label positions and small shape flag
+    // Calculate label positions
+    // - Always recalculate when dragging markers
+    // - Always recalculate when label is outside shape (small shapes)
+    // - Use cache when label is inside shape and not dragging
+    let refLabelPos, ovlLabelPos;
+    if (isAnyMarkerDragging || isRefSmall || isOvlSmall) {
+        // Recalculate position dynamically
+        refLabelPos = labelPoint(pRef, isArea, refMap);
+        ovlLabelPos = labelPoint(pOvl, isArea, ovlMap);
+        cachedLabelPositions.ref = refLabelPos;
+        cachedLabelPositions.ovl = ovlLabelPos;
+    } else {
+        // When label fits inside: use cached position or calculate if none cached
+        if (!cachedLabelPositions.ref || !cachedLabelPositions.ovl) {
+            cachedLabelPositions.ref = labelPoint(pRef, isArea, refMap);
+            cachedLabelPositions.ovl = labelPoint(pOvl, isArea, ovlMap);
+        }
+        refLabelPos = cachedLabelPositions.ref;
+        ovlLabelPos = cachedLabelPositions.ovl;
+    }
+
     positionGizmos(bbR, refMap, rotateGizmoRef, moveGizmoRef, refLabelPos, isRefSmall);
     positionGizmos(bbO, ovlMap, rotateGizmoOvl, moveGizmoOvl, ovlLabelPos, isOvlSmall);
 

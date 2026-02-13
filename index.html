@@ -170,43 +170,39 @@
         </div>
     </div>
 
-    <div id="info-overlay" class="overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Info">
-        <div class="overlay-card" id="info-card">
-            <div class="overlay-header">
-                <div class="overlay-title">About Sync View</div>
-                <button class="overlay-close" onclick="closeInfoMenu()" aria-label="Close">
-                    <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
-                </button>
+    <div id="info-gizmo" class="info-gizmo">
+        <div class="info-gizmo-header" id="info-gizmo-header">
+            <svg width="14" height="14"><use href="images/icons.svg#icon-info"/></svg>
+            <span>About</span>
+            <button class="info-gizmo-close" onclick="closeInfoGizmo()" aria-label="Close">
+                <svg width="12" height="12"><use href="images/icons.svg#icon-close"/></svg>
+            </button>
+        </div>
+        <div class="info-gizmo-content">
+            <div class="info-section">
+                <h3>Shape vs Overlay</h3>
+                <ul>
+                    <li><strong>Blue shapes (reference):</strong> Editable by dragging individual points</li>
+                    <li><strong>Yellow shapes (overlay):</strong> Move entire shape as a unit</li>
+                    <li><strong>Both shapes:</strong> Fully draggable and movable</li>
+                    <li><strong>Adding Points:</strong> Click on the middle of a line to add new points</li>
+                    <li><strong>Deleting Points:</strong> Right-click on any point to delete it</li>
+                </ul>
             </div>
-
-            <div class="info-content">
-                <div class="info-section">
-                    <h3>Shape vs Overlay</h3>
-                    <ul>
-                        <li><strong>Blue shapes (reference):</strong> Editable by dragging individual points</li>
-                        <li><strong>Yellow shapes (overlay):</strong> Move entire shape as a unit</li>
-                        <li><strong>Both shapes:</strong> Fully draggable and movable</li>
-                        <li><strong>Adding Points:</strong> Click on the middle of a line to add new points</li>
-                        <li><strong>Deleting Points:</strong> Right-click on any point to delete it</li>
-                    </ul>
-                </div>
-
-                <div class="info-section">
-                    <h3>About</h3>
-                    <p>Sync View is a dual-map comparison tool for measuring distances and areas between locations with real-time synchronization.</p>
-                </div>
-
-                <div class="info-section">
-                    <div class="github-buttons">
-                        <a href="https://github.com/dshot92/syncview" target="_blank" rel="noopener" class="github-link">
-                            <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
-                            Sync View
-                        </a>
-                        <a href="https://github.com/dshot92" target="_blank" rel="noopener" class="github-link">
-                            <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
-                            dshot92
-                        </a>
-                    </div>
+            <div class="info-section">
+                <h3>About</h3>
+                <p>Sync View is a dual-map comparison tool for measuring distances and areas between locations with real-time synchronization.</p>
+            </div>
+            <div class="info-section">
+                <div class="github-buttons">
+                    <a href="https://github.com/dshot92/syncview" target="_blank" rel="noopener" class="github-link">
+                        <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
+                        Sync View
+                    </a>
+                    <a href="https://github.com/dshot92" target="_blank" rel="noopener" class="github-link">
+                        <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
+                        dshot92
+                    </a>
                 </div>
             </div>
         </div>

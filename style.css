@@ -944,13 +944,145 @@ body.share-overlay-open {
     display: none;
 }
 
- .info-content {
-    grid-area: grid;
-    padding: var(--gap-xl);
-    max-height: 60vh;
+ .info-gizmo {
+    position: fixed;
+    top: var(--tool-offset);
+    right: var(--tool-offset);
+    z-index: 1500;
+    background: var(--bg-body);
+    border: 0.0625rem solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    max-width: 20rem;
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    cursor: grab;
+    touch-action: none;
+    opacity: 0;
+    visibility: hidden;
+    transform: scale(0.95) translateY(-0.5rem);
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+}
+
+.info-gizmo.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: scale(1) translateY(0);
+}
+
+.info-gizmo:active {
+    cursor: grabbing;
+}
+
+.info-gizmo-header {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-sm);
+    padding: var(--gap-md) var(--gap-lg);
+    border-bottom: 0.0625rem solid var(--border);
+    background: var(--bg-body);
+    border-radius: var(--radius) var(--radius) 0 0;
+    cursor: grab;
+    user-select: none;
+    -webkit-user-select: none;
+}
+
+.info-gizmo-header:active {
+    cursor: grabbing;
+}
+
+.info-gizmo-header svg {
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
+    flex-shrink: 0;
+}
+
+.info-gizmo-header span {
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex: 1;
+}
+
+.info-gizmo-close {
+    width: 1.5rem;
+    height: 1.5rem;
+    background: transparent;
+    border: 0.0625rem solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text-white);
+    cursor: pointer;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    transition: var(--hover-transition);
+    flex-shrink: 0;
+}
+
+.info-gizmo-close:hover {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+}
+
+.info-gizmo-content {
+    padding: var(--gap-lg);
     overflow-y: auto;
     display: grid;
-    gap: var(--gap-2xl);
+    gap: var(--gap-lg);
+    cursor: default;
+}
+
+.info-gizmo-content .info-section h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-white);
+    margin: 0 0 var(--gap-sm) 0;
+}
+
+.info-gizmo-content .info-section ul {
+    margin: 0;
+    padding-left: var(--gap-lg);
+    display: grid;
+    gap: var(--gap-xs);
+}
+
+.info-gizmo-content .info-section li {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+}
+
+.info-gizmo-content .info-section li strong {
+    color: var(--text-white);
+    font-weight: 600;
+}
+
+.info-gizmo-content .info-section p {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.info-gizmo-content .github-buttons {
+    display: flex;
+    gap: var(--gap-sm);
+    flex-wrap: wrap;
+}
+
+.info-gizmo-content .github-link {
+    font-size: 0.6875rem;
+    padding: var(--gap-sm) var(--gap-md);
+}
+
+@media (max-width: 47.9375em) {
+    .info-gizmo {
+        top: auto;
+        bottom: calc(var(--tool-offset) + var(--ui-btn-size-sm) + var(--button-gap));
+        right: var(--tool-offset);
+        left: var(--tool-offset);
+        max-width: none;
+    }
 }
 
  .info-section {
@@ -1127,15 +1259,14 @@ body.share-overlay-open {
 
 .measurement-label {
     pointer-events: auto;
-    cursor: pointer;
-    transition: all 0.2s;
     touch-action: none;
     z-index: 3000 !important;
 }
 
-.measurement-label:hover {
-    transform: translate(-50%, -50%) scale(1.05);
+.measurement-label.no-transition {
+    transition: none;
 }
+
 
 .measurement-label.move-mode {
     cursor: move;
