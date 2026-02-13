@@ -163,8 +163,15 @@ body.share-overlay-open {
 .tool__lens-btn,
 .tool__location-btn,
 .tool__back-btn,
-.tool__clear-btn {
-    box-sizing: border-box;
+.tool__clear-btn,
+.share-btn,
+.info-btn,
+.select-trigger,
+.navbar-btn,
+.option {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    outline: none;
 }
 
  .tool__lens-btn svg {
@@ -178,6 +185,12 @@ body.share-overlay-open {
     border-color: var(--hover-border);
     color: var(--hover-text);
     border-radius: var(--radius);
+}
+
+.tool__lens-btn:active {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+    color: var(--hover-text);
 }
 
 
@@ -257,6 +270,12 @@ body.share-overlay-open {
     color: var(--hover-text);
 }
 
+.suggestion-item:active,
+.suggestion-item:focus {
+    background: var(--hover-bg);
+    color: var(--hover-text);
+}
+
 /* Location Button Grid */
 .tool__location-btn {
     position: absolute;
@@ -284,6 +303,9 @@ body.share-overlay-open {
 }
 
 .tool__location-btn:active {
+    background: var(--hover-bg);
+    color: var(--hover-text);
+    border-color: var(--hover-border);
     transform: scale(0.95);
 }
 
@@ -391,6 +413,10 @@ body.share-overlay-open {
     background: var(--hover-bg);
 }
 
+.select-trigger:active {
+    background: var(--hover-bg);
+}
+
 .select-options {
     position: absolute;
     bottom: calc(100% + var(--gap-sm));
@@ -431,8 +457,8 @@ body.share-overlay-open {
 
 .option:active,
 .option:focus {
-    background: transparent;
-    color: var(--text-muted);
+    background: var(--hover-bg);
+    color: var(--hover-text);
     outline: none;
 }
 
@@ -498,8 +524,15 @@ body.share-overlay-open {
 }
 
 .navbar-btn:hover {
+    background: var(--hover-bg);
+    color: var(--hover-text);
     opacity: 1;
-    color: var(--text-white);
+}
+
+.navbar-btn:active {
+    background: var(--hover-bg);
+    color: var(--hover-text);
+    opacity: 1;
 }
 
 .navbar-btn:first-child:hover {
@@ -552,6 +585,9 @@ body.share-overlay-open {
 
 .clear-btn:active,
 .tool__clear-btn:active {
+    background: var(--accent-red);
+    color: var(--text-white);
+    border-color: #ffffff;
     transform: scale(0.95);
 }
 
@@ -595,6 +631,9 @@ body.share-overlay-open {
 }
 
 .tool__back-btn:active {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+    color: var(--hover-text);
     transform: scale(0.95);
 }
 
@@ -628,9 +667,12 @@ body.share-overlay-open {
      background: var(--hover-bg);
      border-color: var(--hover-border);
      color: var(--hover-text);
- }
+}
 
  .share-btn:active {
+     background: var(--hover-bg);
+     border-color: var(--hover-border);
+     color: var(--hover-text);
      transform: scale(0.97);
  }
 
@@ -656,6 +698,7 @@ body.share-overlay-open {
     display: grid;
     place-items: center;
     box-shadow: var(--shadow);
+    -webkit-tap-highlight-color: transparent;
 }
 
 .info-btn-mobile {
@@ -671,9 +714,12 @@ body.share-overlay-open {
      background: var(--hover-bg);
      border-color: var(--hover-border);
      color: var(--hover-text);
- }
+}
 
  .info-btn:active {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+    color: var(--hover-text);
     transform: scale(0.97);
 }
 
