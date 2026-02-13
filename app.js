@@ -770,6 +770,236 @@ async function copyShareLink() {
 function openInfoGizmo() {
     const gizmo = document.getElementById('info-gizmo');
     if (!gizmo) return;
+    
+    const gizmoWidth = gizmo.offsetWidth || 320;
+    const gizmoHeight = gizmo.offsetHeight || 200;
+    const pointRadius = 30; // Marker radius + buffer
+    
+    // Try to position based on actual polygon shapes first
+    let shapeBasedPosition = null;
+    
+    if (refMap && ovlMap && verticesRef.length >= 3 && mode === 'area') {
+        try {
+            // Get reference shape points in screen coordinates
+            const pRef = verticesRef.map(v => refMap.latLngToContainerPoint(v.latlng));
+            const pOvl = verticesOvl.map(v => ovlMap.latLngToContainerPoint(v.latlng));
+            
+            // Calculate combined bounds from both shapes' actual geometry
+            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+            let hasValidPoints = false;
+            
+            // Use Turf.js to get actual polygon bounds if available
+            if (typeof turf !== 'undefined' && turf) {
+                try {
+                    const refRing = verticesRef.map(v => [v.latlng.lng, v.latlng.lat]);
+                    const ovlRing = verticesOvl.map(v => [v.latlng.lng, v.latlng.lat]);
+                    
+                    if (refRing.length > 2) {
+                        const refPoly = turf.polygon([refRing.concat([refRing[0]])]);
+                        const refBbox = turf.bbox(refPoly);
+                        // refBbox is [minX, minY, maxX, maxY] in lng/lat
+                        const sw = refMap.latLngToContainerPoint(L.latLng(refBbox[1], refBbox[0]));
+                        const ne = refMap.latLngToContainerPoint(L.latLng(refBbox[3], refBbox[2]));
+                        minX = Math.min(minX, sw.x, ne.x);
+                        maxX = Math.max(maxX, sw.x, ne.x);
+                        minY = Math.min(minY, sw.y, ne.y);
+                        maxY = Math.max(maxY, sw.y, ne.y);
+                        hasValidPoints = true;
+                    }
+                    
+                    if (ovlRing.length > 2) {
+                        const ovlPoly = turf.polygon([ovlRing.concat([ovlRing[0]])]);
+                        const ovlBbox = turf.bbox(ovlPoly);
+                        const sw = ovlMap.latLngToContainerPoint(L.latLng(ovlBbox[1], ovlBbox[0]));
+                        const ne = ovlMap.latLngToContainerPoint(L.latLng(ovlBbox[3], ovlBbox[2]));
+                        minX = Math.min(minX, sw.x, ne.x);
+                        maxX = Math.max(maxX, sw.x, ne.x);
+                        minY = Math.min(minY, sw.y, ne.y);
+                        maxY = Math.max(maxY, sw.y, ne.y);
+                        hasValidPoints = true;
+                    }
+                } catch (_) {
+                    // Fall through to AABB calculation
+                }
+            }
+            
+            // If Turf failed or isn't available, use point-based AABB
+            if (!hasValidPoints) {
+                [...pRef, ...pOvl].forEach(pt => {
+                    minX = Math.min(minX, pt.x);
+                    maxX = Math.max(maxX, pt.x);
+                    minY = Math.min(minY, pt.y);
+                    maxY = Math.max(maxY, pt.y);
+                });
+                hasValidPoints = pRef.length > 0 || pOvl.length > 0;
+            }
+            
+            if (hasValidPoints) {
+                const shapeWidth = maxX - minX;
+                const shapeHeight = maxY - minY;
+                const shapeCenterX = (minX + maxX) / 2;
+                const shapeCenterY = (minY + maxY) / 2;
+                const shapeBottomY = maxY;
+                
+                // Check if center position would overlap with any points
+                const proposedLeft = shapeCenterX - gizmoWidth / 2;
+                const proposedTop = shapeCenterY - gizmoHeight / 2;
+                const pointBuffer = 60; // Larger buffer around points
+                
+                // Also collect label positions to avoid
+                const labelPositions = [];
+                if (measureLabelRef && refMap) {
+                    const labelPt = refMap.latLngToContainerPoint(measureLabelRef.getLatLng());
+                    labelPositions.push({ x: labelPt.x, y: labelPt.y });
+                }
+                if (measureLabelOvl && ovlMap) {
+                    const labelPt = ovlMap.latLngToContainerPoint(measureLabelOvl.getLatLng());
+                    labelPositions.push({ x: labelPt.x, y: labelPt.y });
+                }
+                
+                const centerOverlapsPoints = [...pRef, ...pOvl].some(pt => 
+                    pt.x >= proposedLeft - pointBuffer && 
+                    pt.x <= proposedLeft + gizmoWidth + pointBuffer &&
+                    pt.y >= proposedTop - pointBuffer && 
+                    pt.y <= proposedTop + gizmoHeight + pointBuffer
+                );
+                
+                const centerOverlapsLabels = labelPositions.some(pt => 
+                    pt.x >= proposedLeft - pointBuffer && 
+                    pt.x <= proposedLeft + gizmoWidth + pointBuffer &&
+                    pt.y >= proposedTop - pointBuffer && 
+                    pt.y <= proposedTop + gizmoHeight + pointBuffer
+                );
+                
+                const centerOverlaps = centerOverlapsPoints || centerOverlapsLabels;
+                
+                // Require generous clearance for center positioning
+                // Shape must be significantly larger than panel to avoid visual overlap
+                const shapeTooSmall = shapeWidth < gizmoWidth + 80 || shapeHeight < gizmoHeight + 80;
+                
+                // Also check if panel would extend beyond shape bounds significantly
+                const panelExtendsBeyondShape = 
+                    proposedLeft < minX - 20 || 
+                    proposedLeft + gizmoWidth > maxX + 20 ||
+                    proposedTop < minY - 20 || 
+                    proposedTop + gizmoHeight > maxY + 20;
+                
+                // Calculate bottom edge position
+                const bottomEdgeLeft = shapeCenterX - gizmoWidth / 2;
+                const bottomEdgeTop = shapeBottomY + 40;
+                
+                // Check if bottom edge position would overlap with labels
+                const bottomEdgeOverlapsLabels = labelPositions.some(pt => 
+                    pt.x >= bottomEdgeLeft - pointBuffer && 
+                    pt.x <= bottomEdgeLeft + gizmoWidth + pointBuffer &&
+                    pt.y >= bottomEdgeTop - pointBuffer && 
+                    pt.y <= bottomEdgeTop + gizmoHeight + pointBuffer
+                );
+                
+                // Check if bottom edge would overlap with points
+                const bottomEdgeOverlapsPoints = [...pRef, ...pOvl].some(pt => 
+                    pt.x >= bottomEdgeLeft - pointBuffer && 
+                    pt.x <= bottomEdgeLeft + gizmoWidth + pointBuffer &&
+                    pt.y >= bottomEdgeTop - pointBuffer && 
+                    pt.y <= bottomEdgeTop + gizmoHeight + pointBuffer
+                );
+                
+                const bottomEdgeOverlaps = bottomEdgeOverlapsLabels || bottomEdgeOverlapsPoints;
+                
+                if (centerOverlaps || shapeTooSmall || panelExtendsBeyondShape) {
+                    if (bottomEdgeOverlaps) {
+                        // Both center and bottom edge overlap - try top-left corner
+                        shapeBasedPosition = {
+                            left: 72,
+                            top: 12,
+                            source: 'top_left_fallback'
+                        };
+                    } else {
+                        // Position below the actual shape's bottom edge
+                        shapeBasedPosition = {
+                            left: bottomEdgeLeft,
+                            top: bottomEdgeTop,
+                            source: 'shape_bottom_edge'
+                        };
+                    }
+                } else {
+                    // Position inside the shape area (center)
+                    shapeBasedPosition = {
+                        left: proposedLeft,
+                        top: proposedTop,
+                        source: 'shape_center'
+                    };
+                }
+            }
+        } catch (_) {
+            // Fall through to AABB fallback
+        }
+    }
+    
+    // Default position (top-right)
+    let gizmoLeft = window.innerWidth - gizmoWidth - 12;
+    let gizmoTop = 12;
+    
+    // If we have a shape-based position, use it
+    if (shapeBasedPosition) {
+        gizmoLeft = shapeBasedPosition.left;
+        gizmoTop = shapeBasedPosition.top;
+    } else {
+        // Fall back to checking for overlap with any markers
+        const markerPositions = [];
+        if (refMap && verticesRef.length > 0) {
+            verticesRef.forEach(v => {
+                const pt = refMap.latLngToContainerPoint(v.latlng);
+                markerPositions.push({ x: pt.x, y: pt.y });
+            });
+        }
+        if (ovlMap && verticesOvl.length > 0) {
+            verticesOvl.forEach(v => {
+                const pt = ovlMap.latLngToContainerPoint(v.latlng);
+                markerPositions.push({ x: pt.x, y: pt.y });
+            });
+        }
+        
+        // Check if default position overlaps
+        const overlaps = markerPositions.some(pt => 
+            pt.x >= gizmoLeft - pointRadius && 
+            pt.x <= gizmoLeft + gizmoWidth + pointRadius &&
+            pt.y >= gizmoTop - pointRadius && 
+            pt.y <= gizmoTop + gizmoHeight + pointRadius
+        );
+        
+        if (overlaps && markerPositions.length > 0) {
+            // Fall back to AABB-based bottom edge
+            let minX = Infinity, maxX = -Infinity, maxY = -Infinity;
+            markerPositions.forEach(pt => {
+                minX = Math.min(minX, pt.x);
+                maxX = Math.max(maxX, pt.x);
+                maxY = Math.max(maxY, pt.y);
+            });
+            
+            gizmoLeft = (minX + maxX) / 2 - gizmoWidth / 2;
+            gizmoTop = maxY + 40;
+        }
+    }
+    
+    // Clamp to viewport
+    const minVisible = 50;
+    const isMobile = window.innerWidth <= 767;
+    let bottomPadding = minVisible;
+    if (isMobile) {
+        const dashboard = document.querySelector('#dashboard');
+        const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
+        bottomPadding = navbarHeight + 16;
+    }
+    
+    gizmoLeft = Math.max(60, Math.min(window.innerWidth - gizmoWidth - minVisible, gizmoLeft)); // 60 for tool buttons
+    gizmoTop = Math.max(minVisible, Math.min(window.innerHeight - gizmoHeight - bottomPadding, gizmoTop));
+    
+    // Apply position
+    gizmo.style.left = gizmoLeft + 'px';
+    gizmo.style.top = gizmoTop + 'px';
+    gizmo.style.right = 'auto';
+    
     gizmo.classList.add('visible');
 }
 
@@ -777,6 +1007,68 @@ function closeInfoGizmo() {
     const gizmo = document.getElementById('info-gizmo');
     if (!gizmo) return;
     gizmo.classList.remove('visible');
+}
+
+// Update info gizmo position dynamically when shape changes
+function updateInfoGizmoPosition() {
+    const gizmo = document.getElementById('info-gizmo');
+    if (!gizmo || !gizmo.classList.contains('visible')) return;
+    
+    // Only update if user hasn't manually dragged it (check if position was set by openInfoGizmo)
+    // We detect manual drag by checking if position has changed from last calculated position
+    const currentLeft = parseFloat(gizmo.style.left) || 0;
+    const currentTop = parseFloat(gizmo.style.top) || 0;
+    
+    // Check if current position still overlaps with points
+    const gizmoWidth = gizmo.offsetWidth || 320;
+    const gizmoHeight = gizmo.offsetHeight || 200;
+    const pointBuffer = 40;
+    
+    const markerPositions = [];
+    if (refMap && verticesRef.length > 0) {
+        verticesRef.forEach(v => {
+            const pt = refMap.latLngToContainerPoint(v.latlng);
+            markerPositions.push({ x: pt.x, y: pt.y });
+        });
+    }
+    if (ovlMap && verticesOvl.length > 0) {
+        verticesOvl.forEach(v => {
+            const pt = ovlMap.latLngToContainerPoint(v.latlng);
+            markerPositions.push({ x: pt.x, y: pt.y });
+        });
+    }
+    
+    // Also check measurement labels
+    const labelPositions = [];
+    if (measureLabelRef && refMap) {
+        const labelPt = refMap.latLngToContainerPoint(measureLabelRef.getLatLng());
+        labelPositions.push({ x: labelPt.x, y: labelPt.y });
+    }
+    if (measureLabelOvl && ovlMap) {
+        const labelPt = ovlMap.latLngToContainerPoint(measureLabelOvl.getLatLng());
+        labelPositions.push({ x: labelPt.x, y: labelPt.y });
+    }
+    
+    const overlapsPoints = markerPositions.some(pt => 
+        pt.x >= currentLeft - pointBuffer && 
+        pt.x <= currentLeft + gizmoWidth + pointBuffer &&
+        pt.y >= currentTop - pointBuffer && 
+        pt.y <= currentTop + gizmoHeight + pointBuffer
+    );
+    
+    const overlapsLabels = labelPositions.some(pt => 
+        pt.x >= currentLeft - pointBuffer && 
+        pt.x <= currentLeft + gizmoWidth + pointBuffer &&
+        pt.y >= currentTop - pointBuffer && 
+        pt.y <= currentTop + gizmoHeight + pointBuffer
+    );
+    
+    // If overlaps, recalculate position
+    if (overlapsPoints || overlapsLabels) {
+        // Close and reopen to recalculate position
+        closeInfoGizmo();
+        openInfoGizmo();
+    }
 }
 
 // Make info gizmo draggable using unified utility
@@ -940,6 +1232,8 @@ map2.on('zoomend', update);
 let isZoomAnimating = false;
 map1.on('zoomstart', () => { isZoomAnimating = true; });
 map2.on('zoomstart', () => { isZoomAnimating = true; });
+map1.on('zoom', () => { isZoomAnimating = true; });  // Fires continuously during pinch
+map2.on('zoom', () => { isZoomAnimating = true; });
 map1.on('zoomend', () => { isZoomAnimating = false; update(); });
 map2.on('zoomend', () => { isZoomAnimating = false; update(); });
 
@@ -1284,8 +1578,83 @@ function makeDraggable(element, handle, options = {}) {
         const dx = clientX - startX;
         const dy = clientY - startY;
 
-        const newLeft = initialLeft + dx;
-        const newTop = initialTop + dy;
+        let newLeft = initialLeft + dx;
+        let newTop = initialTop + dy;
+
+        // Boundary constraints - keep panel within viewport, accounting for UI elements
+        const rect = element.getBoundingClientRect();
+        const isMobile = window.innerWidth <= 767;
+        const minVisible = 50;
+        
+        // Account for dashboard on mobile
+        let bottomPadding = minVisible;
+        if (isMobile) {
+            const dashboard = document.querySelector('#dashboard');
+            const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
+            bottomPadding = navbarHeight + 16; // Dashboard + margin
+        }
+        
+        // Account for left-side tool buttons
+        const leftPadding = 60; // Space for tool buttons
+        const topPadding = minVisible;
+        
+        const maxLeft = window.innerWidth - minVisible;
+        const maxTop = window.innerHeight - bottomPadding;
+        const minLeft = leftPadding - rect.width;
+        const minTop = topPadding - rect.height;
+
+        newLeft = Math.max(minLeft, Math.min(maxLeft, newLeft));
+        newTop = Math.max(minTop, Math.min(maxTop, newTop));
+
+        // Check if new position would overlap with shape points or labels (for info gizmo)
+        if (element.id === 'info-gizmo') {
+            const pointBuffer = 40;
+            const markerPositions = [];
+            if (refMap && verticesRef.length > 0) {
+                verticesRef.forEach(v => {
+                    const pt = refMap.latLngToContainerPoint(v.latlng);
+                    markerPositions.push({ x: pt.x, y: pt.y });
+                });
+            }
+            if (ovlMap && verticesOvl.length > 0) {
+                verticesOvl.forEach(v => {
+                    const pt = ovlMap.latLngToContainerPoint(v.latlng);
+                    markerPositions.push({ x: pt.x, y: pt.y });
+                });
+            }
+            
+            // Also check measurement labels
+            const labelPositions = [];
+            if (measureLabelRef && refMap) {
+                const labelPt = refMap.latLngToContainerPoint(measureLabelRef.getLatLng());
+                labelPositions.push({ x: labelPt.x, y: labelPt.y });
+            }
+            if (measureLabelOvl && ovlMap) {
+                const labelPt = ovlMap.latLngToContainerPoint(measureLabelOvl.getLatLng());
+                labelPositions.push({ x: labelPt.x, y: labelPt.y });
+            }
+            
+            const wouldOverlapPoints = markerPositions.some(pt => 
+                pt.x >= newLeft - pointBuffer && 
+                pt.x <= newLeft + rect.width + pointBuffer &&
+                pt.y >= newTop - pointBuffer && 
+                pt.y <= newTop + rect.height + pointBuffer
+            );
+            
+            const wouldOverlapLabels = labelPositions.some(pt => 
+                pt.x >= newLeft - pointBuffer && 
+                pt.x <= newLeft + rect.width + pointBuffer &&
+                pt.y >= newTop - pointBuffer && 
+                pt.y <= newTop + rect.height + pointBuffer
+            );
+            
+            // If would overlap, prevent the drag movement
+            if ((wouldOverlapPoints || wouldOverlapLabels) && markerPositions.length > 0) {
+                // Revert to position before this drag update
+                newLeft = parseFloat(element.style.left) || initialLeft;
+                newTop = parseFloat(element.style.top) || initialTop;
+            }
+        }
 
         element.style.left = newLeft + 'px';
         element.style.top = newTop + 'px';
@@ -1891,8 +2260,28 @@ function labelPoint(pts, isAreaShape, map) {
     const c = polyCentroid(pts);
     const fitCheck = doesLabelFitInShape(pts, map, isAreaShape);
     
-    // If label fits inside, position at centroid with AABB center X
-    if (c && fitCheck.fits) {
+    // Check if center position would overlap with any shape points
+    let centerOverlapsPoints = false;
+    if (c && pts.length > 0) {
+        const labelWidth = 100;
+        const labelHeight = 50;
+        const pointBuffer = 15;
+        const centerPt = map.latLngToContainerPoint(c);
+        const proposedLeft = centerPt.x - labelWidth / 2;
+        const proposedTop = centerPt.y - labelHeight / 2;
+        
+        // Check all points for overlap with proposed label position
+        centerOverlapsPoints = pts.some(pt => {
+            const ptScreen = map.latLngToContainerPoint(pt);
+            return ptScreen.x >= proposedLeft - pointBuffer && 
+                   ptScreen.x <= proposedLeft + labelWidth + pointBuffer &&
+                   ptScreen.y >= proposedTop - pointBuffer && 
+                   ptScreen.y <= proposedTop + labelHeight + pointBuffer;
+        });
+    }
+    
+    // If label fits inside AND doesn't overlap with points, position at centroid with AABB center X
+    if (c && fitCheck.fits && !centerOverlapsPoints) {
         if (aabbCenterX !== null) {
             const targetLatLng = L.latLng(c.lat, aabbCenterX);
             const targetPt = map.latLngToContainerPoint(targetLatLng);
@@ -1905,7 +2294,7 @@ function labelPoint(pts, isAreaShape, map) {
         }
     }
     
-    // Label doesn't fit inside - position at the bottom edge of AABB, in the middle
+    // Label doesn't fit inside or overlaps points - position at the bottom edge of AABB, in the middle
     if (!aabb) return c || L.polygon(pts).getBounds().getCenter();
     
     // For small shapes, position label at bottom edge of AABB (centered horizontally)
@@ -2034,6 +2423,11 @@ function update() {
             measureLabelOvl.setIcon(makeMeasureLabel(fmt(vOvl, mode), pctOvl, 'var(--accent-yellow)'));
         }
         preventLabelClick(measureLabelOvl);
+    }
+    // Update info gizmo position if it overlaps with new shape positions
+    // Skip during zoom animation to prevent desync
+    if (!isZoomAnimating) {
+        updateInfoGizmoPosition();
     }
 }
 
