@@ -1294,7 +1294,7 @@ const shapes = {
     bbOvl: L.rectangle([[0, 0], [0, 0]], { interactive: false, fill: false, className: 'aabb-debug' })
 };
 
-let mode = 'dist';
+let mode = localStorage.getItem('syncview-mode') || 'dist';
 let masterVertices = [];
 let verticesRef = [], verticesOvl = [], markersRef = [], markersOvl = [];
 let refMap = null, ovlMap = null, mercAnchorRef = null, mercAnchorOvl = null;
@@ -1952,6 +1952,7 @@ function setMode(m) {
     mode = m;
     if (prevMode !== m) {
         modeChanged = true;
+        localStorage.setItem('syncview-mode', mode);
     }
     document.querySelectorAll('.navbar-btn').forEach(b => b.classList.toggle('active', b.id === 'btn-' + m));
     
@@ -3266,6 +3267,6 @@ function exportGeoJSON() {
     showToast('GeoJSON exported');
 }
 
-// Initialize app in ruler mode
-setMode('dist');
+// Initialize app with saved or default mode
+setMode(mode);
 updateUnitLabel();
