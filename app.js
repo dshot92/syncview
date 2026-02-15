@@ -64,19 +64,6 @@ function createBaseTileLayer(mapType) {
     return layer;
 }
 
-// Create hybrid reference layer - not needed for Google tiles as they include labels
-function createHybridLayer() {
-    return null;
-}
-
-// Create both layers for a map type
-function createTileLayers(mapType) {
-    return {
-        base: createBaseTileLayer(mapType),
-        hybrid: null // Google tiles include labels, no separate hybrid layer needed
-    };
-}
-
 // Apply tile layers to both maps
 function applyTileLayersToMaps(mapType) {
     // Remove existing layers
@@ -86,18 +73,10 @@ function applyTileLayersToMaps(mapType) {
         });
     });
 
-    // Create new layers
-    const layers = createTileLayers(mapType);
-    l1 = layers.base.addTo(map1);
+    // Create and add new layers
+    l1 = createBaseTileLayer(mapType).addTo(map1);
     l2 = createBaseTileLayer(mapType).addTo(map2);
-
-    if (layers.hybrid) {
-        h1 = layers.hybrid.addTo(map1);
-        h2 = createHybridLayer().addTo(map2);
-    } else {
-        h1 = null;
-        h2 = null;
-    }
+    h1 = h2 = null;
 
     // Force redraw
     setTimeout(() => {
@@ -136,46 +115,38 @@ function createMarkerPair(latlng, refMap, ovlMap, isOvlGhost = false) {
     const mR = createHandleMarker(latlng, false, refMap);
     const mO = createHandleMarker(latlng, true, ovlMap);
 
-    // Add drag handlers
-    mR.on('dragstart', () => { 
-        isAnyMarkerDragging = true; 
-        document.querySelectorAll('.measurement-label').forEach(el => el.classList.add('no-transition'));
-    });
-    mR.on('drag', (de) => {
-        const i = markersRef.indexOf(mR);
-        if (i > -1) {
-            setMasterFromRefLatLng(i, de.target.getLatLng());
-            update();
-            scheduleUrlUpdate();
-        }
-    });
-    mR.on('dragend', () => { 
-        isAnyMarkerDragging = false; 
-        document.querySelectorAll('.measurement-label').forEach(el => el.classList.remove('no-transition'));
-    });
-
-    mO.on('dragstart', () => { 
-        isAnyMarkerDragging = true; 
-        document.querySelectorAll('.measurement-label').forEach(el => el.classList.add('no-transition'));
-    });
-    mO.on('drag', (de) => {
-        const i = markersOvl.indexOf(mO);
-        if (i > -1) {
-            setMasterFromOvlLatLng(i, de.target.getLatLng());
-            update();
-            scheduleUrlUpdate();
-        }
-    });
-    mO.on('dragend', () => { 
-        isAnyMarkerDragging = false; 
-        document.querySelectorAll('.measurement-label').forEach(el => el.classList.remove('no-transition'));
-    });
+    // Bind drag handlers for both markers
+    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng);
+    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng);
 
     return { ref: mR, ovl: mO };
 }
 
+// Unified drag handler binding
+function bindDragHandlers(marker, markerArray, updateFn) {
+    marker.on('dragstart', () => { 
+        isAnyMarkerDragging = true; 
+        document.querySelectorAll('.measurement-label').forEach(el => el.classList.add('no-transition'));
+    });
+    marker.on('drag', (de) => {
+        const i = markerArray.indexOf(marker);
+        if (i > -1) {
+            updateFn(i, de.target.getLatLng());
+            update();
+            scheduleUrlUpdate();
+        }
+    });
+    marker.on('dragend', () => { 
+        isAnyMarkerDragging = false; 
+        document.querySelectorAll('.measurement-label').forEach(el => el.classList.remove('no-transition'));
+    });
+}
+
 const map1 = L.map('map1', { zoomSnap: 1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], CONSTANTS.DEFAULT_ZOOM);
 const map2 = L.map('map2', { zoomSnap: 1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], CONSTANTS.DEFAULT_ZOOM);
+
+// Helper to bind events to both maps
+const bindToBoth = (event, handler) => [map1, map2].forEach(m => m.on(event, handler));
 
 function formatLat(lat) {
     const a = Math.abs(lat);
@@ -294,19 +265,6 @@ function b64UrlDecode(b64u) {
     return bytes;
 }
 
-// String-specific wrappers
-function b64UrlEncodeUtf8(str) {
-    return b64UrlEncode(new TextEncoder().encode(str));
-}
-
-function b64UrlDecodeUtf8(b64u) {
-    return new TextDecoder().decode(b64UrlDecode(b64u));
-}
-
-// Byte-specific wrappers (aliases for unified functions)
-const b64UrlEncodeBytes = b64UrlEncode;
-const b64UrlDecodeBytes = b64UrlDecode;
-
 function clamp(n, min, max) {
     const x = Number(n);
     if (!Number.isFinite(x)) return min;
@@ -405,14 +363,14 @@ function encodeAppState() {
         dv.setInt32(o, Math.round(plng * 1e6), true); o += 4;
     }
 
-    return b64UrlEncodeBytes(new Uint8Array(buf));
+    return b64UrlEncode(new Uint8Array(buf));
 }
 
 function decodeAppState(hash) {
     const raw = String(hash || '').replace(/^#/, '');
     if (!raw) return null;
     try {
-        const bytes = b64UrlDecodeBytes(raw);
+        const bytes = b64UrlDecode(raw);
         const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
         let o = 0;
 
@@ -692,60 +650,20 @@ async function shareToInstagram() {
     }
 }
 
-function shareToTelegram() {
+function shareTo(platform) {
     const link = getSharableLink();
-    const url = 'https://t.me/share/url?url=' + encodeURIComponent(link);
+    const urls = {
+        telegram: 'https://t.me/share/url?url=' + encodeURIComponent(link),
+        twitter: 'https://twitter.com/intent/tweet?text=SyncView&url=' + encodeURIComponent(link),
+        facebook: 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(link),
+        whatsapp: 'https://wa.me/?text=' + encodeURIComponent('SyncView: ' + link)
+    };
+    const url = urls[platform];
+    if (!url) return;
     
     closeShareMenu();
     
-    // Use same window for mobile to allow Telegram app to open
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-        window.location.href = url;
-    } else {
-        window.open(url, '_blank');
-    }
-}
-
-function shareToTwitter() {
-    const link = getSharableLink();
-    const text = 'SyncView';
-    const url = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(text) + '&url=' + encodeURIComponent(link);
-    
-    closeShareMenu();
-    
-    // Use same window for mobile to allow Twitter app to open
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-        window.location.href = url;
-    } else {
-        window.open(url, '_blank');
-    }
-}
-
-function shareToFacebook() {
-    const link = getSharableLink();
-    const url = 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(link);
-    
-    closeShareMenu();
-    
-    // Use same window for mobile to allow Facebook app to open
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    if (isMobile) {
-        window.location.href = url;
-    } else {
-        window.open(url, '_blank');
-    }
-}
-
-function shareToWhatsApp() {
-    const link = getSharableLink();
-    const text = 'SyncView: ' + link;
-    const url = 'https://wa.me/?text=' + encodeURIComponent(text);
-    
-    closeShareMenu();
-    
-    // Use same window for mobile to allow WhatsApp app to open
+    // Use same window for mobile to allow native apps to open
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
         window.location.href = url;
@@ -1158,13 +1076,12 @@ document.addEventListener('click', (e) => {
     }
 });
 
-// Initialize tile layers using factory
-let { base: l1, hybrid: h1 } = createTileLayers('hybrid');
-let { base: l2, hybrid: h2 } = createTileLayers('hybrid');
+// Initialize tile layers
+let l1 = createBaseTileLayer('hybrid');
+let l2 = createBaseTileLayer('hybrid');
+let h1 = null, h2 = null;
 l1.addTo(map1);
 l2.addTo(map2);
-if (h1) h1.addTo(map1);
-if (h2) h2.addTo(map2);
 
 // Tile error handling to prevent black screens
 function handleTileError(e) {
@@ -1198,28 +1115,20 @@ const syncZoom = (e) => {
         }
     }, 50);
 };
-map1.on('zoom', syncZoom); map2.on('zoom', syncZoom);
+bindToBoth('zoom', syncZoom);
 
-map1.on('zoom', update);
-map2.on('zoom', update);
+bindToBoth('zoom', update);
 
-map1.on('moveend', scheduleUrlUpdate);
-map2.on('moveend', scheduleUrlUpdate);
-map1.on('zoomend', scheduleUrlUpdate);
-map2.on('zoomend', scheduleUrlUpdate);
+bindToBoth('moveend', scheduleUrlUpdate);
+bindToBoth('zoomend', scheduleUrlUpdate);
 
-map1.on('move', update);
-map2.on('move', update);
-map1.on('zoomend', update);
-map2.on('zoomend', update);
+bindToBoth('move', update);
+bindToBoth('zoomend', update);
 
 let isZoomAnimating = false;
-map1.on('zoomstart', () => { isZoomAnimating = true; });
-map2.on('zoomstart', () => { isZoomAnimating = true; });
-map1.on('zoom', () => { isZoomAnimating = true; });  // Fires continuously during pinch
-map2.on('zoom', () => { isZoomAnimating = true; });
-map1.on('zoomend', () => { isZoomAnimating = false; update(); });
-map2.on('zoomend', () => { isZoomAnimating = false; update(); });
+bindToBoth('zoomstart', () => { isZoomAnimating = true; });
+bindToBoth('zoom', () => { isZoomAnimating = true; });
+bindToBoth('zoomend', () => { isZoomAnimating = false; update(); });
 
 const recalcAabbAndGizmosOnInteraction = (e) => {
     if (!masterVertices || masterVertices.length === 0) return;
@@ -1247,6 +1156,12 @@ map2.on('touchend', recalcAabbAndGizmosOnInteraction);
 let searchTimeout = null;
 const searchCache = new Map(); // Cache for search results
 
+// SVG icons for search toggle
+const ICONS = {
+    search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
+    close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>'
+};
+
 function toggleSearch(idx) {
     const lens = document.getElementById('lens' + idx);
     const wrapper = lens.closest('.tool__search-wrapper');
@@ -1258,11 +1173,11 @@ function toggleSearch(idx) {
         wrapper.classList.remove('expanded');
         lens.classList.remove('active');
         list.classList.remove('visible');
-        lens.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>';
+        lens.innerHTML = ICONS.search;
     } else {
         wrapper.classList.add('expanded');
         lens.classList.add('active');
-        lens.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
+        lens.innerHTML = ICONS.close;
         input.focus();
     }
 }
@@ -2791,18 +2706,18 @@ function bindHandleInteractionLock(marker) {
 function lockMapInteractions() {
     mapInteractionLockCount += 1;
     if (mapInteractionLockCount !== 1) return;
-    disableMapsForLabelDrag();
+    setMapsInteraction(false);
 }
 
 function unlockMapInteractions() {
     mapInteractionLockCount = Math.max(0, mapInteractionLockCount - 1);
     if (mapInteractionLockCount !== 0) return;
-    enableMapsAfterLabelDrag();
+    setMapsInteraction(true);
 }
 
 function resetMapInteractionLocks() {
     mapInteractionLockCount = 0;
-    enableMapsAfterLabelDrag();
+    setMapsInteraction(true);
 }
 
 window.addEventListener('blur', resetMapInteractionLocks);
@@ -2843,38 +2758,17 @@ document.addEventListener('mouseup', () => {
     }
 }, { passive: true });
 
-function disableMapsForLabelDrag() {
-    if (!refMap || !ovlMap || mapsDisabledForLabelDrag) return;
-    mapsDisabledForLabelDrag = true;
-    refMap.dragging.disable();
-    ovlMap.dragging.disable();
-    refMap.touchZoom.disable();
-    ovlMap.touchZoom.disable();
-    refMap.doubleClickZoom.disable();
-    ovlMap.doubleClickZoom.disable();
-    refMap.scrollWheelZoom.disable();
-    ovlMap.scrollWheelZoom.disable();
-    refMap.boxZoom.disable();
-    ovlMap.boxZoom.disable();
-    refMap.keyboard.disable();
-    ovlMap.keyboard.disable();
-}
+const MAP_METHODS = ['dragging', 'touchZoom', 'doubleClickZoom', 'scrollWheelZoom', 'boxZoom', 'keyboard'];
 
-function enableMapsAfterLabelDrag() {
-    if (!refMap || !ovlMap || !mapsDisabledForLabelDrag) return;
-    mapsDisabledForLabelDrag = false;
-    if (refMap.dragging && refMap.dragging.enable) refMap.dragging.enable();
-    if (ovlMap.dragging && ovlMap.dragging.enable) ovlMap.dragging.enable();
-    if (refMap.touchZoom && refMap.touchZoom.enable) refMap.touchZoom.enable();
-    if (ovlMap.touchZoom && ovlMap.touchZoom.enable) ovlMap.touchZoom.enable();
-    if (refMap.doubleClickZoom && refMap.doubleClickZoom.enable) refMap.doubleClickZoom.enable();
-    if (ovlMap.doubleClickZoom && ovlMap.doubleClickZoom.enable) ovlMap.doubleClickZoom.enable();
-    if (refMap.scrollWheelZoom && refMap.scrollWheelZoom.enable) refMap.scrollWheelZoom.enable();
-    if (ovlMap.scrollWheelZoom && ovlMap.scrollWheelZoom.enable) ovlMap.scrollWheelZoom.enable();
-    if (refMap.boxZoom && refMap.boxZoom.enable) refMap.boxZoom.enable();
-    if (ovlMap.boxZoom && ovlMap.boxZoom.enable) ovlMap.boxZoom.enable();
-    if (refMap.keyboard && refMap.keyboard.enable) refMap.keyboard.enable();
-    if (ovlMap.keyboard && ovlMap.keyboard.enable) ovlMap.keyboard.enable();
+function setMapsInteraction(enabled) {
+    if (!refMap || !ovlMap) return;
+    mapsDisabledForLabelDrag = !enabled;
+    [refMap, ovlMap].forEach(map => {
+        MAP_METHODS.forEach(m => {
+            const method = enabled ? 'enable' : 'disable';
+            if (map[m]?.[method]) map[m][method]();
+        });
+    });
 }
 
 function clearAll() {
