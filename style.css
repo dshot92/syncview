@@ -38,7 +38,6 @@
     --divisor-width: 0.25rem;
     --point-border: 0.125rem;
     --point-outline: 0.125rem;
-    --gizmo-radius: 0.625rem;
     --line-stroke-width: 2;
     --line-stroke-opacity: 0.95;
     --line-stroke-dasharray: 6 4;
@@ -78,7 +77,9 @@ body {
 }
 
 
-body.share-overlay-open {
+body.share-overlay-open,
+body.settings-overlay-open,
+body.info-overlay-open {
     grid-template-areas: 
         "overlay"
         "overlay";
@@ -321,14 +322,6 @@ body.share-overlay-open {
     50% { opacity: 0.5; }
 }
 
-/* Divisor Grid */
-.divisor-area {
-    position: relative;
-    background: var(--bg-body);
-    z-index: 1500;
-    border-top: 0.0625rem solid var(--border);
-}
-
 .map-instance {
     width: 100%;
     height: 100%;
@@ -377,8 +370,8 @@ body.share-overlay-open {
 .nav-row {
     grid-area: nav;
     display: grid;
-    grid-template-areas: "dropdown tools share";
-    grid-template-columns: var(--ui-btn-size) 1fr var(--ui-btn-size);
+    grid-template-areas: "settings dropdown tools share info";
+    grid-template-columns: var(--ui-btn-size) var(--ui-btn-size) 1fr var(--ui-btn-size) var(--ui-btn-size);
     align-items: stretch;
     gap: var(--gap-lg);
     height: var(--ui-btn-size);
@@ -683,10 +676,9 @@ body.share-overlay-open {
      color: var(--text-white);
  }
 
- .info-btn {
-    position: absolute;
-    right: calc(var(--ui-btn-size) * -1.5);
-    top: var(--gap-md);
+/* Unit Toggle Button */
+.unit-toggle-btn {
+    grid-area: unit;
     background: var(--bg-body);
     color: var(--text-white);
     border: 0.0625rem solid var(--border);
@@ -698,12 +690,152 @@ body.share-overlay-open {
     transition: var(--hover-transition);
     display: grid;
     place-items: center;
-    box-shadow: var(--shadow);
-    -webkit-tap-highlight-color: transparent;
+    font-size: 0.75rem;
+    font-weight: 800;
 }
 
-.info-btn-mobile {
-    display: none;
+.unit-toggle-btn:hover {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+    color: var(--hover-text);
+}
+
+.unit-toggle-btn:active {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+    color: var(--hover-text);
+    transform: scale(0.97);
+}
+
+/* Info Overlay Content */
+.info-overlay-content {
+    grid-area: grid;
+    padding: var(--gap-xl);
+    overflow-y: auto;
+    display: grid;
+    gap: var(--gap-lg);
+}
+
+.info-overlay-content .info-section h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-white);
+    margin: 0 0 var(--gap-sm) 0;
+}
+
+.info-overlay-content .info-section ul {
+    margin: 0;
+    padding-left: var(--gap-lg);
+    display: grid;
+    gap: var(--gap-xs);
+}
+
+.info-overlay-content .info-section li {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+}
+
+.info-overlay-content .info-section li strong {
+    color: var(--text-white);
+    font-weight: 600;
+}
+
+.info-overlay-content .info-section p {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--text-muted);
+    margin: 0;
+}
+
+.info-overlay-content .github-buttons {
+    display: flex;
+    gap: var(--gap-sm);
+    flex-wrap: wrap;
+}
+
+.info-overlay-content .github-link {
+    font-size: 0.6875rem;
+    padding: var(--gap-sm) var(--gap-md);
+}
+
+/* Settings Button */
+.settings-btn {
+    grid-area: settings;
+    background: var(--bg-body);
+    color: var(--text-white);
+    border: 0.0625rem solid var(--border);
+    padding: 0;
+    width: var(--ui-btn-size);
+    height: var(--ui-btn-size);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--hover-transition);
+    display: grid;
+    place-items: center;
+}
+
+.settings-btn:hover {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+    color: var(--hover-text);
+}
+
+.settings-btn:active {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+    color: var(--hover-text);
+    transform: scale(0.97);
+}
+
+.settings-btn svg {
+    width: var(--ui-icon-size);
+    height: var(--ui-icon-size);
+}
+
+/* Settings Overlay */
+.settings-grid {
+    grid-area: grid;
+    display: grid;
+    gap: var(--gap-md);
+    padding: var(--gap-xl);
+}
+
+.settings-item {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: var(--gap-md);
+    padding: var(--gap-md);
+    background: rgba(255, 255, 255, 0.05);
+    border: 0.0625rem solid var(--border);
+    border-radius: var(--radius);
+}
+
+.settings-item-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-white);
+}
+
+.settings-item-value {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.info-btn {
+    grid-area: info;
+    background: var(--bg-body);
+    color: var(--text-white);
+    border: 0.0625rem solid var(--border);
+    padding: 0;
+    width: var(--ui-btn-size);
+    height: var(--ui-btn-size);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: var(--hover-transition);
+    display: grid;
+    place-items: center;
 }
 
  .info-btn svg {
@@ -722,29 +854,6 @@ body.share-overlay-open {
     border-color: var(--hover-border);
     color: var(--hover-text);
     transform: scale(0.97);
-}
-
-@media (max-width: 47.9375em) {
-    /* On mobile we place the info button on the horizontal divisor line */
-    .nav-row .info-btn {
-        display: none;
-    }
-
-    .divisor-area {
-        position: relative;
-        overflow: visible;
-    }
-
-    .info-btn-mobile {
-        display: grid;
-        position: absolute;
-        left: var(--tool-offset);
-        top: calc((var(--divisor-width) / 2) - (var(--ui-btn-size-sm) / 2));
-        width: var(--ui-btn-size-sm);
-        height: var(--ui-btn-size-sm);
-        z-index: 2001;
-        box-shadow: var(--shadow);
-    }
 }
 
  .toast {
@@ -1076,15 +1185,6 @@ body.share-overlay-open {
     padding: var(--gap-sm) var(--gap-md);
 }
 
-@media (max-width: 47.9375em) {
-    .info-gizmo {
-        top: auto;
-        bottom: calc(var(--tool-offset) + var(--ui-btn-size-sm) + var(--button-gap));
-        right: var(--tool-offset);
-        left: var(--tool-offset);
-        max-width: none;
-    }
-}
 
  .info-section {
     display: grid;
@@ -1174,6 +1274,31 @@ body.share-overlay-open {
  }
 
 /* Context Menu */
+#gizmo-ctx-menu {
+    position: fixed;
+    display: none;
+    z-index: 5000;
+    background: var(--bg-body);
+    border: 0.0625rem solid var(--border);
+    border-radius: var(--radius);
+    padding: var(--gap-sm);
+    box-shadow: 0 0.25rem 0.75rem rgba(0, 0, 0, 0.5);
+}
+
+#gizmo-ctx-menu .ctx-item {
+    padding: var(--gap-sm) var(--gap-lg);
+    font-size: 0.75rem;
+    color: var(--accent-red);
+    font-weight: 600;
+    cursor: pointer;
+    border-radius: var(--radius);
+}
+
+#gizmo-ctx-menu .ctx-item:hover {
+    background: var(--accent-red);
+    color: var(--text-white);
+}
+
 #ctx-menu {
     position: fixed;
     display: none;
@@ -1214,50 +1339,19 @@ body.share-overlay-open {
     box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0 0.3125rem 0.0625rem var(--bg-overlay-light);
 }
 
-.gizmo {
-      width: calc(var(--gizmo-radius) * 2);
-      height: calc(var(--gizmo-radius) * 2);
-      border-radius: var(--radius-full);
-      box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0.25rem 0.875rem rgba(0, 0, 0, 0.45);
-      cursor: grab;
-      touch-action: none;
-      display: grid;
-      place-items: center;
-      background: #ffffff;
-      border: var(--point-border) solid transparent;
-      --gizmo-fg: rgba(0, 0, 0, 0.95);
-  }
-
-  .gizmo-glyph {
-      color: var(--gizmo-fg);
-      width: 100%;
-      height: 100%;
-      display: grid;
-      place-items: center;
-  }
-
-  .gizmo-glyph img {
-      display: block;
-      max-width: 100%;
-      max-height: 100%;
-  }
-
-.gizmo:active {
-    cursor: grabbing;
-}
-
-.gizmo-ref, .gizmo-ovl {
-    --gizmo-fg: rgba(0, 0, 0, 0.95);
-}
-
-.gizmo-ref {
-    background: var(--accent-blue);
-    border-color: var(--accent-blue);
-}
-
-.gizmo-ovl {
-    background: var(--accent-yellow);
-    border-color: var(--accent-yellow);
+/* Vertex number styling */
+.vertex-number {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.625rem;
+    font-weight: 800;
+    color: var(--text-white);
+    text-shadow: 0 0.0625rem 0.125rem rgba(0, 0, 0, 0.8);
+    pointer-events: none;
+    user-select: none;
+    line-height: 1;
 }
 
 .measurement-label {
@@ -1533,4 +1627,75 @@ body.share-overlay-open {
         right: auto;
         transform: translateX(-50%);
     }
+}
+
+/* Gizmo styles for rotation and move controls - styled like handles */
+.gizmo {
+    cursor: grab;
+    z-index: 1500;
+}
+
+.gizmo:active {
+    cursor: grabbing;
+}
+
+.gizmo-ref {
+    background: var(--accent-blue);
+    border: var(--point-border) solid var(--accent-blue);
+    border-radius: var(--radius-full);
+    box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0 0.3125rem 0.0625rem var(--bg-overlay-light);
+}
+
+.gizmo-ovl {
+    background: var(--accent-yellow);
+    border: var(--point-border) solid var(--accent-yellow);
+    border-radius: var(--radius-full);
+    box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0 0.3125rem 0.0625rem var(--bg-overlay-light);
+}
+
+/* Gizmo styles - colored circles with icons inside */
+.gizmo {
+    width: 20px !important;
+    height: 20px !important;
+    border-radius: 50%;
+    cursor: grab;
+    z-index: 1500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 2px var(--text-black), 0 0 5px 1px var(--bg-overlay-light);
+}
+
+.gizmo:active {
+    cursor: grabbing;
+}
+
+.gizmo:hover {
+    transform: scale(1.15);
+}
+
+.gizmo-ref {
+    background: var(--accent-blue);
+    border: 2px solid var(--accent-blue);
+}
+
+.gizmo-ovl {
+    background: var(--accent-yellow);
+    border: 2px solid var(--accent-yellow);
+}
+
+/* Gizmo glyph - icon centered inside */
+.gizmo-glyph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+}
+
+.gizmo-glyph img {
+    display: block;
+    width: 1rem;
+    height: 1rem;
+    /* object-fit: contain; */
 }

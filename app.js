@@ -86,11 +86,15 @@ function applyTileLayersToMaps(mapType) {
 }
 
 // Marker factory - creates handle markers with consistent styling and event binding
-function createHandleMarker(latlng, isGhost = false, map) {
+function createHandleMarker(latlng, isGhost = false, map, index = null) {
     const className = isGhost ? 'ghost-handle' : 'handle';
+    const showNumber = showVertexNumbers && index !== null && !isGhost;
+    const html = showNumber ? `<span class="vertex-number">${index + 1}</span>` : '';
+    
     const marker = L.marker(latlng, {
         icon: L.divIcon({
             className,
+            html,
             iconSize: [CONSTANTS.MARKER_SIZE, CONSTANTS.MARKER_SIZE],
             iconAnchor: [CONSTANTS.MARKER_ANCHOR, CONSTANTS.MARKER_ANCHOR]
         }),
@@ -110,10 +114,26 @@ function createHandleMarker(latlng, isGhost = false, map) {
     return marker;
 }
 
+// Update all marker icons to show/hide vertex numbers
+function updateMarkerIcons() {
+    markersRef.forEach((marker, i) => {
+        if (marker) {
+            const showNumber = showVertexNumbers;
+            const html = showNumber ? `<span class="vertex-number">${i + 1}</span>` : '';
+            marker.setIcon(L.divIcon({
+                className: 'handle',
+                html,
+                iconSize: [CONSTANTS.MARKER_SIZE, CONSTANTS.MARKER_SIZE],
+                iconAnchor: [CONSTANTS.MARKER_ANCHOR, CONSTANTS.MARKER_ANCHOR]
+            }));
+        }
+    });
+}
+
 // Create a pair of markers (ref and ovl) for a point
-function createMarkerPair(latlng, refMap, ovlMap, isOvlGhost = false) {
-    const mR = createHandleMarker(latlng, false, refMap);
-    const mO = createHandleMarker(latlng, true, ovlMap);
+function createMarkerPair(latlng, refMap, ovlMap, index = null) {
+    const mR = createHandleMarker(latlng, false, refMap, index);
+    const mO = createHandleMarker(latlng, true, ovlMap, index);
 
     // Bind drag handlers for both markers
     bindDragHandlers(mR, markersRef, setMasterFromRefLatLng);
@@ -452,21 +472,34 @@ function applyDecodedState(state) {
             markersRef = [];
             markersOvl = [];
 
-            pts.forEach((p) => {
+            pts.forEach((p, index) => {
                 const llArr = safeLatLngLike(p);
                 if (!llArr) return;
-                const ll = L.latLng(llArr[0], llArr[1]);
-                masterVertices.push({ latlng: ll });
+                const refLatLng = L.latLng(llArr[0], llArr[1]);
+                masterVertices.push({ latlng: refLatLng });
 
-                const { ref: mR, ovl: mO } = createMarkerPair(ll, refMap, ovlMap);
+                // Create reference marker at the stored geo location
+                const mR = createHandleMarker(refLatLng, false, refMap, index);
+                
+                // Convert reference lat/lng to view position, then to overlay lat/lng
+                const containerPoint = refMap.latLngToContainerPoint(refLatLng);
+                const ovlLatLng = ovlMap.containerPointToLatLng(containerPoint);
+                
+                // Create overlay marker at the corresponding view position
+                const mO = createHandleMarker(ovlLatLng, true, ovlMap, index);
+                
+                // Bind drag handlers
+                bindDragHandlers(mR, markersRef, setMasterFromRefLatLng);
+                bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng);
 
-                verticesRef.push({ latlng: ll });
-                verticesOvl.push({ latlng: ll });
+                verticesRef.push({ latlng: refLatLng });
+                verticesOvl.push({ latlng: ovlLatLng });
                 markersRef.push(mR);
                 markersOvl.push(mO);
             });
 
             update();
+            updateMarkerIcons();
         }
     } finally {
         isApplyingUrlState = false;
@@ -482,8 +515,6 @@ function scheduleUrlUpdate() {
         try {
             const encoded = encodeAppState();
             const url = new URL(location.href);
-
-            // Cache busting removed
 
             // Write state into query param (crawler-visible)
             url.searchParams.set('s', encoded);
@@ -506,21 +537,7 @@ function getEncodedStateFromUrl() {
     } catch (_) {
     }
 
-    const rawHash = String(location.hash || '').replace(/^#/, '');
-    return rawHash || null;
-}
-
-function migrateHashStateToQuery() {
-    const rawHash = String(location.hash || '').replace(/^#/, '');
-    if (!rawHash) return;
-
-    try {
-        const url = new URL(location.href);
-        if (!url.searchParams.has('s')) url.searchParams.set('s', rawHash);
-        url.hash = '';
-        history.replaceState(null, '', url.toString());
-    } catch (_) {
-    }
+    return null;
 }
 
 function applyStateFromUrl() {
@@ -539,8 +556,6 @@ function getSharableLink() {
     const encoded = encodeAppState();
 
     const url = new URL(location.href);
-
-    // Cache busting removed
 
     // Put state into query param (crawler-visible)
     url.searchParams.set('s', encoded);
@@ -614,6 +629,79 @@ function closeShareMenu() {
             overlay.style.display = 'none';
         }
     }, 300); // Match transition duration
+}
+
+// Settings menu functions
+function openSettingsMenu() {
+    const overlay = document.getElementById('settings-overlay');
+    if (!overlay) return;
+    
+    updateSettingsValues();
+    
+    overlay.style.display = 'grid';
+    document.body.classList.add('settings-overlay-open');
+    
+    requestAnimationFrame(() => {
+        overlay.classList.add('visible');
+    });
+}
+
+function closeSettingsMenu() {
+    const overlay = document.getElementById('settings-overlay');
+    if (!overlay) return;
+    
+    overlay.classList.remove('visible');
+    document.body.classList.remove('settings-overlay-open');
+    
+    setTimeout(() => {
+        if (!overlay.classList.contains('visible')) {
+            overlay.style.display = 'none';
+        }
+    }, 300);
+}
+
+// Info menu functions (like share)
+function openInfoMenu() {
+    const overlay = document.getElementById('info-overlay');
+    if (!overlay) return;
+    
+    overlay.style.display = 'grid';
+    document.body.classList.add('info-overlay-open');
+    
+    requestAnimationFrame(() => {
+        overlay.classList.add('visible');
+    });
+}
+
+function closeInfoMenu() {
+    const overlay = document.getElementById('info-overlay');
+    if (!overlay) return;
+    
+    overlay.classList.remove('visible');
+    document.body.classList.remove('info-overlay-open');
+    
+    setTimeout(() => {
+        if (!overlay.classList.contains('visible')) {
+            overlay.style.display = 'none';
+        }
+    }, 300);
+}
+
+function updateSettingsValues() {
+    const unitValue = document.getElementById('settings-unit-value');
+    const vertexValue = document.getElementById('settings-vertex-value');
+    const bboxValue = document.getElementById('settings-bbox-value');
+    
+    if (unitValue) unitValue.textContent = getUnitSystemName(currentUnitSystem);
+    if (vertexValue) vertexValue.textContent = showVertexNumbers ? 'On' : 'Off';
+    if (bboxValue) bboxValue.textContent = showAabb ? 'On' : 'Off';
+}
+
+function toggleBoundingBox() {
+    showAabb = !showAabb;
+    update();
+    showToast(showAabb ? 'Bounding box on' : 'Bounding box off');
+    updateSettingsValues();
 }
 
 async function shareToInstagram() {
@@ -715,283 +803,7 @@ async function copyShareLink() {
     }
 }
 
-function openInfoGizmo() {
-    const gizmo = document.getElementById('info-gizmo');
-    if (!gizmo) return;
-
-    gizmo.dataset.userDragged = '0';
-    recalcInfoGizmoPosition();
-    gizmo.classList.add('visible');
-
-    requestAnimationFrame(() => {
-        const rect = gizmo.getBoundingClientRect();
-        if (rect && rect.width && rect.height) {
-            gizmo.dataset.cachedWidth = String(rect.width);
-            gizmo.dataset.cachedHeight = String(rect.height);
-        }
-    });
-
-    startInfoGizmoRafLoop();
-}
-
-function recalcInfoGizmoPosition() {
-    const gizmo = document.getElementById('info-gizmo');
-    if (!gizmo) return;
-    
-    const gizmoWidth = Number(gizmo.dataset.cachedWidth) || 320;
-    const gizmoHeight = Number(gizmo.dataset.cachedHeight) || 200;
-    const pointRadius = 30; // Marker radius + buffer
-    
-    // Try to position based on actual polygon shapes first
-    let shapeBasedPosition = null;
-    
-    if (refMap && ovlMap && verticesRef.length >= 3 && mode === 'area') {
-        try {
-            // Get reference shape points in screen coordinates
-            const pRef = verticesRef.map(v => refMap.latLngToContainerPoint(v.latlng));
-            const pOvl = verticesOvl.map(v => ovlMap.latLngToContainerPoint(v.latlng));
-            
-            // Calculate combined bounds from both shapes' actual geometry
-            let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-            let hasValidPoints = false;
-
-            // Use point-based AABB (avoid heavy geometry operations in per-frame updates)
-            [...pRef, ...pOvl].forEach(pt => {
-                minX = Math.min(minX, pt.x);
-                maxX = Math.max(maxX, pt.x);
-                minY = Math.min(minY, pt.y);
-                maxY = Math.max(maxY, pt.y);
-            });
-            hasValidPoints = pRef.length > 0 || pOvl.length > 0;
-            
-            if (hasValidPoints) {
-                const shapeWidth = maxX - minX;
-                const shapeHeight = maxY - minY;
-                const shapeCenterX = (minX + maxX) / 2;
-                const shapeCenterY = (minY + maxY) / 2;
-                const shapeBottomY = maxY;
-                
-                // Check if center position would overlap with any points
-                const proposedLeft = shapeCenterX - gizmoWidth / 2;
-                const proposedTop = shapeCenterY - gizmoHeight / 2;
-                const pointBuffer = 60; // Larger buffer around points
-                
-                // Also collect label positions to avoid
-                const labelPositions = [];
-                if (measureLabelRef && refMap) {
-                    const labelPt = refMap.latLngToContainerPoint(measureLabelRef.getLatLng());
-                    labelPositions.push({ x: labelPt.x, y: labelPt.y });
-                }
-                if (measureLabelOvl && ovlMap) {
-                    const labelPt = ovlMap.latLngToContainerPoint(measureLabelOvl.getLatLng());
-                    labelPositions.push({ x: labelPt.x, y: labelPt.y });
-                }
-                
-                const centerOverlapsPoints = [...pRef, ...pOvl].some(pt => 
-                    pt.x >= proposedLeft - pointBuffer && 
-                    pt.x <= proposedLeft + gizmoWidth + pointBuffer &&
-                    pt.y >= proposedTop - pointBuffer && 
-                    pt.y <= proposedTop + gizmoHeight + pointBuffer
-                );
-                
-                const centerOverlapsLabels = labelPositions.some(pt => 
-                    pt.x >= proposedLeft - pointBuffer && 
-                    pt.x <= proposedLeft + gizmoWidth + pointBuffer &&
-                    pt.y >= proposedTop - pointBuffer && 
-                    pt.y <= proposedTop + gizmoHeight + pointBuffer
-                );
-                
-                const centerOverlaps = centerOverlapsPoints || centerOverlapsLabels;
-                
-                // Require generous clearance for center positioning
-                // Shape must be significantly larger than panel to avoid visual overlap
-                const shapeTooSmall = shapeWidth < gizmoWidth + 80 || shapeHeight < gizmoHeight + 80;
-                
-                // Also check if panel would extend beyond shape bounds significantly
-                const panelExtendsBeyondShape = 
-                    proposedLeft < minX - 20 || 
-                    proposedLeft + gizmoWidth > maxX + 20 ||
-                    proposedTop < minY - 20 || 
-                    proposedTop + gizmoHeight > maxY + 20;
-                
-                // Calculate bottom edge position
-                const bottomEdgeLeft = shapeCenterX - gizmoWidth / 2;
-                const bottomEdgeTop = shapeBottomY + 40;
-                
-                // Check if bottom edge position would overlap with labels
-                const bottomEdgeOverlapsLabels = labelPositions.some(pt => 
-                    pt.x >= bottomEdgeLeft - pointBuffer && 
-                    pt.x <= bottomEdgeLeft + gizmoWidth + pointBuffer &&
-                    pt.y >= bottomEdgeTop - pointBuffer && 
-                    pt.y <= bottomEdgeTop + gizmoHeight + pointBuffer
-                );
-                
-                // Check if bottom edge would overlap with points
-                const bottomEdgeOverlapsPoints = [...pRef, ...pOvl].some(pt => 
-                    pt.x >= bottomEdgeLeft - pointBuffer && 
-                    pt.x <= bottomEdgeLeft + gizmoWidth + pointBuffer &&
-                    pt.y >= bottomEdgeTop - pointBuffer && 
-                    pt.y <= bottomEdgeTop + gizmoHeight + pointBuffer
-                );
-                
-                const bottomEdgeOverlaps = bottomEdgeOverlapsLabels || bottomEdgeOverlapsPoints;
-                
-                if (centerOverlaps || shapeTooSmall || panelExtendsBeyondShape) {
-                    if (bottomEdgeOverlaps) {
-                        // Both center and bottom edge overlap - try top-left corner
-                        shapeBasedPosition = {
-                            left: 72,
-                            top: 12,
-                            source: 'top_left_fallback'
-                        };
-                    } else {
-                        // Position below the actual shape's bottom edge
-                        shapeBasedPosition = {
-                            left: bottomEdgeLeft,
-                            top: bottomEdgeTop,
-                            source: 'shape_bottom_edge'
-                        };
-                    }
-                } else {
-                    // Position inside the shape area (center)
-                    shapeBasedPosition = {
-                        left: proposedLeft,
-                        top: proposedTop,
-                        source: 'shape_center'
-                    };
-                }
-            }
-        } catch (_) {
-            // Fall through to AABB fallback
-        }
-    }
-    
-    // Default position (top-right)
-    let gizmoLeft = window.innerWidth - gizmoWidth - 12;
-    let gizmoTop = 12;
-    
-    // If we have a shape-based position, use it
-    if (shapeBasedPosition) {
-        gizmoLeft = shapeBasedPosition.left;
-        gizmoTop = shapeBasedPosition.top;
-    } else {
-        // Fall back to positioning based on point geometry
-        const markerPositions = [];
-        if (refMap && verticesRef.length > 0) {
-            verticesRef.forEach(v => {
-                const pt = refMap.latLngToContainerPoint(v.latlng);
-                markerPositions.push({ x: pt.x, y: pt.y });
-            });
-        }
-        if (ovlMap && verticesOvl.length > 0) {
-            verticesOvl.forEach(v => {
-                const pt = ovlMap.latLngToContainerPoint(v.latlng);
-                markerPositions.push({ x: pt.x, y: pt.y });
-            });
-        }
-
-        if (markerPositions.length > 0) {
-            // Place below the current point AABB (works for line mode and area mode)
-            let minX = Infinity, maxX = -Infinity, maxY = -Infinity;
-            markerPositions.forEach(pt => {
-                minX = Math.min(minX, pt.x);
-                maxX = Math.max(maxX, pt.x);
-                maxY = Math.max(maxY, pt.y);
-            });
-
-            gizmoLeft = (minX + maxX) / 2 - gizmoWidth / 2;
-            gizmoTop = maxY + 40;
-        }
-    }
-    
-    // Clamp to viewport
-    const minVisible = 50;
-    const isMobile = window.innerWidth <= 767;
-    let bottomPadding = minVisible;
-    if (isMobile) {
-        const dashboard = document.querySelector('#dashboard');
-        const navbarHeight = dashboard ? dashboard.offsetHeight : 56;
-        bottomPadding = navbarHeight + 16;
-    }
-    
-    gizmoLeft = Math.max(60, Math.min(window.innerWidth - gizmoWidth - minVisible, gizmoLeft)); // 60 for tool buttons
-    gizmoTop = Math.max(minVisible, Math.min(window.innerHeight - gizmoHeight - bottomPadding, gizmoTop));
-    
-    // Apply position
-    gizmo.style.left = gizmoLeft + 'px';
-    gizmo.style.top = gizmoTop + 'px';
-    gizmo.style.right = 'auto';
-}
-
-function closeInfoGizmo() {
-    const gizmo = document.getElementById('info-gizmo');
-    if (!gizmo) return;
-    gizmo.classList.remove('visible');
-}
-
-// Update info gizmo position dynamically when shape changes
-function updateInfoGizmoPosition() {
-    const gizmo = document.getElementById('info-gizmo');
-    if (!gizmo || !gizmo.classList.contains('visible')) return;
-
-    if (isZoomAnimating) return;
-    if (GIZMO_STATE.rotate.active || GIZMO_STATE.move.active) return;
-
-    if (gizmo.dataset.userDragged === '1') return;
-
-    recalcInfoGizmoPosition();
-}
-
-let infoGizmoRaf = null;
-function startInfoGizmoRafLoop() {
-    if (infoGizmoRaf) return;
-
-    const tick = () => {
-        infoGizmoRaf = requestAnimationFrame(tick);
-        updateInfoGizmoPosition();
-    };
-
-    infoGizmoRaf = requestAnimationFrame(tick);
-}
-
-// Make info gizmo draggable using unified utility
-function initInfoGizmoDrag() {
-    const gizmo = document.getElementById('info-gizmo');
-    const header = document.getElementById('info-gizmo-header');
-    if (!gizmo || !header) return;
-
-    makeDraggable(gizmo, header, {
-        skipSelector: '.info-gizmo-close',
-        onStart: () => {
-            gizmo.dataset.userDragged = '1';
-        }
-    });
-
-    startInfoGizmoRafLoop();
-
-    window.addEventListener('resize', () => {
-        const rect = gizmo.getBoundingClientRect();
-        if (rect && rect.width && rect.height) {
-            gizmo.dataset.cachedWidth = String(rect.width);
-            gizmo.dataset.cachedHeight = String(rect.height);
-        }
-    });
-
-    // Close on Escape key
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape') closeInfoGizmo();
-    });
-}
-
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initInfoGizmoDrag);
-} else {
-    initInfoGizmoDrag();
-}
-
-// Legacy functions for backward compatibility
-function openInfoMenu() { openInfoGizmo(); }
-function closeInfoMenu() { closeInfoGizmo(); }
+// Legacy info gizmo functions removed - now using overlay pattern like share menu
 
 function undoLastPoint() {
     hideCtx();
@@ -1023,43 +835,119 @@ function undoLastPoint() {
 }
 
 document.addEventListener('keydown', (e) => {
+    const isTypingTarget = e.target && (
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
+        e.target.isContentEditable
+    );
+
+    if (isTypingTarget) return;
+
+    // Ctrl+Z / Cmd+Z for undo
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
-        const t = e.target;
-        const isTypingTarget = t && (
-            t.tagName === 'INPUT' ||
-            t.tagName === 'TEXTAREA' ||
-            t.isContentEditable
-        );
-        if (!isTypingTarget) {
-            e.preventDefault();
-            undoLastPoint();
-        }
+        e.preventDefault();
+        undoLastPoint();
         return;
     }
+
+    // B for bounding box toggle
     if (e.key === 'b' || e.key === 'B') {
-        const t = e.target;
-        const isTypingTarget = t && (
-            t.tagName === 'INPUT' ||
-            t.tagName === 'TEXTAREA' ||
-            t.isContentEditable
-        );
-        if (!isTypingTarget) {
-            e.preventDefault();
-            showAabb = !showAabb;
-            update();
+        e.preventDefault();
+        showAabb = !showAabb;
+        update();
+        return;
+    }
+
+    // L for Line mode
+    if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault();
+        setMode('dist');
+        showToast('Line mode');
+        return;
+    }
+
+    // A for Area mode
+    if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault();
+        setMode('area');
+        showToast('Area mode');
+        return;
+    }
+
+    // U for Unit toggle
+    if (e.key === 'u' || e.key === 'U') {
+        e.preventDefault();
+        toggleUnits();
+        return;
+    }
+
+    // V for Vertex numbers toggle
+    if (e.key === 'v' || e.key === 'V') {
+        e.preventDefault();
+        toggleVertexNumbers();
+        return;
+    }
+
+    // Delete key to remove last point
+    if (e.key === 'Delete' || e.key === 'Del') {
+        e.preventDefault();
+        if (masterVertices.length > 0) {
+            undoLastPoint();
+            showToast('Point removed');
         }
         return;
     }
-    if (e.key !== 'Escape') return;
-    const shareOverlay = document.getElementById('share-overlay');
-    const infoGizmo = document.getElementById('info-gizmo');
-    if (shareOverlay && shareOverlay.style.display !== 'none') closeShareMenu();
-    if (infoGizmo && infoGizmo.classList.contains('visible')) closeInfoGizmo();
+
+    // Escape to close overlays and menus
+    if (e.key === 'Escape') {
+        const shareOverlay = document.getElementById('share-overlay');
+        const settingsOverlay = document.getElementById('settings-overlay');
+        const infoOverlay = document.getElementById('info-overlay');
+        const ctxMenu = document.getElementById('ctx-menu');
+        const layerOptions = document.getElementById('layerOptions');
+        const suggestions = document.querySelectorAll('.suggestions.visible');
+
+        let closedSomething = false;
+
+        if (shareOverlay && shareOverlay.style.display !== 'none') {
+            closeShareMenu();
+            closedSomething = true;
+        }
+        if (settingsOverlay && settingsOverlay.style.display !== 'none') {
+            closeSettingsMenu();
+            closedSomething = true;
+        }
+        if (infoOverlay && infoOverlay.style.display !== 'none') {
+            closeInfoMenu();
+            closedSomething = true;
+        }
+        if (ctxMenu && ctxMenu.style.display !== 'none') {
+            hideCtx();
+            closedSomething = true;
+        }
+        if (layerOptions && layerOptions.classList.contains('open')) {
+            layerOptions.classList.remove('open');
+            closedSomething = true;
+        }
+        suggestions.forEach(s => {
+            s.classList.remove('visible');
+            closedSomething = true;
+        });
+
+        // If nothing was closed, clear all points as last resort
+        if (!closedSomething && masterVertices.length > 0) {
+            if (confirm('Clear all points?')) {
+                clearAll();
+            }
+        }
+        return;
+    }
 });
 
 document.addEventListener('click', (e) => {
     const shareOverlay = document.getElementById('share-overlay');
-    const infoGizmo = document.getElementById('info-gizmo');
+    const settingsOverlay = document.getElementById('settings-overlay');
+    const infoOverlay = document.getElementById('info-overlay');
     
     // Handle share overlay clicks
     if (shareOverlay && shareOverlay.style.display !== 'none') {
@@ -1068,11 +956,18 @@ document.addEventListener('click', (e) => {
         if (e.target === shareOverlay) closeShareMenu();
     }
     
-    // Handle info gizmo clicks - close when clicking outside
-    if (infoGizmo && infoGizmo.classList.contains('visible')) {
-        if (!infoGizmo.contains(e.target) && !e.target.closest('.info-btn')) {
-            closeInfoGizmo();
-        }
+    // Handle settings overlay clicks
+    if (settingsOverlay && settingsOverlay.style.display !== 'none') {
+        const settingsCard = document.getElementById('settings-card');
+        if (settingsCard && settingsCard.contains(e.target)) return;
+        if (e.target === settingsOverlay) closeSettingsMenu();
+    }
+    
+    // Handle info overlay clicks
+    if (infoOverlay && infoOverlay.style.display !== 'none') {
+        const infoCard = document.getElementById('info-card');
+        if (infoCard && infoCard.contains(e.target)) return;
+        if (e.target === infoOverlay) closeInfoMenu();
     }
 });
 
@@ -1102,6 +997,7 @@ function handleTileError(e) {
 
 let zoomTimeout = null;
 let isSyncing = false;
+
 const syncZoom = (e) => {
     if (isSyncing) return;
     clearTimeout(zoomTimeout);
@@ -1152,9 +1048,22 @@ map2.on('mouseup', recalcAabbAndGizmosOnInteraction);
 map2.on('touchstart', recalcAabbAndGizmosOnInteraction);
 map2.on('touchend', recalcAabbAndGizmosOnInteraction);
 
-// Search Logic with Suggestions
+// Vertex number display option
+let showVertexNumbers = localStorage.getItem('syncview-vertex-numbers') === 'true';
+
+function toggleVertexNumbers() {
+    showVertexNumbers = !showVertexNumbers;
+    localStorage.setItem('syncview-vertex-numbers', showVertexNumbers);
+    updateMarkerIcons();
+    showToast(showVertexNumbers ? 'Vertex numbers on' : 'Vertex numbers off');
+    updateSettingsValues();
+}
+
+// Debounced search with better error handling
 let searchTimeout = null;
-const searchCache = new Map(); // Cache for search results
+const searchCache = new Map();
+let searchAttempts = 0;
+const MAX_SEARCH_ATTEMPTS = 3;
 
 // SVG icons for search toggle
 const ICONS = {
@@ -1195,20 +1104,37 @@ async function fetchSuggestions(idx, query) {
         return;
     }
 
+    // Rate limiting - prevent too many requests
+    if (searchAttempts >= MAX_SEARCH_ATTEMPTS) {
+        return;
+    }
+
     try {
-        const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`);
+        searchAttempts++;
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`, {
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
         const data = await resp.json();
         const list = document.getElementById('results' + idx);
 
         if (data && data.length > 0) {
-            // Cache the results
             searchCache.set(cacheKey, data);
             displaySuggestions(idx, data);
+            searchAttempts = 0; // Reset on success
         } else {
             document.getElementById('results' + idx).classList.remove('visible');
         }
     } catch (err) {
-        console.error("Fetch failed", err);
+        if (err.name !== 'AbortError') {
+            console.error('Search failed:', err);
+        }
     }
 }
 
@@ -1325,6 +1251,7 @@ window.onclick = (e) => {
         document.querySelectorAll('.suggestions').forEach(s => s.classList.remove('visible'));
     }
     if (!e.target.closest('#ctx-menu')) hideCtx();
+    if (!e.target.closest('#gizmo-ctx-menu')) hideGizmoCtx();
 };
 
 // Add touch event listener for mobile devices
@@ -1338,6 +1265,7 @@ window.addEventListener('touchstart', (e) => {
         document.querySelectorAll('.suggestions').forEach(s => s.classList.remove('visible'));
     }
     if (!e.target.closest('#ctx-menu')) hideCtx();
+    if (!e.target.closest('#gizmo-ctx-menu')) hideGizmoCtx();
 }, { passive: true });
 
 // Graphics & Measurement State
@@ -1361,17 +1289,57 @@ let refMap = null, ovlMap = null, mercAnchorRef = null, mercAnchorOvl = null;
 let measureLabelRef = null;
 let measureLabelOvl = null;
 
+// Unit system: 'metric' | 'imperial'
+let currentUnitSystem = localStorage.getItem('syncview-units') || 'metric';
+
+function toggleUnits() {
+    const systems = ['metric', 'imperial' ];
+    const currentIdx = systems.indexOf(currentUnitSystem);
+    currentUnitSystem = systems[(currentIdx + 1) % systems.length];
+    localStorage.setItem('syncview-units', currentUnitSystem);
+    updateUnitLabel();
+    update();
+    showToast(`Units: ${getUnitSystemName(currentUnitSystem)}`);
+    updateSettingsValues();
+}
+
+function getUnitSystemName(system) {
+    const names = { metric: 'Metric', imperial: 'Imperial', };
+    return names[system] || 'Metric';
+}
+
+function updateUnitLabel() {
+    const label = document.getElementById('unitLabel');
+    if (label) {
+        const labels = { metric: 'm', imperial: 'ft' };
+        label.textContent = labels[currentUnitSystem];
+    }
+}
+
+function fmt(v, t) {
+    const comma = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    const nbsp = '\u00A0';
+
+    if (currentUnitSystem === 'metric') {
+        if (t === 'area') return v >= 1e6 ? comma((v / 1e6).toFixed(2)) + nbsp + 'km²' : comma(v.toFixed(0)) + nbsp + 'm²';
+        return v >= 1000 ? comma((v / 1000).toFixed(2)) + nbsp + 'km' : comma(v.toFixed(0)) + nbsp + 'm';
+    } else if (currentUnitSystem === 'imperial') {
+        if (t === 'area') {
+            // v is in m², convert to yd² (1 m² = 1.19599 yd²), then to mi² (1 mi² = 3,097,600 yd²)
+            const yd2 = v * 1.19599;
+            const mi2 = yd2 / 3097600;
+            return mi2 >= 1 ? comma(mi2.toFixed(2)) + nbsp + 'mi²' : comma(yd2.toFixed(0)) + nbsp + 'yd²';
+        }
+        // v is in meters, convert to yards, then to miles
+        const yd = v * 1.09361;
+        const mi = yd / 1760;
+        return mi >= 1 ? comma(mi.toFixed(2)) + nbsp + 'mi' : comma(yd.toFixed(0)) + nbsp + 'yd';
+    }
+    return v.toFixed(2);
+}
+
+
 let showAabb = false;
-let rotateGizmoRef = null;
-let rotateGizmoOvl = null;
-let moveGizmoRef = null;
-let moveGizmoOvl = null;
-
-const shapeTransforms = {
-    ref: { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null },
-    ovl: { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null }
-};
-
 let suppressMapClickUntil = 0;
 
 let mapsDisabledForLabelDrag = false;
@@ -1385,19 +1353,52 @@ function getMasterMerc() {
 }
 
 function setMasterFromRefLatLng(index, newLatLng) {
-    const baseMerc = getMasterMerc();
-    const pMerc = toMerc(newLatLng);
-    const mMerc = invertTransformMerc(pMerc, baseMerc, shapeTransforms.ref);
-    masterVertices[index] = { latlng: fromMerc(mMerc) };
+    if (!refMap || !ovlMap || !verticesRef[index] || !verticesOvl[index]) return;
+    
+    // Convert the new reference latlng back to master coordinates
+    // by inverting the reference transform
+    const newRefMerc = toMerc(newLatLng);
+    const baseMercMaster = getMasterMerc();
+    
+    // Invert the transform to get back to untransformed reference coordinates
+    const invertedMerc = invertTransformMerc(newRefMerc, baseMercMaster, shapeTransforms.ref);
+    const newMasterLatLng = fromMerc(invertedMerc);
+    
+    // Update masterVertices with the new base position
+    masterVertices[index] = { latlng: newMasterLatLng };
+    
+    // Keep the existing transform - updateVertexPositions will apply it consistently
+    // The key is that we updated masterVertices, so the shape stays consistent
 }
 
 function setMasterFromOvlLatLng(index, newLatLng) {
-    const baseMerc = getMasterMerc();
-    const baseOvlMerc = baseMerc.map((p) => L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y)));
-    const pMerc = toMerc(newLatLng);
-    const inv = invertTransformMerc(pMerc, baseOvlMerc, shapeTransforms.ovl);
-    const mMerc = L.point(mercAnchorRef.x + (inv.x - mercAnchorOvl.x), mercAnchorRef.y + (inv.y - mercAnchorOvl.y));
-    masterVertices[index] = { latlng: fromMerc(mMerc) };
+    if (!refMap || !ovlMap || !verticesRef[index] || !verticesOvl[index]) return;
+    
+    // Convert the new overlay latlng back to master coordinates
+    // by inverting the overlay transform
+    const newOvlMerc = toMerc(newLatLng);
+    const baseMercMaster = getMasterMerc();
+    
+    // Get the overlay-specific base (with mercAnchor offset)
+    const ovlBaseMerc = baseMercMaster.map((p) => 
+        L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y))
+    );
+    
+    // Invert the transform to get back to untransformed overlay coordinates
+    const invertedOvlMerc = invertTransformMerc(newOvlMerc, ovlBaseMerc, shapeTransforms.ovl);
+    
+    // Now convert back to reference merc (remove the mercAnchor offset)
+    const invertedRefMerc = L.point(
+        mercAnchorRef.x + (invertedOvlMerc.x - mercAnchorOvl.x),
+        mercAnchorRef.y + (invertedOvlMerc.y - mercAnchorOvl.y)
+    );
+    const newMasterLatLng = fromMerc(invertedRefMerc);
+    
+    // Update masterVertices with the base position
+    masterVertices[index] = { latlng: newMasterLatLng };
+    
+    // Keep the existing overlay transform - updateVertexPositions will apply it consistently
+    // The key is that we updated masterVertices, so the shape stays consistent
 }
 
 function getAabb(lls) {
@@ -1413,26 +1414,6 @@ function getAabb(lls) {
     return { south, west, north, east };
 }
 
-// Unified Gizmo System
-// ====================
-
-// Factory for creating map gizmo markers
-function createGizmoMarker(type, which, glyph, handlers) {
-    const className = `gizmo gizmo-${type} gizmo-${which}`;
-    const size = CONSTANTS.GIZMO_RADIUS_PX * 2;
-    const anchor = CONSTANTS.GIZMO_RADIUS_PX;
-    const marker = L.marker([0, 0], {
-        draggable: true,
-        keyboard: false,
-        icon: L.divIcon({ className, html: glyph, iconSize: [size, size], iconAnchor: [anchor, anchor] })
-    });
-    bindHandleInteractionLock(marker);
-    marker.on('contextmenu', (e) => showGizmoCtx(e, which));
-    if (handlers.dragstart) marker.on('dragstart', handlers.dragstart);
-    if (handlers.drag) marker.on('drag', handlers.drag);
-    if (handlers.dragend) marker.on('dragend', handlers.dragend);
-    return marker;
-}
 
 // Generic DOM element drag utility
 function makeDraggable(element, handle, options = {}) {
@@ -1578,6 +1559,82 @@ function makeDraggable(element, handle, options = {}) {
     return { startDrag, drag, stopDrag, isDragging: () => isDragging };
 }
 
+function centroidMerc(lls) {
+    let x = 0, y = 0;
+    let n = 0;
+    lls.forEach((ll) => {
+        if (!ll) return;
+        const p = toMerc(ll);
+        x += p.x;
+        y += p.y;
+        n += 1;
+    });
+    if (n === 0) return null;
+    return L.point(x / n, y / n);
+}
+
+function centroidMercFromMerc(pts) {
+    let x = 0, y = 0;
+    let n = 0;
+    pts.forEach((p) => {
+        if (!p) return;
+        x += p.x;
+        y += p.y;
+        n += 1;
+    });
+    if (n === 0) return null;
+    return L.point(x / n, y / n);
+}
+
+function applyTransformMerc(ptsMerc, tf) {
+    const c = centroidMercFromMerc(ptsMerc);
+    if (!c) return [];
+    const pivot = (tf && tf.pivotMerc) ? tf.pivotMerc : c;
+    const a = Number(tf && tf.rotation) || 0;
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    const off = (tf && tf.offsetMerc) ? tf.offsetMerc : L.point(0, 0);
+    return ptsMerc.map((p) => {
+        const dx = p.x - pivot.x;
+        const dy = p.y - pivot.y;
+        const rx = dx * cos - dy * sin;
+        const ry = dx * sin + dy * cos;
+        return L.point(pivot.x + rx + off.x, pivot.y + ry + off.y);
+    });
+}
+
+function invertTransformMerc(pMerc, basePtsMerc, tf) {
+    const c = centroidMercFromMerc(basePtsMerc);
+    if (!c) return pMerc;
+    const pivot = (tf && tf.pivotMerc) ? tf.pivotMerc : c;
+    const a = -(Number(tf && tf.rotation) || 0);
+    const cos = Math.cos(a);
+    const sin = Math.sin(a);
+    const off = (tf && tf.offsetMerc) ? tf.offsetMerc : L.point(0, 0);
+
+    const x = pMerc.x - off.x - pivot.x;
+    const y = pMerc.y - off.y - pivot.y;
+    const rx = x * cos - y * sin;
+    const ry = x * sin + y * cos;
+    return L.point(pivot.x + rx, pivot.y + ry);
+}
+
+function isMarkerBeingDragged(marker) {
+    if (!marker) return false;
+    const d = marker.dragging;
+    const dr = d && d._draggable;
+    return !!(dr && dr._moving);
+}
+
+// State for tracking marker dragging and label positions
+let isAnyMarkerDragging = false;
+
+// Shape transforms for rotation and move operations (in Mercator coordinates)
+const shapeTransforms = {
+    ref: { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null },
+    ovl: { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null }
+};
+
 // Unified gizmo state management
 const GIZMO_STATE = {
     rotate: {
@@ -1593,6 +1650,203 @@ const GIZMO_STATE = {
         startOffsetMerc: null
     }
 };
+
+let rotateGizmoRef = null, rotateGizmoOvl = null;
+let moveGizmoRef = null, moveGizmoOvl = null;
+
+// Glyph templates - small SVG icons centered inside colored circles
+const GIZMO_ICON_SIZE = 14; // Small icon inside the gizmo
+const GIZMO_GLYPHS = {
+    rotate: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/rotate.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}" style="display:block;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));" alt=""></span>`,
+    move: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/move.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}" style="display:block;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));" alt=""></span>`
+};
+
+function createGizmoIcon(type, color) {
+    const isRotate = type === 'rotate';
+    const svg = isRotate 
+        ? `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 12"/>
+            <path d="M21 3v9h-9"/>
+           </svg>`
+        : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M19 9l3 3-3 3M9 19l3 3 3-3"/>
+            <circle cx="12" cy="12" r="3"/>
+           </svg>`;
+    
+    return L.divIcon({
+        className: `gizmo ${type}-gizmo`,
+        html: svg,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+    });
+}
+
+// Lock/unlock map interactions during marker/gizmo dragging
+function bindHandleInteractionLock(marker) {
+    marker.on('dragstart', () => {
+        mapInteractionLockCount++;
+        if (refMap) refMap.dragging.disable();
+        if (ovlMap) ovlMap.dragging.disable();
+    });
+    marker.on('dragend', () => {
+        mapInteractionLockCount = Math.max(0, mapInteractionLockCount - 1);
+        if (mapInteractionLockCount === 0) {
+            if (refMap) refMap.dragging.enable();
+            if (ovlMap) ovlMap.dragging.enable();
+        }
+    });
+}
+
+function ensureGizmoMarkers() {
+    if (!rotateGizmoRef) {
+        rotateGizmoRef = createGizmoMarker('rotate', 'ref', GIZMO_GLYPHS.rotate, {
+            dragstart: (e) => startGizmoAction(e, 'rotate', 'ref'),
+            drag: (e) => handleGizmoAction(e, 'rotate'),
+            dragend: () => endGizmoAction('rotate')
+        });
+    }
+    if (!rotateGizmoOvl) {
+        rotateGizmoOvl = createGizmoMarker('rotate', 'ovl', GIZMO_GLYPHS.rotate, {
+            dragstart: (e) => startGizmoAction(e, 'rotate', 'ovl'),
+            drag: (e) => handleGizmoAction(e, 'rotate'),
+            dragend: () => endGizmoAction('rotate')
+        });
+    }
+    if (!moveGizmoRef) {
+        moveGizmoRef = createGizmoMarker('move', 'ref', GIZMO_GLYPHS.move, {
+            dragstart: (e) => startGizmoAction(e, 'move', 'ref'),
+            drag: (e) => handleGizmoAction(e, 'move'),
+            dragend: () => endGizmoAction('move')
+        });
+    }
+    if (!moveGizmoOvl) {
+        moveGizmoOvl = createGizmoMarker('move', 'ovl', GIZMO_GLYPHS.move, {
+            dragstart: (e) => startGizmoAction(e, 'move', 'ovl'),
+            drag: (e) => handleGizmoAction(e, 'move'),
+            dragend: () => endGizmoAction('move')
+        });
+    }
+}
+
+// Factory for creating map gizmo markers
+function createGizmoMarker(type, which, glyph, handlers) {
+    const className = `gizmo gizmo-${type} gizmo-${which}`;
+    const size = 20; // Fixed small size for gizmo markers
+    const anchor = 10;
+    const marker = L.marker([0, 0], {
+        draggable: true,
+        keyboard: false,
+        icon: L.divIcon({ 
+            className, 
+            html: glyph, 
+            iconSize: [size, size], 
+            iconAnchor: [anchor, anchor]
+        })
+    });
+    bindHandleInteractionLock(marker);
+    if (handlers.dragstart) marker.on('dragstart', handlers.dragstart);
+    if (handlers.drag) marker.on('drag', handlers.drag);
+    if (handlers.dragend) marker.on('dragend', handlers.dragend);
+    
+    // Defer context menu binding until marker is added to map
+    // Store which map this gizmo belongs to for the context menu
+    marker._gizmoWhich = which;
+    
+    return marker;
+}
+
+// Bind context menu events to gizmo markers (right-click and long-press)
+function bindGizmoContextMenu(marker, which) {
+    const el = marker.getElement ? marker.getElement() : marker._icon;
+    if (!el) return;
+    
+    let longPressTimer = null;
+    let touchStartTime = 0;
+    let touchMoved = false;
+    const LONG_PRESS_DURATION = 600; // ms
+    
+    // Right-click handler (desktop)
+    el.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showGizmoCtx(e, which);
+    });
+    
+    // Touch handlers for long-press (mobile)
+    el.addEventListener('touchstart', (e) => {
+        touchStartTime = Date.now();
+        touchMoved = false;
+        
+        // Start long-press timer
+        longPressTimer = setTimeout(() => {
+            if (!touchMoved && GIZMO_STATE.rotate.active !== which && GIZMO_STATE.move.active !== which) {
+                // Prevent default to stop the context menu from showing
+                e.preventDefault ? e.preventDefault() : null;
+                showGizmoCtx(e, which);
+            }
+        }, LONG_PRESS_DURATION);
+    }, { passive: true });
+    
+    el.addEventListener('touchmove', (e) => {
+        touchMoved = true;
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    }, { passive: true });
+    
+    el.addEventListener('touchend', (e) => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    }, { passive: true });
+    
+    el.addEventListener('touchcancel', (e) => {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+    }, { passive: true });
+}
+
+// Position gizmos based on bounding box
+function positionGizmos(bb, map, rotateGizmo, moveGizmo) {
+    if (!bb) return;
+
+    const topMidLL = L.latLng(bb.north, (bb.west + bb.east) / 2);
+    const topMidPt = map.latLngToContainerPoint(topMidLL);
+    const rotatePt = L.point(topMidPt.x, topMidPt.y - CONSTANTS.GIZMO_OFFSET_PX);
+
+    // Move gizmo: to the right of the right AABB edge, at the vertical middle
+    const rightMidLL = L.latLng((bb.north + bb.south) / 2, bb.east);
+    const rightMidPt = map.latLngToContainerPoint(rightMidLL);
+    const movePt = L.point(rightMidPt.x + CONSTANTS.GIZMO_OFFSET_PX, rightMidPt.y);
+
+    const clampedRotatePt = clampToView(map, rotatePt, CONSTANTS.GIZMO_RADIUS_PX * 2);
+    const clampedMovePt = clampToView(map, movePt, CONSTANTS.GIZMO_RADIUS_PX * 2);
+
+    const topMid = map.containerPointToLatLng(clampedRotatePt);
+    const rightOut = map.containerPointToLatLng(clampedMovePt);
+
+    rotateGizmo.setLatLng(topMid);
+    moveGizmo.setLatLng(rightOut);
+    if (!rotateGizmo._map) {
+        rotateGizmo.addTo(map);
+        bindGizmoContextMenu(rotateGizmo, rotateGizmo._gizmoWhich);
+    }
+    if (!moveGizmo._map) {
+        moveGizmo.addTo(map);
+        bindGizmoContextMenu(moveGizmo, moveGizmo._gizmoWhich);
+    }
+}
+
+function removeGizmos() {
+    if (rotateGizmoRef && rotateGizmoRef._map) rotateGizmoRef.remove();
+    if (rotateGizmoOvl && rotateGizmoOvl._map) rotateGizmoOvl.remove();
+    if (moveGizmoRef && moveGizmoRef._map) moveGizmoRef.remove();
+    if (moveGizmoOvl && moveGizmoOvl._map) moveGizmoOvl.remove();
+}
 
 // Unified gizmo action handlers
 function startGizmoAction(e, type, which) {
@@ -1670,119 +1924,23 @@ function endGizmoAction(type) {
         GIZMO_STATE.move.startOffsetMerc = null;
     }
     suppressMapClickUntil = Date.now() + 400;
-
-    updateInfoGizmoPosition();
 }
 
-// Glyph templates - SVG size based on GIZMO_RADIUS_PX
-const GIZMO_GLYPH_SIZE = CONSTANTS.GIZMO_RADIUS_PX * 2;
-const GIZMO_GLYPHS = {
-    rotate: `<span class="gizmo-glyph" aria-hidden="true"><img src="images/rotate.svg" width="${GIZMO_GLYPH_SIZE}" height="${GIZMO_GLYPH_SIZE}" alt=""></span>`,
-    move: `<span class="gizmo-glyph" aria-hidden="true"><img src="images/move.svg" width="${GIZMO_GLYPH_SIZE}" height="${GIZMO_GLYPH_SIZE}" alt=""></span>`
-};
-
-// Initialize map gizmos using unified factory
-function ensureGizmoMarkers() {
-    if (!rotateGizmoRef) {
-        rotateGizmoRef = createGizmoMarker('rotate', 'ref', GIZMO_GLYPHS.rotate, {
-            dragstart: (e) => startGizmoAction(e, 'rotate', 'ref'),
-            drag: (e) => handleGizmoAction(e, 'rotate'),
-            dragend: () => endGizmoAction('rotate')
-        });
-    }
-    if (!rotateGizmoOvl) {
-        rotateGizmoOvl = createGizmoMarker('rotate', 'ovl', GIZMO_GLYPHS.rotate, {
-            dragstart: (e) => startGizmoAction(e, 'rotate', 'ovl'),
-            drag: (e) => handleGizmoAction(e, 'rotate'),
-            dragend: () => endGizmoAction('rotate')
-        });
-    }
-    if (!moveGizmoRef) {
-        moveGizmoRef = createGizmoMarker('move', 'ref', GIZMO_GLYPHS.move, {
-            dragstart: (e) => startGizmoAction(e, 'move', 'ref'),
-            drag: (e) => handleGizmoAction(e, 'move'),
-            dragend: () => endGizmoAction('move')
-        });
-    }
-    if (!moveGizmoOvl) {
-        moveGizmoOvl = createGizmoMarker('move', 'ovl', GIZMO_GLYPHS.move, {
-            dragstart: (e) => startGizmoAction(e, 'move', 'ovl'),
-            drag: (e) => handleGizmoAction(e, 'move'),
-            dragend: () => endGizmoAction('move')
-        });
-    }
-}
-
-function centroidMerc(lls) {
-    let x = 0, y = 0;
-    let n = 0;
-    lls.forEach((ll) => {
-        if (!ll) return;
-        const p = toMerc(ll);
-        x += p.x;
-        y += p.y;
-        n += 1;
+function bindGizmoDragHandlers(marker, type, mapType) {
+    marker.on('dragstart', (e) => {
+        lockMapInteractions();
+        startGizmoAction(e, type, mapType);
     });
-    if (n === 0) return null;
-    return L.point(x / n, y / n);
-}
-
-function centroidMercFromMerc(pts) {
-    let x = 0, y = 0;
-    let n = 0;
-    pts.forEach((p) => {
-        if (!p) return;
-        x += p.x;
-        y += p.y;
-        n += 1;
+    
+    marker.on('drag', (e) => {
+        handleGizmoAction(e, type);
     });
-    if (n === 0) return null;
-    return L.point(x / n, y / n);
-}
-
-function applyTransformMerc(ptsMerc, tf) {
-    const c = centroidMercFromMerc(ptsMerc);
-    if (!c) return [];
-    const pivot = (tf && tf.pivotMerc) ? tf.pivotMerc : c;
-    const a = Number(tf && tf.rotation) || 0;
-    const cos = Math.cos(a);
-    const sin = Math.sin(a);
-    const off = (tf && tf.offsetMerc) ? tf.offsetMerc : L.point(0, 0);
-    return ptsMerc.map((p) => {
-        const dx = p.x - pivot.x;
-        const dy = p.y - pivot.y;
-        const rx = dx * cos - dy * sin;
-        const ry = dx * sin + dy * cos;
-        return L.point(pivot.x + rx + off.x, pivot.y + ry + off.y);
+    
+    marker.on('dragend', (e) => {
+        unlockMapInteractions();
+        endGizmoAction(type);
     });
 }
-
-function invertTransformMerc(pMerc, basePtsMerc, tf) {
-    const c = centroidMercFromMerc(basePtsMerc);
-    if (!c) return pMerc;
-    const pivot = (tf && tf.pivotMerc) ? tf.pivotMerc : c;
-    const a = -(Number(tf && tf.rotation) || 0);
-    const cos = Math.cos(a);
-    const sin = Math.sin(a);
-    const off = (tf && tf.offsetMerc) ? tf.offsetMerc : L.point(0, 0);
-
-    const x = pMerc.x - off.x - pivot.x;
-    const y = pMerc.y - off.y - pivot.y;
-    const rx = x * cos - y * sin;
-    const ry = x * sin + y * cos;
-    return L.point(pivot.x + rx, pivot.y + ry);
-}
-
-function isMarkerBeingDragged(marker) {
-    if (!marker) return false;
-    const d = marker.dragging;
-    const dr = d && d._draggable;
-    return !!(dr && dr._moving);
-}
-
-// State for tracking marker dragging and label positions
-let isAnyMarkerDragging = false;
-let cachedLabelPositions = { ref: null, ovl: null };
 
 function setMode(m) {
     const prevMode = mode;
@@ -1803,37 +1961,18 @@ function setMode(m) {
     scheduleUrlUpdate();
 }
 
-// Context Menu Logic
-let ctxMarker = null;
-let ctxGizmoWhich = null;
-const ctxMenu = document.getElementById('ctx-menu');
+function hideCtx() { if (ctxMenu) ctxMenu.style.display = 'none'; ctxMarker = null; }
 
 function setCtxMenuMode(mode) {
     const del = document.getElementById('ctx-del-point');
-    const rr = document.getElementById('ctx-reset-rotation');
-    const rm = document.getElementById('ctx-reset-move');
-    const ra = document.getElementById('ctx-reset-all');
     if (del) del.style.display = mode === 'point' ? '' : 'none';
-    if (rr) rr.style.display = mode === 'gizmo' ? '' : 'none';
-    if (rm) rm.style.display = mode === 'gizmo' ? '' : 'none';
-    if (ra) ra.style.display = mode === 'gizmo' ? '' : 'none';
 }
 
 function showCtx(e, m) {
     L.DomEvent.stopPropagation(e);
     ctxMarker = m;
-    ctxGizmoWhich = null;
     setCtxMenuMode('point');
-    ctxMenu.style.display = 'block';
-    ctxMenu.style.left = e.originalEvent.clientX + 'px';
-    ctxMenu.style.top = e.originalEvent.clientY + 'px';
-}
-
-function showGizmoCtx(e, which) {
-    L.DomEvent.stopPropagation(e);
-    ctxMarker = null;
-    ctxGizmoWhich = which === 'ovl' ? 'ovl' : 'ref';
-    setCtxMenuMode('gizmo');
+    if (!ctxMenu) return;
     ctxMenu.style.display = 'block';
     ctxMenu.style.left = e.originalEvent.clientX + 'px';
     ctxMenu.style.top = e.originalEvent.clientY + 'px';
@@ -1853,36 +1992,54 @@ function delPoint() {
     hideCtx();
 }
 
-function hideCtx() { ctxMenu.style.display = 'none'; ctxMarker = null; }
+// Gizmo Context Menu Functions
+function hideGizmoCtx() {
+    if (gizmoCtxMenu) gizmoCtxMenu.style.display = 'none';
+    gizmoCtxWhich = null;
+}
 
-function ctxResetRotation() {
-    if (!ctxGizmoWhich) return;
-    const tf = ctxGizmoWhich === 'ovl' ? shapeTransforms.ovl : shapeTransforms.ref;
+function showGizmoCtx(e, which) {
+    L.DomEvent.stopPropagation(e);
+    gizmoCtxWhich = which;
+    if (!gizmoCtxMenu) return;
+    gizmoCtxMenu.style.display = 'block';
+    const clientX = e.originalEvent?.clientX ?? e.clientX ?? 0;
+    const clientY = e.originalEvent?.clientY ?? e.clientY ?? 0;
+    gizmoCtxMenu.style.left = clientX + 'px';
+    gizmoCtxMenu.style.top = clientY + 'px';
+}
+
+function resetGizmoRotation() {
+    if (!gizmoCtxWhich || !refMap) return;
+    const tf = gizmoCtxWhich === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
     tf.rotation = 0;
     tf.pivotMerc = null;
     update();
     scheduleUrlUpdate();
-    hideCtx();
+    showToast(gizmoCtxWhich === 'ref' ? 'Reference rotation reset' : 'Overlay rotation reset');
+    hideGizmoCtx();
 }
 
-function ctxResetMove() {
-    if (!ctxGizmoWhich) return;
-    const tf = ctxGizmoWhich === 'ovl' ? shapeTransforms.ovl : shapeTransforms.ref;
+function resetGizmoMove() {
+    if (!gizmoCtxWhich || !refMap) return;
+    const tf = gizmoCtxWhich === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
     tf.offsetMerc = L.point(0, 0);
     update();
     scheduleUrlUpdate();
-    hideCtx();
+    showToast(gizmoCtxWhich === 'ref' ? 'Reference move reset' : 'Overlay move reset');
+    hideGizmoCtx();
 }
 
-function ctxResetAll() {
-    if (!ctxGizmoWhich) return;
-    const tf = ctxGizmoWhich === 'ovl' ? shapeTransforms.ovl : shapeTransforms.ref;
+function resetGizmoAll() {
+    if (!gizmoCtxWhich || !refMap) return;
+    const tf = gizmoCtxWhich === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
     tf.rotation = 0;
     tf.offsetMerc = L.point(0, 0);
     tf.pivotMerc = null;
     update();
     scheduleUrlUpdate();
-    hideCtx();
+    showToast(gizmoCtxWhich === 'ref' ? 'Reference transforms reset' : 'Overlay transforms reset');
+    hideGizmoCtx();
 }
 
 // Layer management helpers
@@ -1908,26 +2065,38 @@ function removeAllShapes() {
 function removeMeasureLabels() {
     if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
     if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
-    cachedLabelPositions.ref = null;
-    cachedLabelPositions.ovl = null;
 }
 
-function removeGizmos() {
-    if (rotateGizmoRef && rotateGizmoRef._map) rotateGizmoRef.remove();
-    if (rotateGizmoOvl && rotateGizmoOvl._map) rotateGizmoOvl.remove();
-    if (moveGizmoRef && moveGizmoRef._map) moveGizmoRef.remove();
-    if (moveGizmoOvl && moveGizmoOvl._map) moveGizmoOvl.remove();
+function clearAll() {
+    if (refMap) { markersRef.forEach(m => refMap.removeLayer(m)); markersOvl.forEach(m => ovlMap.removeLayer(m)); }
+    if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
+    if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
+    masterVertices = [];
+    verticesRef = []; verticesOvl = []; markersRef = []; markersOvl = [];
+    refMap = null; ovlMap = null;
+    mercAnchorRef = null; mercAnchorOvl = null;
+    // Reset transforms
+    shapeTransforms.ref = { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null };
+    shapeTransforms.ovl = { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null };
+    document.getElementById('label1').innerText = "Map 1"; document.getElementById('label2').innerText = "Map 2";
+    update();
+    scheduleUrlUpdate();
 }
 
-// Update vertex positions based on transforms
+// Update vertex positions based on master vertices and transforms
 function updateVertexPositions() {
-    if (!refMap || !ovlMap || !mercAnchorRef || !mercAnchorOvl || masterVertices.length === 0) return;
+    if (!refMap || !ovlMap || masterVertices.length === 0) return;
+    
+    // Get master vertices in Mercator coordinates
     const baseMerc = getMasterMerc();
+    
+    // Apply reference transform
     const refMerc = applyTransformMerc(baseMerc, shapeTransforms.ref);
+    verticesRef = refMerc.map(p => ({ latlng: fromMerc(p) }));
+    
+    // Apply overlay transform (with view-space offset from mercAnchor)
     const ovlBaseMerc = baseMerc.map((p) => L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y)));
     const ovlMerc = applyTransformMerc(ovlBaseMerc, shapeTransforms.ovl);
-
-    verticesRef = refMerc.map(p => ({ latlng: fromMerc(p) }));
     verticesOvl = ovlMerc.map(p => ({ latlng: fromMerc(p) }));
 }
 
@@ -2016,33 +2185,6 @@ function updateShapes(isArea, pRef, pOvl) {
         shapes.sOvlBg.setLatLngs(pOvl);
         shapes.sOvl.setLatLngs(pOvl);
     }
-}
-
-// Position gizmos based on bounding box
-function positionGizmos(bb, map, rotateGizmo, moveGizmo, labelPos, isSmallShape) {
-    if (!bb) return;
-    
-    const topMidLL = L.latLng(bb.north, (bb.west + bb.east) / 2);
-
-    const topMidPt = map.latLngToContainerPoint(topMidLL);
-    
-    const rotatePt = L.point(topMidPt.x, topMidPt.y - CONSTANTS.GIZMO_OFFSET_PX);
-    
-    // Move gizmo: to the right of the right AABB edge, at the vertical middle
-    const rightMidLL = L.latLng((bb.north + bb.south) / 2, bb.east);
-    const rightMidPt = map.latLngToContainerPoint(rightMidLL);
-    const movePt = L.point(rightMidPt.x + CONSTANTS.GIZMO_OFFSET_PX, rightMidPt.y);
-
-    const clampedRotatePt = clampToView(map, rotatePt, CONSTANTS.GIZMO_RADIUS_PX * 2);
-    const clampedMovePt = clampToView(map, movePt, CONSTANTS.GIZMO_RADIUS_PX * 2);
-
-    const topMid = map.containerPointToLatLng(clampedRotatePt);
-    const rightOut = map.containerPointToLatLng(clampedMovePt);
-
-    rotateGizmo.setLatLng(topMid);
-    moveGizmo.setLatLng(rightOut);
-    if (!rotateGizmo._map) rotateGizmo.addTo(map);
-    if (!moveGizmo._map) moveGizmo.addTo(map);
 }
 
 // Format percentage for display
@@ -2176,13 +2318,12 @@ function labelPoint(pts, isAreaShape, map) {
         const proposedTop = centerPt.y - labelHeight / 2;
         
         // Check all points for overlap with proposed label position
-        centerOverlapsPoints = pts.some(pt => {
-            const ptScreen = map.latLngToContainerPoint(pt);
-            return ptScreen.x >= proposedLeft - pointBuffer && 
-                   ptScreen.x <= proposedLeft + labelWidth + pointBuffer &&
-                   ptScreen.y >= proposedTop - pointBuffer && 
-                   ptScreen.y <= proposedTop + labelHeight + pointBuffer;
-        });
+        centerOverlapsPoints = pts.some(pt => 
+            pt.x >= proposedLeft - pointBuffer && 
+            pt.x <= proposedLeft + labelWidth + pointBuffer &&
+            pt.y >= proposedTop - pointBuffer && 
+            pt.y <= proposedTop + labelHeight + pointBuffer
+        );
     }
     
     // If label fits inside AND doesn't overlap with points, position at centroid with AABB center X
@@ -2216,16 +2357,17 @@ function update() {
     // Shapes use CSS transforms during animations, but latLngToContainerPoint uses target state
     const hasPoints = masterVertices.length > 0;
 
-    updateVertexPositions();
     updateUiVisibility();
 
-    const pRef = verticesRef.map(v => v.latlng);
-    const pOvl = verticesOvl.map(v => v.latlng);
+    // Update vertex positions from master + transforms BEFORE getting pRef/pOvl
+    updateVertexPositions();
+
+    const pRef = verticesRef.map(v => v.latlng).filter(ll => ll && typeof ll.lat === 'number' && typeof ll.lng === 'number');
+    const pOvl = verticesOvl.map(v => v.latlng).filter(ll => ll && typeof ll.lat === 'number' && typeof ll.lng === 'number');
 
     if (!hasPoints || !refMap || !ovlMap) {
         removeAllShapes();
         removeMeasureLabels();
-        removeGizmos();
         return;
     }
 
@@ -2247,8 +2389,6 @@ function update() {
 
     // Skip gizmo/label updates during zoom animation - shapes and markers still update
     if (isZoomAnimating) return;
-
-    ensureGizmoMarkers();
 
     const bbR = getAabb(pRef);
     const bbO = getAabb(pOvl);
@@ -2276,32 +2416,9 @@ function update() {
     const isRefSmall = isArea && !refFitCheck.fits;
     const isOvlSmall = isArea && !ovlFitCheck.fits;
 
-    // Calculate label positions
-    // - Always recalculate when dragging markers
-    // - Always recalculate when label is outside shape (small shapes)
-    // - Always recalculate in line mode (line midpoint changes with geometry)
-    // - Always recalculate when mode just changed
-    // - Use cache only in area mode when label fits inside and not dragging
-    let refLabelPos, ovlLabelPos;
-    const needsRecalc = isAnyMarkerDragging || isRefSmall || isOvlSmall || !isArea || modeChanged;
-    if (needsRecalc) {
-        // Recalculate position dynamically
-        refLabelPos = labelPoint(pRef, isArea, refMap);
-        ovlLabelPos = labelPoint(pOvl, isArea, ovlMap);
-        cachedLabelPositions.ref = refLabelPos;
-        cachedLabelPositions.ovl = ovlLabelPos;
-    } else {
-        // When label fits inside: use cached position or calculate if none cached
-        if (!cachedLabelPositions.ref || !cachedLabelPositions.ovl) {
-            cachedLabelPositions.ref = labelPoint(pRef, isArea, refMap);
-            cachedLabelPositions.ovl = labelPoint(pOvl, isArea, ovlMap);
-        }
-        refLabelPos = cachedLabelPositions.ref;
-        ovlLabelPos = cachedLabelPositions.ovl;
-    }
-
-    positionGizmos(bbR, refMap, rotateGizmoRef, moveGizmoRef, refLabelPos, isRefSmall);
-    positionGizmos(bbO, ovlMap, rotateGizmoOvl, moveGizmoOvl, ovlLabelPos, isOvlSmall);
+    // Calculate label positions - always recalculate dynamically
+    const refLabelPos = labelPoint(pRef, isArea, refMap);
+    const ovlLabelPos = labelPoint(pOvl, isArea, ovlMap);
 
     if (refLabelPos) {
         if (!measureLabelRef) {
@@ -2332,20 +2449,28 @@ function update() {
         }
         preventLabelClick(measureLabelOvl);
     }
+    
+    // Update rotation and move gizmos
+    ensureGizmoMarkers();
+    positionGizmos(bbR, refMap, rotateGizmoRef, moveGizmoRef);
+    positionGizmos(bbO, ovlMap, rotateGizmoOvl, moveGizmoOvl);
+    
     // Info gizmo position is updated in a RAF loop while visible
     modeChanged = false;
 }
 
 function getArea(ll) {
     if (!Array.isArray(ll) || ll.length < 3) return 0;
+    
+    // Filter out invalid points
+    const validPoints = ll.filter(p => p && Number.isFinite(p.lat) && Number.isFinite(p.lng));
+    if (validPoints.length < 3) return 0;
 
     // If Turf is available, compute the area of the shaded (filled) regions even
     // when the polygon is self-intersecting.
     try {
         if (typeof turf !== 'undefined' && turf && typeof turf.polygon === 'function') {
-            const ring = ll
-                .filter(p => p && Number.isFinite(p.lat) && Number.isFinite(p.lng))
-                .map(p => [p.lng, p.lat]);
+            const ring = validPoints.map(p => [p.lng, p.lat]);
             if (ring.length < 3) return 0;
 
             // Close ring
@@ -2374,18 +2499,22 @@ function getArea(ll) {
     // Fallback: spherical excess approximation (assumes non-self-intersecting)
     let a = 0;
     const R = 6378137;
-    for (let i = 0; i < ll.length; i++) {
-        const p1 = ll[i], p2 = ll[(i + 1) % ll.length];
-        a += (p2.lng - p1.lng) * (Math.PI / 180) * (2 + Math.sin(p1.lat * Math.PI / 180) + Math.sin(p2.lat * Math.PI / 180));
+    for (let i = 0; i < validPoints.length; i++) {
+        const p1 = validPoints[i], p2 = validPoints[(i + 1) % validPoints.length];
+        if (!p1 || !p2 || !Number.isFinite(p1.lat) || !Number.isFinite(p1.lng) || !Number.isFinite(p2.lat) || !Number.isFinite(p2.lng)) continue;
+        a += (p2.lng - p1.lng) * (Math.PI / 180) * (Math.sin(p1.lat * Math.PI / 180) + Math.sin(p2.lat * Math.PI / 180));
     }
     return Math.abs(a * R * R / 2);
 }
-function getDist(ll) { let d = 0; for (let i = 0; i < ll.length - 1; i++) d += ll[i].distanceTo(ll[i + 1]); return d; }
-function fmt(v, t) { 
-    const comma = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-    const nbsp = '\u00A0'; // Non-breaking space
-    if (t === 'area') return v >= 1e6 ? comma((v / 1e6).toFixed(2)) + nbsp + 'km²' : comma(v.toFixed(0)) + nbsp + 'm²'; 
-    return v >= 1000 ? comma((v / 1000).toFixed(2)) + nbsp + 'km' : comma(v.toFixed(0)) + nbsp + 'm'; 
+function getDist(ll) { 
+    if (!Array.isArray(ll)) return 0;
+    let d = 0; 
+    for (let i = 0; i < ll.length - 1; i++) {
+        if (ll[i] && ll[i + 1] && typeof ll[i].distanceTo === 'function') {
+            d += ll[i].distanceTo(ll[i + 1]); 
+        }
+    }
+    return d; 
 }
 
 function pointInPolygon(point, polygon) {
@@ -2476,8 +2605,15 @@ function handleMapClick(e, src) {
                 // Find the closest point on the line segment
                 const closestPoint = closestPointOnLine(clickPoint, p1, p2);
                 
+                // The closest point is in transformed space; we need to store untransformed in masterVertices
+                // Invert the transform to get the base position
+                const closestMerc = toMerc(closestPoint);
+                const baseMercMaster = getMasterMerc();
+                const untransformedMerc = invertTransformMerc(closestMerc, baseMercMaster, shapeTransforms.ref);
+                const untransformedLatLng = fromMerc(untransformedMerc);
+                
                 // Insert new point at this position
-                insertIntermediatePoint(i + 1, closestPoint, src);
+                insertIntermediatePoint(i + 1, untransformedLatLng, src);
                 return;
             }
         }
@@ -2494,30 +2630,47 @@ function handleMapClick(e, src) {
             
             if (pixelDistance < tolerance) {
                 const closestPoint = closestPointOnLine(clickPoint, p1, p2);
-                insertIntermediatePoint(verticesRef.length, closestPoint, src);
+                
+                // Invert the transform to get the untransformed base position
+                const closestMerc = toMerc(closestPoint);
+                const baseMercMaster = getMasterMerc();
+                const untransformedMerc = invertTransformMerc(closestMerc, baseMercMaster, shapeTransforms.ref);
+                const untransformedLatLng = fromMerc(untransformedMerc);
+                
+                insertIntermediatePoint(verticesRef.length, untransformedLatLng, src);
                 return;
             }
         }
     }
 
     // If not near a line, add new point as usual
-    const ghostLL = e.latlng;
+    // Get the view position (pixel coordinates) on the reference map
+    const containerPoint = refMap.latLngToContainerPoint(e.latlng);
+    
+    // Convert that same view position to lat/lng on the overlay map
+    const ovlLatLng = ovlMap.containerPointToLatLng(containerPoint);
+    
+    const index = masterVertices.length;
+    
+    // Create reference marker at the clicked geo location
+    const mR = createHandleMarker(e.latlng, false, refMap, index);
+    
+    // Create overlay marker at the corresponding view position on overlay map
+    const mO = createHandleMarker(ovlLatLng, true, ovlMap, index);
+    
+    // Bind drag handlers for both markers
+    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng);
+    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng);
 
-    let masterLL = e.latlng;
-    if (masterVertices.length > 0 && mercAnchorRef && mercAnchorOvl) {
-        const baseMerc = getMasterMerc();
-        const pMerc = toMerc(e.latlng);
-        const mMerc = invertTransformMerc(pMerc, baseMerc, shapeTransforms.ref);
-        masterLL = fromMerc(mMerc);
-    }
-
-    const { ref: mR, ovl: mO } = createMarkerPair(e.latlng, refMap, ovlMap);
-
-    masterVertices.push({ latlng: masterLL });
+    masterVertices.push({ latlng: e.latlng });
     verticesRef.push({ latlng: e.latlng });
-    verticesOvl.push({ latlng: ghostLL });
+    verticesOvl.push({ latlng: ovlLatLng });
     markersRef.push(mR);
     markersOvl.push(mO);
+    
+    // Update marker icons to show vertex numbers if enabled
+    updateMarkerIcons();
+    
     update();
     scheduleUrlUpdate();
 }
@@ -2578,24 +2731,31 @@ function closestPointOnLine(point, lineStart, lineEnd) {
 }
 
 function insertIntermediatePoint(index, latlng, src) {
-    const ghostLL = latlng;
-
-    let masterLL = latlng;
-    if (masterVertices.length > 0 && mercAnchorRef && mercAnchorOvl) {
-        const baseMerc = getMasterMerc();
-        const pMerc = toMerc(latlng);
-        const mMerc = invertTransformMerc(pMerc, baseMerc, shapeTransforms.ref);
-        masterLL = fromMerc(mMerc);
-    }
-
-    const { ref: mR, ovl: mO } = createMarkerPair(latlng, refMap, ovlMap);
+    // Get the view position (pixel coordinates) on the reference map
+    const containerPoint = refMap.latLngToContainerPoint(latlng);
+    
+    // Convert that same view position to lat/lng on the overlay map
+    const ovlLatLng = ovlMap.containerPointToLatLng(containerPoint);
+    
+    // Create reference marker at the clicked geo location
+    const mR = createHandleMarker(latlng, false, refMap, index);
+    
+    // Create overlay marker at the corresponding view position on overlay map
+    const mO = createHandleMarker(ovlLatLng, true, ovlMap, index);
+    
+    // Bind drag handlers for both markers
+    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng);
+    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng);
 
     // Insert at the specified index
-    masterVertices.splice(index, 0, { latlng: masterLL });
+    masterVertices.splice(index, 0, { latlng: latlng });
     verticesRef.splice(index, 0, { latlng: latlng });
-    verticesOvl.splice(index, 0, { latlng: ghostLL });
+    verticesOvl.splice(index, 0, { latlng: ovlLatLng });
     markersRef.splice(index, 0, mR);
     markersOvl.splice(index, 0, mO);
+    
+    // Update indices for all markers after insertion
+    updateMarkerIcons();
     
     update();
     scheduleUrlUpdate();
@@ -2771,23 +2931,11 @@ function setMapsInteraction(enabled) {
     });
 }
 
-function clearAll() {
-    if (refMap) { markersRef.forEach(m => refMap.removeLayer(m)); markersOvl.forEach(m => ovlMap.removeLayer(m)); }
-    if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
-    if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
-    masterVertices = [];
-    verticesRef = []; verticesOvl = []; markersRef = []; markersOvl = [];
-    shapeTransforms.ref.rotation = 0;
-    shapeTransforms.ref.offsetMerc = L.point(0, 0);
-    shapeTransforms.ref.pivotMerc = null;
-    shapeTransforms.ovl.rotation = 0;
-    shapeTransforms.ovl.offsetMerc = L.point(0, 0);
-    shapeTransforms.ovl.pivotMerc = null;
-    refMap = null; ovlMap = null;
-    document.getElementById('label1').innerText = "Map 1"; document.getElementById('label2').innerText = "Map 2";
-    update();
-    scheduleUrlUpdate();
-}
+// Context Menu Logic
+let ctxMarker = null;
+const ctxMenu = document.getElementById('ctx-menu');
+const gizmoCtxMenu = document.getElementById('gizmo-ctx-menu');
+let gizmoCtxWhich = null; // 'ref' or 'ovl'
 
 // Service Worker Registration for PWA
 if ('serviceWorker' in navigator) {
@@ -2905,133 +3053,213 @@ function startLabelDrag(e, labelType, labelMarker) {
             document.addEventListener('pointercancel', handleLabelDragEnd);
         }
     };
-}
 
-function handleLabelDrag(e) {
-    if (!isMovingAllPoints || !moveStartPoint || !draggedLabel) return;
-    
-    // Prevent any map-related events
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Track that movement happened
-    if (!hasStartedDragging) hasStartedDragging = true;
-    
-    const map = activeMoveLabel === 'ref' ? refMap : ovlMap;
-    const currentPoint = getLatLngFromDomEvent(map, e);
-    const deltaX = currentPoint.lng - moveStartPoint.lng;
-    const deltaY = currentPoint.lat - moveStartPoint.lat;
-
-    const startM = toMerc(moveStartPoint);
-    const currM = toMerc(currentPoint);
-    const dMx = currM.x - startM.x;
-    const dMy = currM.y - startM.y;
-    
-    // Move the appropriate points based on which panel is being dragged
-    if (activeMoveLabel === 'ref') {
-        // Move reference points only
-        verticesRef.forEach((vertex, i) => {
-            const original = originalVerticesRef[i];
-            vertex.latlng = L.latLng(original.latlng.lat + deltaY, original.latlng.lng + deltaX);
-        });
-
-        // Update reference marker positions
-        markersRef.forEach((marker, i) => {
-            marker.setLatLng(verticesRef[i].latlng);
-        });
-
-        // Keep overlay fixed, but update the reference anchor so future point-drags don't desync
-        if (originalMercAnchorRef && mercAnchorRef) {
-            mercAnchorRef = L.point(originalMercAnchorRef.x + dMx, originalMercAnchorRef.y + dMy);
-        }
-    } else {
-        // Move overlay points only
-        verticesOvl.forEach((vertex, i) => {
-            const original = originalVerticesOvl[i];
-            vertex.latlng = L.latLng(original.latlng.lat + deltaY, original.latlng.lng + deltaX);
-        });
-
-        // Update overlay marker positions
-        markersOvl.forEach((marker, i) => {
-            marker.setLatLng(verticesOvl[i].latlng);
-        });
-
-        // Update overlay anchor so future reference-point drags keep overlay in sync with its new position
-        if (originalMercAnchorOvl && mercAnchorOvl) {
-            mercAnchorOvl = L.point(originalMercAnchorOvl.x + dMx, originalMercAnchorOvl.y + dMy);
-        }
-    }
-    
-    // Update the dragged label position using the appropriate points
-    const labelPoints = activeMoveLabel === 'ref' ? 
-        verticesRef.map(v => v.latlng) : verticesOvl.map(v => v.latlng);
-    
-    if (labelPoints.length > 0) {
-        const isArea = mode === 'area';
-        const newPosition = isArea ? 
-            (polyCentroid(labelPoints) && pointInPolygon(polyCentroid(labelPoints), labelPoints) ? 
-                polyCentroid(labelPoints) : L.polygon(labelPoints).getBounds().getCenter()) :
-            lineMidpoint(labelPoints);
+    function handleLabelDrag(e) {
+        if (!isMovingAllPoints || !moveStartPoint || !draggedLabel) return;
         
-        if (newPosition) {
-            draggedLabel.setLatLng(newPosition);
+        // Prevent any map-related events
+        e.preventDefault();
+        e.stopPropagation();
+        
+        // Track that movement happened
+        if (!hasStartedDragging) hasStartedDragging = true;
+        
+        const map = activeMoveLabel === 'ref' ? refMap : ovlMap;
+        const currentPoint = getLatLngFromDomEvent(map, e);
+        const deltaX = currentPoint.lng - moveStartPoint.lng;
+        const deltaY = currentPoint.lat - moveStartPoint.lat;
+
+        const startM = toMerc(moveStartPoint);
+        const currM = toMerc(currentPoint);
+        const dMx = currM.x - startM.x;
+        const dMy = currM.y - startM.y;
+        
+        // Move the appropriate points based on which panel is being dragged
+        if (activeMoveLabel === 'ref') {
+            // Move reference points only
+            verticesRef.forEach((vertex, i) => {
+                const original = originalVerticesRef[i];
+                vertex.latlng = L.latLng(original.latlng.lat + deltaY, original.latlng.lng + deltaX);
+            });
+
+            // Update reference marker positions
+            markersRef.forEach((marker, i) => {
+                marker.setLatLng(verticesRef[i].latlng);
+            });
+
+            // Keep overlay fixed, but update the reference anchor so future point-drags don't desync
+            if (originalMercAnchorRef && mercAnchorRef) {
+                mercAnchorRef = L.point(originalMercAnchorRef.x + dMx, originalMercAnchorRef.y + dMy);
+            }
+        } else {
+            // Move overlay points only
+            verticesOvl.forEach((vertex, i) => {
+                const original = originalVerticesOvl[i];
+                vertex.latlng = L.latLng(original.latlng.lat + deltaY, original.latlng.lng + deltaX);
+            });
+
+            // Update overlay marker positions
+            markersOvl.forEach((marker, i) => {
+                marker.setLatLng(verticesOvl[i].latlng);
+            });
+
+            // Update overlay anchor so future reference-point drags keep overlay in sync with its new position
+            if (originalMercAnchorOvl && mercAnchorOvl) {
+                mercAnchorOvl = L.point(originalMercAnchorOvl.x + dMx, originalMercAnchorOvl.y + dMy);
+            }
+        }
+        
+        // Update the dragged label position using the appropriate points
+        const labelPoints = activeMoveLabel === 'ref' ? 
+            verticesRef.map(v => v.latlng) : verticesOvl.map(v => v.latlng);
+        
+        if (labelPoints.length > 0) {
+            const isArea = mode === 'area';
+            const newPosition = isArea ? 
+                (polyCentroid(labelPoints) && pointInPolygon(polyCentroid(labelPoints), labelPoints) ? 
+                    polyCentroid(labelPoints) : L.polygon(labelPoints).getBounds().getCenter()) :
+                lineMidpoint(labelPoints);
+            
+            if (newPosition) {
+                draggedLabel.setLatLng(newPosition);
+            }
+        }
+        
+        update();
+    }
+
+    function handleLabelDragEnd(e) {
+        if (!isMovingAllPoints) return;
+        
+        // Remove global event listeners
+        document.removeEventListener('mousemove', handleLabelDrag);
+        document.removeEventListener('mouseup', handleLabelDragEnd);
+        document.removeEventListener('touchmove', handleLabelDrag);
+        document.removeEventListener('touchend', handleLabelDragEnd);
+        document.removeEventListener('touchcancel', handleLabelDragEnd);
+        document.removeEventListener('pointermove', handleLabelDrag);
+        document.removeEventListener('pointerup', handleLabelDragEnd);
+        document.removeEventListener('pointercancel', handleLabelDragEnd);
+        
+        // Check if dragging actually occurred before resetting flags
+        const didActuallyDrag = hasStartedDragging;
+        
+        // Re-enable map controls only if dragging had started
+        unlockMapInteractions();
+        
+        // Remove visual feedback
+        if (measureLabelRef) {
+            measureLabelRef._icon.classList.remove('move-mode');
+        }
+        if (measureLabelOvl) {
+            measureLabelOvl._icon.classList.remove('move-mode');
+        }
+        
+        // Save the label type before resetting variables
+        const movedType = activeMoveLabel === 'ref' ? 'Reference' : 'Overlay';
+        
+        isMovingAllPoints = false;
+        moveStartPoint = null;
+        activeMoveLabel = null;
+        draggedLabel = null;
+        hasStartedDragging = false;
+        originalVerticesRef = [];
+        originalVerticesOvl = [];
+        originalMercAnchorRef = null;
+        originalMercAnchorOvl = null;
+        
+        if (didActuallyDrag) {
+            scheduleUrlUpdate();
         }
     }
-    
-    update();
 }
 
-function handleLabelDragEnd(e) {
-    if (!isMovingAllPoints) return;
-    
-    // Remove global event listeners
-    document.removeEventListener('mousemove', handleLabelDrag);
-    document.removeEventListener('mouseup', handleLabelDragEnd);
-    document.removeEventListener('touchmove', handleLabelDrag);
-    document.removeEventListener('touchend', handleLabelDragEnd);
-    document.removeEventListener('touchcancel', handleLabelDragEnd);
-    document.removeEventListener('pointermove', handleLabelDrag);
-    document.removeEventListener('pointerup', handleLabelDragEnd);
-    document.removeEventListener('pointercancel', handleLabelDragEnd);
-    
-    // Check if dragging actually occurred before resetting flags
-    const didActuallyDrag = hasStartedDragging;
-    
-    // Re-enable map controls only if dragging had started
-    unlockMapInteractions();
-    
-    // Remove visual feedback
-    if (measureLabelRef) {
-        measureLabelRef._icon.classList.remove('move-mode');
+// GeoJSON Export/Import
+function exportGeoJSON() {
+    if (masterVertices.length === 0) {
+        showToast('No measurements to export');
+        return;
     }
-    if (measureLabelOvl) {
-        measureLabelOvl._icon.classList.remove('move-mode');
+
+    const features = [];
+
+    // Export reference shape
+    if (verticesRef.length > 0) {
+        const refCoords = verticesRef.map(v => [v.latlng.lng, v.latlng.lat]);
+        if (mode === 'area' && refCoords.length >= 3) {
+            // Close the polygon
+            if (refCoords[0][0] !== refCoords[refCoords.length - 1][0] ||
+                refCoords[0][1] !== refCoords[refCoords.length - 1][1]) {
+                refCoords.push([...refCoords[0]]);
+            }
+            features.push({
+                type: 'Feature',
+                properties: { type: 'area', map: 'reference', color: 'blue' },
+                geometry: { type: 'Polygon', coordinates: [refCoords] }
+            });
+        } else if (refCoords.length >= 2) {
+            features.push({
+                type: 'Feature',
+                properties: { type: 'line', map: 'reference', color: 'blue' },
+                geometry: { type: 'LineString', coordinates: refCoords }
+            });
+        }
+
+        // Add points
+        refCoords.forEach((coord, i) => {
+            features.push({
+                type: 'Feature',
+                properties: { type: 'point', map: 'reference', index: i },
+                geometry: { type: 'Point', coordinates: coord }
+            });
+        });
     }
-    
-    // Save the label type before resetting variables
-    const movedType = activeMoveLabel === 'ref' ? 'Reference' : 'Overlay';
-    
-    isMovingAllPoints = false;
-    moveStartPoint = null;
-    activeMoveLabel = null;
-    draggedLabel = null;
-    hasStartedDragging = false;
-    originalVerticesRef = [];
-    originalVerticesOvl = [];
-    originalMercAnchorRef = null;
-    originalMercAnchorOvl = null;
-    
-    if (didActuallyDrag) {
-        scheduleUrlUpdate();
+
+    // Export overlay shape
+    if (verticesOvl.length > 0) {
+        const ovlCoords = verticesOvl.map(v => [v.latlng.lng, v.latlng.lat]);
+        if (mode === 'area' && ovlCoords.length >= 3) {
+            if (ovlCoords[0][0] !== ovlCoords[ovlCoords.length - 1][0] ||
+                ovlCoords[0][1] !== ovlCoords[ovlCoords.length - 1][1]) {
+                ovlCoords.push([...ovlCoords[0]]);
+            }
+            features.push({
+                type: 'Feature',
+                properties: { type: 'area', map: 'overlay', color: 'yellow' },
+                geometry: { type: 'Polygon', coordinates: [ovlCoords] }
+            });
+        } else if (ovlCoords.length >= 2) {
+            features.push({
+                type: 'Feature',
+                properties: { type: 'line', map: 'overlay', color: 'yellow' },
+                geometry: { type: 'LineString', coordinates: ovlCoords }
+            });
+        }
     }
+
+    const geojson = {
+        type: 'FeatureCollection',
+        properties: {
+            mode: mode,
+            created: new Date().toISOString(),
+            app: 'SyncView'
+        },
+        features: features
+    };
+
+    const blob = new Blob([JSON.stringify(geojson, null, 2)], { type: 'application/geo+json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `syncview-${mode}-${new Date().toISOString().split('T')[0]}.geojson`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast('GeoJSON exported');
 }
 
 // Initialize app in ruler mode
 setMode('dist');
-
-// Restore from URL if present
-(() => {
-    migrateHashStateToQuery();
-    applyStateFromUrl();
-    scheduleUrlUpdate();
-})();
+updateUnitLabel();

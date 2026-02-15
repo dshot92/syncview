@@ -51,19 +51,11 @@
             <button class="tool__location-btn" id="locationBtn1" onclick="setLocationFromDevice(1)">
                 <svg width="16" height="16"><use href="images/icons.svg#icon-location"/></svg>
             </button>
-            <button class="tool__back-btn" id="backBtn1" onclick="undoLastPoint()" aria-label="Undo">
-                <svg width="16" height="16"><use href="images/icons.svg#icon-undo"/></svg>
-            </button>
             <button class="tool__clear-btn" id="clearBtn1" onclick="clearAll()">
                 <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
             </button>
             <div id="map1" class="map-instance"></div>
             <div class="tool__map-label" id="label1">Map 1</div>
-        </div>
-        <div class="divisor-area">
-            <button class="info-btn info-btn-mobile" onclick="openInfoMenu()" aria-label="Info">
-                <svg width="14" height="14"><use href="images/icons.svg#icon-info"/></svg>
-            </button>
         </div>
         <div class="map-wrapper">
             <div class="tool__search-wrapper">
@@ -92,6 +84,11 @@
 
     <div id="dashboard">
         <div class="nav-row">
+            <!-- Settings Button -->
+            <button class="settings-btn" id="settingsBtn" onclick="openSettingsMenu()" title="Settings" aria-label="Settings">
+                <svg width="18" height="18" aria-hidden="true"><use href="images/icons.svg#icon-settings"/></svg>
+            </button>
+
             <!-- Custom Dropdown -->
             <div class="custom-select" id="layerDropdown">
                 <div class="select-trigger" id="layerTrigger">
@@ -108,10 +105,10 @@
                 <button class="navbar-btn" id="btn-dist" onclick="setMode('dist')">Line</button>
                 <button class="navbar-btn" id="btn-area" onclick="setMode('area')">Area</button>
             </div>
-            <button class="share-btn" onclick="openShareMenu()">
-                <svg width="14" height="14"><use href="images/icons.svg#icon-share"/></svg>
+            <button class="share-btn" onclick="openShareMenu()" title="Share" aria-label="Share">
+                <svg width="14" height="14" aria-hidden="true"><use href="images/icons.svg#icon-share"/></svg>
             </button>
-            <button class="info-btn" onclick="openInfoMenu()">
+            <button class="info-btn" onclick="openInfoMenu()" aria-label="Info">
                 <svg width="14" height="14"><use href="images/icons.svg#icon-info"/></svg>
             </button>
         </div>
@@ -120,13 +117,17 @@
 
     <div id="ctx-menu">
         <div class="ctx-item" id="ctx-del-point" onclick="delPoint()">Delete Point</div>
-        <div class="ctx-item" id="ctx-reset-rotation" onclick="ctxResetRotation()" style="display:none">Reset Rotation</div>
-        <div class="ctx-item" id="ctx-reset-move" onclick="ctxResetMove()" style="display:none">Reset Move</div>
-        <div class="ctx-item" id="ctx-reset-all" onclick="ctxResetAll()" style="display:none">Reset All</div>
     </div>
+
+    <div id="gizmo-ctx-menu">
+        <div class="ctx-item" id="gizmo-ctx-reset-rotation" onclick="resetGizmoRotation()">Reset Rotation</div>
+        <div class="ctx-item" id="gizmo-ctx-reset-move" onclick="resetGizmoMove()">Reset Move</div>
+        <div class="ctx-item" id="gizmo-ctx-reset-all" onclick="resetGizmoAll()">Reset All</div>
     </div>
 
     <div id="toast" class="toast" aria-live="polite" aria-atomic="true"></div>
+
+    <div id="coord-display" class="coord-display"></div>
 
     <div id="share-overlay" class="overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Share">
         <div class="overlay-card" id="share-card">
@@ -165,44 +166,88 @@
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
                     Copy link
                 </button>
+                <button class="share-action" onclick="exportGeoJSON()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    Export GeoJSON
+                </button>
                 <input id="share-link" type="text" readonly value="" aria-label="Share link" style="display:none"/>
             </div>
         </div>
     </div>
 
-    <div id="info-gizmo" class="info-gizmo">
-        <div class="info-gizmo-header" id="info-gizmo-header">
-            <svg width="14" height="14"><use href="images/icons.svg#icon-info"/></svg>
-            <span>About</span>
-            <button class="info-gizmo-close" onclick="closeInfoGizmo()" aria-label="Close">
-                <svg width="12" height="12"><use href="images/icons.svg#icon-close"/></svg>
-            </button>
+    <div id="settings-overlay" class="overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Settings">
+        <div class="overlay-card" id="settings-card">
+            <div class="overlay-header">
+                <div class="overlay-title">Settings</div>
+                <button class="overlay-close" onclick="closeSettingsMenu()" aria-label="Close">
+                    <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
+                </button>
+            </div>
+
+            <div class="settings-grid">
+                <div class="settings-item" onclick="toggleUnits()">
+                    <span class="settings-item-label">Units</span>
+                    <span class="settings-item-value" id="settings-unit-value">Metric</span>
+                </div>
+                <div class="settings-item" onclick="toggleVertexNumbers()">
+                    <span class="settings-item-label">Vertex Numbers</span>
+                    <span class="settings-item-value" id="settings-vertex-value">Off</span>
+                </div>
+                <div class="settings-item" onclick="toggleBoundingBox()">
+                    <span class="settings-item-label">Bounding Box</span>
+                    <span class="settings-item-value" id="settings-bbox-value">Off</span>
+                </div>
+            </div>
         </div>
-        <div class="info-gizmo-content">
-            <div class="info-section">
-                <h3>Shape vs Overlay</h3>
-                <ul>
-                    <li><strong>Blue shapes (reference):</strong> Editable by dragging individual points</li>
-                    <li><strong>Yellow shapes (overlay):</strong> Move entire shape as a unit</li>
-                    <li><strong>Both shapes:</strong> Fully draggable and movable</li>
-                    <li><strong>Adding Points:</strong> Click on the middle of a line to add new points</li>
-                    <li><strong>Deleting Points:</strong> Right-click on any point to delete it</li>
-                </ul>
+    </div>
+
+    <div id="info-overlay" class="overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Information">
+        <div class="overlay-card" id="info-card">
+            <div class="overlay-header">
+                <div class="overlay-title">About</div>
+                <button class="overlay-close" onclick="closeInfoMenu()" aria-label="Close">
+                    <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
+                </button>
             </div>
-            <div class="info-section">
-                <h3>About</h3>
-                <p>Sync View is a dual-map comparison tool for measuring distances and areas between locations with real-time synchronization.</p>
-            </div>
-            <div class="info-section">
-                <div class="github-buttons">
-                    <a href="https://github.com/dshot92/syncview" target="_blank" rel="noopener" class="github-link">
-                        <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
-                        Sync View
-                    </a>
-                    <a href="https://github.com/dshot92" target="_blank" rel="noopener" class="github-link">
-                        <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
-                        dshot92
-                    </a>
+
+            <div class="info-overlay-content">
+                <div class="info-section">
+                    <h3>Keyboard Shortcuts</h3>
+                    <ul>
+                        <li><strong>L</strong> - Line mode</li>
+                        <li><strong>A</strong> - Area mode</li>
+                        <li><strong>U</strong> - Toggle units (metric/imperial)</li>
+                        <li><strong>V</strong> - Toggle vertex numbers</li>
+                        <li><strong>B</strong> - Toggle bounding box</li>
+                        <li><strong>Delete</strong> - Remove last point</li>
+                        <li><strong>Ctrl+Z</strong> - Undo last point</li>
+                        <li><strong>Escape</strong> - Close overlays / Clear all</li>
+                    </ul>
+                </div>
+                <div class="info-section">
+                    <h3>Using Sync View</h3>
+                    <ul>
+                        <li><strong>Adding Points:</strong> Click on a map to add measurement points</li>
+                        <li><strong>Deleting Points:</strong> Right-click on any point to delete it</li>
+                        <li><strong>Line mode:</strong> Measure distances between points</li>
+                        <li><strong>Area mode:</strong> Measure areas of polygons</li>
+                    </ul>
+                </div>
+                <div class="info-section">
+                    <h3>About</h3>
+                    <p>Sync View is a dual-map comparison tool for measuring distances and areas between locations with real-time synchronization.</p>
+                </div>
+                <div class="info-section">
+                    <div class="github-buttons">
+                        <a href="https://github.com/dshot92/syncview" target="_blank" rel="noopener" class="github-link">
+                            <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
+                            Sync View
+                        </a>
+                        <a href="https://github.com/dshot92" target="_blank" rel="noopener" class="github-link">
+                            <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
+                            dshot92
+                        </a>
+                    </div>
                 </div>
             </div>
         </div>
