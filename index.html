@@ -40,22 +40,22 @@
         <div class="map-wrapper">
             <div class="tool__search-wrapper">
                 <div class="tool__lens-btn" id="lens1" onclick="toggleSearch(1)">
-                    <svg width="18" height="18"><use href="images/icons.svg#icon-search"/></svg>
+                    <img src="images/svgs/search.svg" width="18" height="18" alt="">
                 </div>
                 <div class="tool__search-container" id="searchContainer1">
                     <input type="text" id="search1" class="tool__search-box" placeholder="Search Map 1..." autocomplete="off">
-                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search1').value=''; this.style.display='none';"><svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg></button>
+                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search1').value=''; this.style.display='none';"><img src="images/svgs/clear.svg" width="16" height="16" alt=""></button>
                     <div id="results1" class="suggestions"></div>
                 </div>
             </div>
             <button class="tool__location-btn" id="locationBtn1" onclick="setLocationFromDevice(1)">
-                <svg width="16" height="16"><use href="images/icons.svg#icon-location"/></svg>
+                <img src="images/svgs/device-position.svg" width="16" height="16" alt="">
             </button>
             <button class="tool__back-btn" id="backBtn1" onclick="undoLastPoint()" aria-label="Undo">
-                <svg width="16" height="16"><use href="images/icons.svg#icon-undo"/></svg>
+                <img src="images/svgs/back.svg" width="16" height="16" alt="">
             </button>
             <button class="tool__clear-btn" id="clearBtn1" onclick="clearAll()">
-                <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
+                <img src="images/svgs/clear.svg" width="16" height="16" alt="">
             </button>
             <div id="map1" class="map-instance"></div>
             <div class="tool__map-label" id="label1">Map 1</div>
@@ -63,22 +63,22 @@
         <div class="map-wrapper">
             <div class="tool__search-wrapper">
                 <div class="tool__lens-btn" id="lens2" onclick="toggleSearch(2)">
-                    <svg width="18" height="18"><use href="images/icons.svg#icon-search"/></svg>
+                    <img src="images/svgs/search.svg" width="18" height="18" alt="">
                 </div>
                 <div class="tool__search-container" id="searchContainer2">
                     <input type="text" id="search2" class="tool__search-box" placeholder="Search Map 2..." autocomplete="off">
-                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search2').value=''; this.style.display='none';"><svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg></button>
+                    <button type="button" class="tool__search-clear-btn" onclick="document.getElementById('search2').value=''; this.style.display='none';"><img src="images/svgs/clear.svg" width="16" height="16" alt=""></button>
                     <div id="results2" class="suggestions"></div>
                 </div>
             </div>
             <button class="tool__location-btn" id="locationBtn2" onclick="setLocationFromDevice(2)">
-                <svg width="16" height="16"><use href="images/icons.svg#icon-location"/></svg>
+                <img src="images/svgs/device-position.svg" width="16" height="16" alt="">
             </button>
             <button class="tool__back-btn" id="backBtn2" onclick="undoLastPoint()" aria-label="Undo">
-                <svg width="16" height="16"><use href="images/icons.svg#icon-undo"/></svg>
+                <img src="images/svgs/back.svg" width="16" height="16" alt="">
             </button>
             <button class="tool__clear-btn" id="clearBtn2" onclick="clearAll()">
-                <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
+                <img src="images/svgs/clear.svg" width="16" height="16" alt="">
             </button>
             <div id="map2" class="map-instance"></div>
             <div class="tool__map-label" id="label2">Map 2</div>
@@ -89,13 +89,13 @@
         <div class="nav-row">
             <!-- Settings Button -->
             <button class="settings-btn" id="settingsBtn" onclick="openSettingsMenu()" title="Settings" aria-label="Settings">
-                <svg width="18" height="18" aria-hidden="true"><use href="images/icons.svg#icon-settings"/></svg>
+                <img src="images/svgs/settings.svg" width="18" height="18" alt="">
             </button>
 
             <!-- Custom Dropdown -->
             <div class="custom-select" id="layerDropdown">
                 <div class="select-trigger" id="layerTrigger">
-                    <svg width="18" height="18"><use href="images/icons.svg#icon-layers"/></svg>
+                    <img src="images/svgs/layers.svg" width="18" height="18" alt="">
                 </div>
                 <div class="select-options" id="layerOptions">
                     <div class="option" data-value="satellite">Satellite</div>
@@ -110,10 +110,10 @@
                 <button class="navbar-btn" id="btn-area" onclick="setMode('area')">Area</button>
             </div>
             <button class="share-btn" onclick="openShareMenu()" title="Share" aria-label="Share">
-                <svg width="14" height="14" aria-hidden="true"><use href="images/icons.svg#icon-share"/></svg>
+                <img src="images/svgs/share.svg" width="14" height="14" alt="">
             </button>
             <button class="info-btn" onclick="openInfoMenu()" aria-label="Info">
-                <svg width="14" height="14"><use href="images/icons.svg#icon-info"/></svg>
+                <img src="images/svgs/info.svg" width="14" height="14" alt="">
             </button>
         </div>
 
@@ -138,7 +138,7 @@
             <div class="overlay-header">
                 <div class="overlay-title">Share</div>
                 <button class="overlay-close" onclick="closeShareMenu()" aria-label="Close">
-                    <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
+                    <img src="images/svgs/clear.svg" width="16" height="16" alt="">
                 </button>
             </div>
 
@@ -184,7 +184,7 @@
             <div class="overlay-header">
                 <div class="overlay-title">Settings</div>
                 <button class="overlay-close" onclick="closeSettingsMenu()" aria-label="Close">
-                    <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
+                    <img src="images/svgs/clear.svg" width="16" height="16" alt="">
                 </button>
             </div>
 
@@ -210,7 +210,7 @@
             <div class="overlay-header">
                 <div class="overlay-title">About</div>
                 <button class="overlay-close" onclick="closeInfoMenu()" aria-label="Close">
-                    <svg width="16" height="16"><use href="images/icons.svg#icon-close"/></svg>
+                    <img src="images/svgs/clear.svg" width="16" height="16" alt="">
                 </button>
             </div>
 
@@ -244,11 +244,11 @@
                 <div class="info-section">
                     <div class="github-buttons">
                         <a href="https://github.com/dshot92/syncview" target="_blank" rel="noopener" class="github-link">
-                            <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
                             Sync View
                         </a>
                         <a href="https://github.com/dshot92" target="_blank" rel="noopener" class="github-link">
-                            <svg width="16" height="16"><use href="images/icons.svg#icon-github"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
                             dshot92
                         </a>
                     </div>

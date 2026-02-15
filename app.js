@@ -833,6 +833,7 @@ function undoLastPoint() {
     if (verticesRef.length === 0) {
         if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
         if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
+        removeGizmos();
         refMap = null;
         ovlMap = null;
         document.getElementById('label1').innerText = "Map 1";
@@ -1074,10 +1075,10 @@ const searchCache = new Map();
 let searchAttempts = 0;
 const MAX_SEARCH_ATTEMPTS = 3;
 
-// SVG icons for search toggle
+// SVG icons for search toggle - using external SVG files
 const ICONS = {
-    search: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
-    close: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>'
+    search: '<img src="images/svgs/search.svg" width="18" height="18" alt="">',
+    close: '<img src="images/svgs/clear.svg" width="18" height="18" alt="">'
 };
 
 function toggleSearch(idx) {
@@ -1666,25 +1667,18 @@ let moveGizmoRef = null, moveGizmoOvl = null;
 // Glyph templates - small SVG icons centered inside colored circles
 const GIZMO_ICON_SIZE = 14; // Small icon inside the gizmo
 const GIZMO_GLYPHS = {
-    rotate: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/rotate.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}" style="display:block;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));" alt=""></span>`,
-    move: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/move.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}" style="display:block;object-fit:contain;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));" alt=""></span>`
+    rotate: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/svgs/rotate.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}" style="display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
+    move: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/svgs/move.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}" style="display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`
 };
 
 function createGizmoIcon(type, color) {
     const isRotate = type === 'rotate';
-    const svg = isRotate 
-        ? `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 12"/>
-            <path d="M21 3v9h-9"/>
-           </svg>`
-        : `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 9l-3 3 3 3M9 5l3-3 3 3M19 9l3 3-3 3M9 19l3 3 3-3"/>
-            <circle cx="12" cy="12" r="3"/>
-           </svg>`;
+    const svgFile = isRotate ? 'rotate.svg' : 'move.svg';
+    const html = `<img src="images/svgs/${svgFile}" width="24" height="24" style="filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));${color ? `color:${color}` : ''}">`;
     
     return L.divIcon({
         className: `gizmo ${type}-gizmo`,
-        html: svg,
+        html: html,
         iconSize: [24, 24],
         iconAnchor: [12, 12]
     });
@@ -2080,6 +2074,7 @@ function clearAll() {
     if (refMap) { markersRef.forEach(m => refMap.removeLayer(m)); markersOvl.forEach(m => ovlMap.removeLayer(m)); }
     if (measureLabelRef) { measureLabelRef.remove(); measureLabelRef = null; }
     if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
+    removeGizmos();
     masterVertices = [];
     verticesRef = []; verticesOvl = []; markersRef = []; markersOvl = [];
     refMap = null; ovlMap = null;

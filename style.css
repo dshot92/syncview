@@ -176,7 +176,8 @@ body.info-overlay-open {
     outline: none;
 }
 
- .tool__lens-btn svg {
+ .tool__lens-btn svg,
+.tool__lens-btn img {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
     display: block;
@@ -311,7 +312,8 @@ body.info-overlay-open {
     transform: scale(0.95);
 }
 
- .tool__location-btn svg {
+ .tool__location-btn svg,
+.tool__location-btn img {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
     display: block;
@@ -399,7 +401,8 @@ body.info-overlay-open {
     transition: background 0.2s;
 }
 
-.select-trigger svg {
+.select-trigger svg,
+.select-trigger img {
     transition: transform 0.2s;
 }
 
@@ -586,7 +589,9 @@ body.info-overlay-open {
 }
 
 .clear-btn svg,
-.tool__clear-btn svg {
+.tool__clear-btn svg,
+.clear-btn img,
+.tool__clear-btn img {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
     display: block;
@@ -631,7 +636,8 @@ body.info-overlay-open {
     transform: scale(0.95);
 }
 
-.tool__back-btn svg {
+.tool__back-btn svg,
+.tool__back-btn img {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
     display: block;
@@ -652,7 +658,8 @@ body.info-overlay-open {
     place-items: center;
  }
 
- .share-btn svg {
+ .share-btn svg,
+.share-btn img {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
  }
@@ -788,7 +795,8 @@ body.info-overlay-open {
     transform: scale(0.97);
 }
 
-.settings-btn svg {
+.settings-btn svg,
+.settings-btn img {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
 }
@@ -838,7 +846,8 @@ body.info-overlay-open {
     place-items: center;
 }
 
- .info-btn svg {
+ .info-btn svg,
+.info-btn img {
     width: var(--ui-icon-size);
     height: var(--ui-icon-size);
  }
@@ -1697,9 +1706,27 @@ body.info-overlay-open {
     height: 100%;
 }
 
-.gizmo-glyph img {
+.gizmo-glyph img,
+.gizmo-glyph svg {
     display: block;
     width: 1rem;
     height: 1rem;
-    /* object-fit: contain; */
+}
+
+.gizmo-glyph svg {
+    color: var(--text-white);
+}
+
+/* Make all icon images white */
+.tool__lens-btn img,
+.tool__location-btn img,
+.tool__clear-btn img,
+.tool__back-btn img,
+.share-btn img,
+.settings-btn img,
+.info-btn img,
+.select-trigger img,
+.overlay-close img,
+.gizmo-glyph img {
+    filter: brightness(0) invert(1);
 }
