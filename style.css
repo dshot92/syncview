@@ -1714,7 +1714,6 @@ body.info-overlay-open {
 .settings-btn img,
 .info-btn img,
 .select-trigger img,
-.overlay-close img,
-.gizmo-glyph img {
+.overlay-close img {
     filter: brightness(0) invert(1);
 }

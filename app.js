@@ -1724,8 +1724,8 @@ let moveGizmoRef = null, moveGizmoOvl = null;
 // Glyph templates - small SVG icons centered inside colored circles
 const GIZMO_ICON_SIZE = 14; // Small icon inside the gizmo
 const GIZMO_GLYPHS = {
-    rotate: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/svgs/rotate.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}" style="display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`,
-    move: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/svgs/move.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}" style="display:block;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.6));"></span>`
+    rotate: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/svgs/rotate.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}"></span>`,
+    move: `<span class="gizmo-glyph" aria-hidden="true" style="display:grid;place-items:center;width:100%;height:100%;"><img src="images/svgs/move.svg" width="${GIZMO_ICON_SIZE}" height="${GIZMO_ICON_SIZE}"></span>`
 };
 
 function createGizmoIcon(type, color) {
