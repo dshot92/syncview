@@ -1815,10 +1815,80 @@ function bindGizmoContextMenu(marker, which) {
     }, { passive: true });
 }
 
-// Position gizmos based on bounding box
-function positionGizmos(bb, map, rotateGizmo, moveGizmo) {
-    if (!bb) return;
+// Position gizmos based on bounding box or line geometry
+function positionGizmos(bb, map, rotateGizmo, moveGizmo, pts) {
+    if (!bb || !pts || pts.length < 2) return;
 
+    // For 2-point lines, use line geometry for better positioning
+    if (pts.length === 2) {
+        const p1 = pts[0];
+        const p2 = pts[1];
+        
+        // Calculate line midpoint
+        const midLat = (p1.lat + p2.lat) / 2;
+        const midLng = (p1.lng + p2.lng) / 2;
+        const midPoint = L.latLng(midLat, midLng);
+        
+        // Convert to container points for offset calculation
+        const midPt = map.latLngToContainerPoint(midPoint);
+        const p1Pt = map.latLngToContainerPoint(p1);
+        const p2Pt = map.latLngToContainerPoint(p2);
+        
+        // Calculate line direction vector (in pixels)
+        const dx = p2Pt.x - p1Pt.x;
+        const dy = p2Pt.y - p1Pt.y;
+        const len = Math.sqrt(dx * dx + dy * dy);
+        
+        // Normalize and get perpendicular vector (pointing "up" relative to line)
+        let perpX = 0, perpY = -1; // Default to upward
+        if (len > 0) {
+            perpX = -dy / len;
+            perpY = dx / len;
+        }
+        
+        // Position rotate gizmo: above the line (perpendicular offset)
+        const rotateOffset = CONSTANTS.GIZMO_OFFSET_PX;
+        const rotatePt = L.point(
+            midPt.x + perpX * rotateOffset,
+            midPt.y + perpY * rotateOffset
+        );
+        
+        // Position move gizmo: below the line (opposite perpendicular)
+        const moveOffset = CONSTANTS.GIZMO_OFFSET_PX;
+        const movePt = L.point(
+            midPt.x - perpX * moveOffset,
+            midPt.y - perpY * moveOffset
+        );
+        
+        // Only clamp if completely outside viewport
+        const containerSize = map.getSize();
+        const clampedRotatePt = L.point(
+            Math.max(20, Math.min(containerSize.x - 20, rotatePt.x)),
+            Math.max(20, Math.min(containerSize.y - 20, rotatePt.y))
+        );
+        const clampedMovePt = L.point(
+            Math.max(20, Math.min(containerSize.x - 20, movePt.x)),
+            Math.max(20, Math.min(containerSize.y - 20, movePt.y))
+        );
+        
+        const rotatePos = map.containerPointToLatLng(clampedRotatePt);
+        const movePos = map.containerPointToLatLng(clampedMovePt);
+        
+        rotateGizmo.setLatLng(rotatePos);
+        moveGizmo.setLatLng(movePos);
+        
+        if (!rotateGizmo._map) {
+            rotateGizmo.addTo(map);
+            bindGizmoContextMenu(rotateGizmo, rotateGizmo._gizmoWhich);
+        }
+        if (!moveGizmo._map) {
+            moveGizmo.addTo(map);
+            bindGizmoContextMenu(moveGizmo, moveGizmo._gizmoWhich);
+        }
+        return;
+    }
+
+    // For 3+ points, use AABB-based positioning with minimal clamping
     const topMidLL = L.latLng(bb.north, (bb.west + bb.east) / 2);
     const topMidPt = map.latLngToContainerPoint(topMidLL);
     const rotatePt = L.point(topMidPt.x, topMidPt.y - CONSTANTS.GIZMO_OFFSET_PX);
@@ -1828,8 +1898,16 @@ function positionGizmos(bb, map, rotateGizmo, moveGizmo) {
     const rightMidPt = map.latLngToContainerPoint(rightMidLL);
     const movePt = L.point(rightMidPt.x + CONSTANTS.GIZMO_OFFSET_PX, rightMidPt.y);
 
-    const clampedRotatePt = clampToView(map, rotatePt, CONSTANTS.GIZMO_RADIUS_PX * 2);
-    const clampedMovePt = clampToView(map, movePt, CONSTANTS.GIZMO_RADIUS_PX * 2);
+    // Minimal clamping to keep within viewport
+    const containerSize = map.getSize();
+    const clampedRotatePt = L.point(
+        Math.max(20, Math.min(containerSize.x - 20, rotatePt.x)),
+        Math.max(20, Math.min(containerSize.y - 20, rotatePt.y))
+    );
+    const clampedMovePt = L.point(
+        Math.max(20, Math.min(containerSize.x - 20, movePt.x)),
+        Math.max(20, Math.min(containerSize.y - 20, movePt.y))
+    );
 
     const topMid = map.containerPointToLatLng(clampedRotatePt);
     const rightOut = map.containerPointToLatLng(clampedMovePt);
@@ -2387,20 +2465,13 @@ function update() {
     updateMarkerPositions();
 
     const isComplete = pRef.length >= (isArea ? 3 : 2);
-    if (!isComplete) {
-        removeMeasureLabels();
-        ensureLayer(refMap, shapes.bbRef, false);
-        ensureLayer(ovlMap, shapes.bbOvl, false);
-        return;
-    }
-
-    // Skip gizmo/label updates during zoom animation - shapes and markers still update
-    if (isZoomAnimating) return;
-
+    
+    // Calculate AABB for any points (even just 1 point)
     const bbR = getAabb(pRef);
     const bbO = getAabb(pOvl);
-
-    if (showAabb) {
+    
+    // Always update AABB visibility based on showAabb and whether we have valid bounds
+    if (showAabb && !isZoomAnimating) {
         ensureLayer(refMap, shapes.bbRef, !!bbR);
         ensureLayer(ovlMap, shapes.bbOvl, !!bbO);
         if (bbR) shapes.bbRef.setBounds([[bbR.south, bbR.west], [bbR.north, bbR.east]]);
@@ -2408,6 +2479,12 @@ function update() {
     } else {
         ensureLayer(refMap, shapes.bbRef, false);
         ensureLayer(ovlMap, shapes.bbOvl, false);
+    }
+    
+    if (!isComplete) {
+        removeMeasureLabels();
+        removeGizmos();
+        return;
     }
 
     // Update measurement labels
@@ -2457,10 +2534,15 @@ function update() {
         preventLabelClick(measureLabelOvl);
     }
     
-    // Update rotation and move gizmos
-    ensureGizmoMarkers();
-    positionGizmos(bbR, refMap, rotateGizmoRef, moveGizmoRef);
-    positionGizmos(bbO, ovlMap, rotateGizmoOvl, moveGizmoOvl);
+    // Update rotation and move gizmos (only show when 4+ points)
+    const hasEnoughPointsForGizmos = pRef.length >= 3;
+    if (hasEnoughPointsForGizmos) {
+        ensureGizmoMarkers();
+        positionGizmos(bbR, refMap, rotateGizmoRef, moveGizmoRef, pRef);
+        positionGizmos(bbO, ovlMap, rotateGizmoOvl, moveGizmoOvl, pOvl);
+    } else {
+        removeGizmos();
+    }
     
     // Info gizmo position is updated in a RAF loop while visible
     modeChanged = false;
