@@ -2218,7 +2218,6 @@ function clearAll() {
     // Reset transforms
     shapeTransforms.ref = { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null };
     shapeTransforms.ovl = { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null };
-    document.getElementById('label1').innerText = "Map 1"; document.getElementById('label2').innerText = "Map 2";
     update();
     scheduleUrlUpdate();
 }
@@ -3465,6 +3464,26 @@ function exportGeoJSON() {
 
 // Initialize app with saved or default mode
 console.log('[SyncView] Initializing app...');
+
+// Latitude display update function
+function updateLatDisplays() {
+    const latDisplay1 = document.getElementById('latDisplay1');
+    const latDisplay2 = document.getElementById('latDisplay2');
+    if (latDisplay1 && map1) {
+        latDisplay1.textContent = formatLat(map1.getCenter().lat);
+    }
+    if (latDisplay2 && map2) {
+        latDisplay2.textContent = formatLat(map2.getCenter().lat);
+    }
+}
+
+// Update latitude displays on map move
+map1.on('move', updateLatDisplays);
+map2.on('move', updateLatDisplays);
+
+// Initial update
+updateLatDisplays();
+
 setMode(mode);
 updateUnitLabel();
 

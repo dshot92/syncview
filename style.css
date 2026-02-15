@@ -347,6 +347,36 @@ body.info-overlay-open {
     pointer-events: none;
 }
 
+.tool__lat-display {
+    position: absolute;
+    top: 0.625rem;
+    right: 0.625rem;
+    z-index: 1000;
+    background: var(--bg-body);
+    padding: 0.25rem 0.5rem;
+    border-radius: var(--radius);
+    font-size: 0.625rem;
+    font-weight: 600;
+    border: 0.0625rem solid var(--border);
+    color: var(--text-white);
+    pointer-events: none;
+}
+
+/* Mobile: Top map (first) shows lat at bottom-right, Bottom map shows lat at top-right */
+@media (max-width: 767px) {
+    .map-wrapper:first-child .tool__lat-display {
+        top: auto;
+        bottom: 0.625rem;
+        right: 0.625rem;
+    }
+    
+    .map-wrapper:last-child .tool__lat-display {
+        top: 0.625rem;
+        right: 0.625rem;
+        bottom: auto;
+    }
+}
+
 /* Dashboard Grid */
 #dashboard {
     grid-area: dashboard;
