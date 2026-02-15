@@ -8,11 +8,10 @@ document.addEventListener('contextmenu', function(e) {
 
 // Tile Definitions
 const tiles = {
-    hybrid: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    satellite: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    streets: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    hybrid: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    streets: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
 };
-const hybridRef = 'https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}';
 
 // Constants
 const CONSTANTS = {
@@ -36,14 +35,16 @@ const CONSTANTS = {
     LNG_MAX: 180
 };
 
-// Default tile layer options
+// Default tile layer options - optimized for Google Maps sharpness
 const TILE_LAYER_DEFAULTS = {
     fadeAnimation: false,
     updateWhenIdle: false,
     updateWhenZooming: true,
     keepBuffer: 0,
-    maxNativeZoom: CONSTANTS.MAX_NATIVE_ZOOM,
-    maxZoom: CONSTANTS.MAX_ZOOM
+    maxNativeZoom: 22, // Higher for sharper tiles
+    maxZoom: 22,
+    tileSize: 256,
+    detectRetina: false // Disable retina to prevent upscaling blur
 };
 
 const HYBRID_LAYER_DEFAULTS = {
@@ -63,18 +64,16 @@ function createBaseTileLayer(mapType) {
     return layer;
 }
 
-// Create hybrid reference layer
+// Create hybrid reference layer - not needed for Google tiles as they include labels
 function createHybridLayer() {
-    const layer = L.tileLayer(hybridRef, HYBRID_LAYER_DEFAULTS);
-    layer.on('tileerror', handleTileError);
-    return layer;
+    return null;
 }
 
 // Create both layers for a map type
 function createTileLayers(mapType) {
     return {
         base: createBaseTileLayer(mapType),
-        hybrid: mapType === 'hybrid' ? createHybridLayer() : null
+        hybrid: null // Google tiles include labels, no separate hybrid layer needed
     };
 }
 
@@ -175,8 +174,8 @@ function createMarkerPair(latlng, refMap, ovlMap, isOvlGhost = false) {
     return { ref: mR, ovl: mO };
 }
 
-const map1 = L.map('map1', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], CONSTANTS.DEFAULT_ZOOM);
-const map2 = L.map('map2', { zoomSnap: 0.1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], CONSTANTS.DEFAULT_ZOOM);
+const map1 = L.map('map1', { zoomSnap: 1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], CONSTANTS.DEFAULT_ZOOM);
+const map2 = L.map('map2', { zoomSnap: 1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], CONSTANTS.DEFAULT_ZOOM);
 
 function formatLat(lat) {
     const a = Math.abs(lat);
@@ -238,24 +237,7 @@ function createLatLngGrid(map) {
             layer.clearLayers();
 
             const labeledLats = new Set();
-            for (let lat = startLat; lat < north + step; lat += step) {
-                const ll1 = L.latLng(lat, west);
-                const ll2 = L.latLng(lat, east);
-                L.polyline([ll1, ll2], { interactive: false, weight: 1, opacity: 1, className: 'grid-line' }).addTo(layer);
-
-                if (!labeledLats.has(lat)) {
-                    labeledLats.add(lat);
-                    const labelPos = L.latLng(lat, east);
-                    const icon = L.divIcon({
-                        className: 'grid-label',
-                        html: `<div class="grid-label-inner grid-label-right">${formatLat(lat)}</div>`,
-                        iconSize: null
-                    });
-                    L.marker(labelPos, { interactive: false, keyboard: false, icon }).addTo(layer);
-                }
-            }
-
-            for (let lng = startLng; lng <= east + step; lng += step) {
+            for (let lng = startLng; lng <= east; lng += step) {
                 const ll1 = L.latLng(south, lng);
                 const ll2 = L.latLng(north, lng);
                 L.polyline([ll1, ll2], { interactive: false, weight: 1, opacity: 1, className: 'grid-line' }).addTo(layer);
