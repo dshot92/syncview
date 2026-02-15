@@ -3352,3 +3352,6 @@ function exportGeoJSON() {
 // Initialize app with saved or default mode
 setMode(mode);
 updateUnitLabel();
+
+// Apply shared link state if present (after all initialization is complete)
+applyStateFromUrl();
