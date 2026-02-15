@@ -1466,26 +1466,26 @@ body.info-overlay-open {
     /* First map search button - just above divisor line */
     .map-wrapper:first-child .tool__search-wrapper {
         top: auto;
-        bottom: calc(var(--tool-offset) + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        bottom: 0.625rem;
         transform: none;
     }
 
     /* Second map search button - just below divisor line */
     .map-wrapper:last-child .tool__search-wrapper {
-        top: calc(var(--tool-offset) + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        top: 0.625rem;
         transform: none;
     }
 
     /* First map location button - under search button */
     .map-wrapper:first-child .tool__location-btn {
         top: auto;
-        bottom: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 1 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 1 + 0.625rem);
         left: var(--tool-offset);
     }
 
     /* Second map location button - under search button */
     .map-wrapper:last-child .tool__location-btn {
-        top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 1 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        top: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 1 + 0.625rem);
         bottom: auto;
         left: var(--tool-offset);
     }
@@ -1493,13 +1493,13 @@ body.info-overlay-open {
     /* First map clear button - vertically next to location button without overlap (top map) */
     .map-wrapper:first-child .tool__clear-btn {
         top: auto;
-        bottom: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 3 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 3 + 0.625rem);
         left: var(--tool-offset);
     }
 
     /* Second map clear button - vertically next to location button without overlap (bottom map) */
     .map-wrapper:last-child .tool__clear-btn {
-        top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 3 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        top: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 3 + 0.625rem);
         bottom: auto;
         left: var(--tool-offset);
     }
@@ -1507,13 +1507,13 @@ body.info-overlay-open {
     /* First map back button - between location and clear (top map) */
     .map-wrapper:first-child .tool__back-btn {
         top: auto;
-        bottom: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 2 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 2 + 0.625rem);
         left: var(--tool-offset);
     }
 
     /* Second map back button - between location and clear (bottom map) */
     .map-wrapper:last-child .tool__back-btn {
-        top: calc(var(--tool-offset) + (var(--ui-btn-size-sm) + var(--button-gap)) * 2 + var(--button-gap) + (var(--ui-btn-size-sm) - var(--divisor-width)) / 2);
+        top: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 2 + 0.625rem);
         bottom: auto;
         left: var(--tool-offset);
     }
