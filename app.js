@@ -605,6 +605,9 @@ let lastUrl = location.href;
 document.addEventListener('visibilitychange', () => {
     console.log('[SyncView] visibilitychange, state:', document.visibilityState, 'lastUrl:', lastUrl, 'current:', location.href);
     if (document.visibilityState === 'visible') {
+        // Clear search cache to ensure fresh results after backgrounding
+        searchCache.clear();
+        console.log('[SyncView] Search cache cleared on visibility change');
         // Always try to apply state - URL might have been updated while hidden
         // Multiple retries for mobile PWA timing issues
         [0, 100, 300, 500].forEach(delay => {
@@ -1129,6 +1132,7 @@ function toggleVertexNumbers() {
 // Debounced search with better error handling
 let searchTimeout = null;
 const searchCache = new Map();
+const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
 let searchAttempts = 0;
 const MAX_SEARCH_ATTEMPTS = 3;
 
@@ -1164,10 +1168,11 @@ async function fetchSuggestions(idx, query) {
         return;
     }
 
-    // Check cache first
+    // Check cache first (only if not expired)
     const cacheKey = query.toLowerCase();
-    if (searchCache.has(cacheKey)) {
-        displaySuggestions(idx, searchCache.get(cacheKey));
+    const cached = searchCache.get(cacheKey);
+    if (cached && (Date.now() - cached.timestamp < CACHE_MAX_AGE_MS)) {
+        displaySuggestions(idx, cached.data);
         return;
     }
 
@@ -1194,7 +1199,7 @@ async function fetchSuggestions(idx, query) {
         // Photon returns GeoJSON with features array
         const data = geojson.features || [];
         if (data && data.length > 0) {
-            searchCache.set(cacheKey, data);
+            searchCache.set(cacheKey, { data, timestamp: Date.now() });
             displaySuggestions(idx, data);
             searchAttempts = 0; // Reset on success
         } else {
