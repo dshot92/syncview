@@ -1220,7 +1220,8 @@ function displaySuggestions(idx, data) {
         const div = document.createElement('div');
         div.className = 'suggestion-item';
         // Build display name from Photon properties
-        const parts = [props.name, props.city, props.state, props.country].filter(Boolean);
+        // Photon returns: name (POI or street), street, housenumber, city, state, country
+        const parts = [props.name, props.street, props.housenumber, props.city, props.state, props.country].filter(Boolean);
         div.innerText = parts.join(', ');
         div.onclick = () => {
             const targetMap = idx === 1 ? map1 : map2;
