@@ -1463,23 +1463,25 @@ body.info-overlay-open {
         border-top: 0.0625rem solid var(--border);
         border-left: none;
     }
-    /* First map search button - just above divisor line */
+    /* First map search button - positioned at bottom near divisor (mirrored) */
     .map-wrapper:first-child .tool__search-wrapper {
         top: auto;
-        bottom: 0.625rem;
+        bottom: var(--tool-offset);
+        left: var(--tool-offset);
         transform: none;
     }
 
-    /* Second map search button - just below divisor line */
+    /* Second map search button - keep consistent placement */
     .map-wrapper:last-child .tool__search-wrapper {
-        top: 0.625rem;
+        top: var(--tool-offset);
+        bottom: auto;
         transform: none;
     }
 
-    /* First map location button - under search button */
+    /* First map location button - above search button (mirrored) */
     .map-wrapper:first-child .tool__location-btn {
         top: auto;
-        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 1 + 0.625rem);
+        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 1 + var(--tool-offset));
         left: var(--tool-offset);
     }
 
@@ -1490,10 +1492,10 @@ body.info-overlay-open {
         left: var(--tool-offset);
     }
 
-    /* First map clear button - vertically next to location button without overlap (top map) */
+    /* First map clear button - mirrored from second map */
     .map-wrapper:first-child .tool__clear-btn {
         top: auto;
-        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 3 + 0.625rem);
+        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 3 + var(--tool-offset));
         left: var(--tool-offset);
     }
 
@@ -1504,10 +1506,10 @@ body.info-overlay-open {
         left: var(--tool-offset);
     }
 
-    /* First map back button - between location and clear (top map) */
+    /* First map back button - mirrored from second map */
     .map-wrapper:first-child .tool__back-btn {
         top: auto;
-        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 2 + 0.625rem);
+        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 2 + var(--tool-offset));
         left: var(--tool-offset);
     }
 
@@ -1518,7 +1520,7 @@ body.info-overlay-open {
         left: var(--tool-offset);
     }
 
-    /* First map suggestions - open upward */
+    /* First map suggestions - open upward (mirrored from second map) */
     .map-wrapper:first-child .suggestions {
         bottom: 100%;
         top: auto;
