@@ -140,7 +140,8 @@ body.info-overlay-open {
 }
 
 .tool__search-wrapper.expanded {
-    width: 17.5rem;
+    width: calc(100vw - 2 * var(--tool-offset));
+    max-width: calc(100vw - 2 * var(--tool-offset));
     border-radius: var(--radius);
     overflow: visible;
 }
@@ -349,8 +350,8 @@ body.info-overlay-open {
 
 .tool__lat-display {
     position: absolute;
-    top: 0.625rem;
-    right: 0.625rem;
+    top: var(--tool-offset);
+    right: var(--tool-offset);
     z-index: 1000;
     background: var(--bg-body);
     padding: 0.25rem 0.5rem;
@@ -360,19 +361,29 @@ body.info-overlay-open {
     border: 0.0625rem solid var(--border);
     color: var(--text-white);
     pointer-events: none;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+/* Hide lat display with transition when search is active */
+.map-wrapper:has(.suggestions.visible) .tool__lat-display,
+.map-wrapper:has(.tool__search-wrapper.expanded) .tool__lat-display {
+    opacity: 0;
+    visibility: hidden;
 }
 
 /* Mobile: Top map (first) shows lat at bottom-right, Bottom map shows lat at top-right */
 @media (max-width: 767px) {
     .map-wrapper:first-child .tool__lat-display {
         top: auto;
-        bottom: 0.625rem;
-        right: 0.625rem;
+        bottom: var(--tool-offset);
+        right: var(--tool-offset);
     }
     
     .map-wrapper:last-child .tool__lat-display {
-        top: 0.625rem;
-        right: 0.625rem;
+        top: var(--tool-offset);
+        right: var(--tool-offset);
         bottom: auto;
     }
 }
@@ -1527,6 +1538,8 @@ body.info-overlay-open {
         border-bottom: none;
         border-top: 0.0625rem solid var(--border);
         border-radius: var(--radius) var(--radius) 0 0;
+        display: flex;
+        flex-direction: column-reverse;
     }
 
     /* Second map suggestions - open downward (normal) */
@@ -1655,6 +1668,12 @@ body.info-overlay-open {
         left: 50%;
         right: auto;
         transform: translateX(-50%);
+    }
+
+    /* Desktop: search stays within each map area (uses map container width, not viewport) */
+    .map-wrapper .tool__search-wrapper.expanded {
+        width: calc(100% - 2 * var(--tool-offset));
+        max-width: calc(100% - 2 * var(--tool-offset));
     }
 }
 
