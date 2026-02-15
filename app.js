@@ -400,12 +400,19 @@ function decodeAppState(hash) {
     if (!raw) return null;
     try {
         const bytes = b64UrlDecode(raw);
+        console.log('[SyncView] decodeAppState - bytes length:', bytes.length);
         const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
         let o = 0;
 
-        if (dv.byteLength < 24) return null;
+        if (dv.byteLength < 24) {
+            console.log('[SyncView] decodeAppState - byteLength too small:', dv.byteLength);
+            return null;
+        }
         const v = dv.getUint8(o); o += 1;
-        if (v !== 1) return null;
+        if (v !== 1) {
+            console.log('[SyncView] decodeAppState - version mismatch:', v);
+            return null;
+        }
 
         const z = dv.getUint16(o, true) / 100; o += 2;
         const m1lat = dv.getInt32(o, true) / 1e6; o += 4;
@@ -417,7 +424,11 @@ function decodeAppState(hash) {
         const mapTypeCode = dv.getUint8(o); o += 1;
         const ptsCount = dv.getUint16(o, true); o += 2;
 
-        if (dv.byteLength !== 24 + ptsCount * 8) return null;
+        console.log('[SyncView] decodeAppState - ptsCount:', ptsCount, 'expected length:', 24 + ptsCount * 8, 'actual:', dv.byteLength);
+        if (dv.byteLength !== 24 + ptsCount * 8) {
+            console.log('[SyncView] decodeAppState - byteLength mismatch');
+            return null;
+        }
 
         const pts = [];
         for (let i = 0; i < ptsCount; i++) {
@@ -436,7 +447,8 @@ function decodeAppState(hash) {
             pts,
             mapType: decodeMapType(mapTypeCode)
         };
-    } catch (_) {
+    } catch (e) {
+        console.log('[SyncView] decodeAppState - exception:', e);
         return null;
     }
 }
@@ -542,8 +554,11 @@ function getEncodedStateFromUrl() {
     try {
         const url = new URL(location.href);
         const fromQuery = url.searchParams.get('s');
+        console.log('[SyncView] getEncodedStateFromUrl - URL:', location.href);
+        console.log('[SyncView] getEncodedStateFromUrl - s param:', fromQuery ? fromQuery.substring(0, 30) + '...' : null);
         if (fromQuery) return fromQuery;
-    } catch (_) {
+    } catch (e) {
+        console.log('[SyncView] getEncodedStateFromUrl - error:', e);
     }
 
     return null;
@@ -552,9 +567,19 @@ function getEncodedStateFromUrl() {
 function applyStateFromUrl() {
     if (isApplyingUrlState) return;
     const encoded = getEncodedStateFromUrl();
-    if (!encoded) return;
+    console.log('[SyncView] applyStateFromUrl called, encoded:', encoded ? encoded.substring(0, 20) + '...' : null);
+    if (!encoded) {
+        console.log('[SyncView] No encoded state found in URL');
+        return;
+    }
     const state = decodeAppState(encoded);
-    if (state) applyDecodedState(state);
+    console.log('[SyncView] Decoded state:', state);
+    if (state) {
+        console.log('[SyncView] Applying decoded state...');
+        applyDecodedState(state);
+    } else {
+        console.log('[SyncView] Failed to decode state');
+    }
 }
 
 window.addEventListener('popstate', () => {
@@ -564,19 +589,30 @@ window.addEventListener('popstate', () => {
 // Handle PWA scenarios where the app becomes active with a new URL
 // pageshow fires when page is shown (including back/forward navigation and PWA resume)
 window.addEventListener('pageshow', (e) => {
+    console.log('[SyncView] pageshow event fired, persisted:', e.persisted);
     // Always check for URL state when page becomes visible
+    // Delay for mobile PWA where URL might update after event
+    setTimeout(() => {
+        console.log('[SyncView] pageshow delayed applyStateFromUrl');
+        applyStateFromUrl();
+    }, 100);
+    // Also try immediately
     applyStateFromUrl();
 });
 
 // Handle visibility change for PWA - when app comes back from background
 let lastUrl = location.href;
 document.addEventListener('visibilitychange', () => {
+    console.log('[SyncView] visibilitychange, state:', document.visibilityState, 'lastUrl:', lastUrl, 'current:', location.href);
     if (document.visibilityState === 'visible') {
-        // Check if URL changed while app was in background
-        if (location.href !== lastUrl) {
-            lastUrl = location.href;
-            applyStateFromUrl();
-        }
+        // Always try to apply state - URL might have been updated while hidden
+        // Multiple retries for mobile PWA timing issues
+        [0, 100, 300, 500].forEach(delay => {
+            setTimeout(() => {
+                console.log('[SyncView] visibility retry at delay:', delay, 'URL:', location.href);
+                applyStateFromUrl();
+            }, delay);
+        });
     }
 });
 
@@ -3369,8 +3405,10 @@ function exportGeoJSON() {
 }
 
 // Initialize app with saved or default mode
+console.log('[SyncView] Initializing app...');
 setMode(mode);
 updateUnitLabel();
 
 // Apply shared link state if present (after all initialization is complete)
+console.log('[SyncView] Calling applyStateFromUrl on init...');
 applyStateFromUrl();
