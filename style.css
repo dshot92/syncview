@@ -521,23 +521,13 @@ body.info-overlay-open {
 }
 
 .navbar-btn:hover {
-    background: var(--hover-bg);
     color: var(--hover-text);
     opacity: 1;
 }
 
 .navbar-btn:active {
-    background: var(--hover-bg);
     color: var(--hover-text);
     opacity: 1;
-}
-
-.navbar-btn:first-child:hover {
-    border-radius: var(--radius) 0 0 var(--radius);
-}
-
-.navbar-btn:last-child:hover {
-    border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 .navbar-btn.active {
@@ -982,18 +972,16 @@ body.info-overlay-open {
     padding: var(--gap-xl);
 }
 
-.share-grid-socials > *:nth-child(5):last-child {
-    grid-column: 1 / -1;
-    justify-self: center;
-    width: 50%;
-}
 
 .share-grid-copy {
+    display: grid;
+    gap: var(--gap-md);
     padding-inline: var(--gap-xl);
     padding-bottom: var(--gap-xl);
 }
 
 .share-grid-copy .share-action {
+    grid-column: 1 / -1;
     width: 100%;
 }
 

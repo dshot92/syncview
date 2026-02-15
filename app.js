@@ -778,6 +778,7 @@ async function copyShareLink() {
         try {
             await navigator.clipboard.writeText(link);
             flashShareCopied();
+            showToast('Link copied!');
             closeShareMenu();
             return;
         } catch (_) {
@@ -801,6 +802,7 @@ async function copyShareLink() {
         const ok = document.execCommand('copy');
         if (ok) {
             flashShareCopied();
+            showToast('Link copied!');
             closeShareMenu();
         } else {
             console.error('Copy failed');
