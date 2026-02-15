@@ -561,6 +561,25 @@ window.addEventListener('popstate', () => {
     applyStateFromUrl();
 });
 
+// Handle PWA scenarios where the app becomes active with a new URL
+// pageshow fires when page is shown (including back/forward navigation and PWA resume)
+window.addEventListener('pageshow', (e) => {
+    // Always check for URL state when page becomes visible
+    applyStateFromUrl();
+});
+
+// Handle visibility change for PWA - when app comes back from background
+let lastUrl = location.href;
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        // Check if URL changed while app was in background
+        if (location.href !== lastUrl) {
+            lastUrl = location.href;
+            applyStateFromUrl();
+        }
+    }
+});
+
 function getSharableLink() {
     const encoded = encodeAppState();
 
