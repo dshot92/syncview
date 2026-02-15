@@ -1181,16 +1181,18 @@ async function fetchSuggestions(idx, query) {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-        const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`, {
+        const resp = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`, {
             signal: controller.signal
         });
         clearTimeout(timeoutId);
 
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
 
-        const data = await resp.json();
+        const geojson = await resp.json();
         const list = document.getElementById('results' + idx);
 
+        // Photon returns GeoJSON with features array
+        const data = geojson.features || [];
         if (data && data.length > 0) {
             searchCache.set(cacheKey, data);
             displaySuggestions(idx, data);
@@ -1208,13 +1210,18 @@ async function fetchSuggestions(idx, query) {
 function displaySuggestions(idx, data) {
     const list = document.getElementById('results' + idx);
     list.innerHTML = '';
-    data.forEach(item => {
+    data.forEach(feature => {
+        const props = feature.properties || {};
         const div = document.createElement('div');
         div.className = 'suggestion-item';
-        div.innerText = item.display_name;
+        // Build display name from Photon properties
+        const parts = [props.name, props.city, props.state, props.country].filter(Boolean);
+        div.innerText = parts.join(', ');
         div.onclick = () => {
             const targetMap = idx === 1 ? map1 : map2;
-            targetMap.setView([item.lat, item.lon], 14);
+            // Photon coordinates are [lon, lat]
+            const [lon, lat] = feature.geometry?.coordinates || [0, 0];
+            targetMap.setView([lat, lon], 14);
             list.classList.remove('visible');
             toggleSearch(idx); // Close search input
         };
@@ -1232,11 +1239,14 @@ const setupSearchEvents = (idx) => {
     input.addEventListener('keypress', async (e) => {
         if (e.key === 'Enter') {
             const query = e.target.value;
-            const resp = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1`);
-            const data = await resp.json();
-            if (data?.[0]) {
+            const resp = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=1`);
+            const geojson = await resp.json();
+            const feature = geojson.features?.[0];
+            if (feature) {
                 const targetMap = idx === 1 ? map1 : map2;
-                targetMap.setView([data[0].lat, data[0].lon], 14);
+                // Photon coordinates are [lon, lat]
+                const [lon, lat] = feature.geometry?.coordinates || [0, 0];
+                targetMap.setView([lat, lon], 14);
                 document.getElementById('results' + idx).classList.remove('visible');
                 toggleSearch(idx); // Close search input
             }
