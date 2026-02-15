@@ -11,6 +11,7 @@ const tiles = {
     satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
     hybrid: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
     streets: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    dark: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', // Same as streets, CSS will darken
 };
 
 // Constants
@@ -73,9 +74,15 @@ function applyTileLayersToMaps(mapType) {
         });
     });
 
-    // Create and add new layers
-    l1 = createBaseTileLayer(mapType).addTo(map1);
-    l2 = createBaseTileLayer(mapType).addTo(map2);
+    // Toggle dark mode class on map containers
+    const isDark = mapType === 'dark';
+    document.getElementById('map1').classList.toggle('map-dark', isDark);
+    document.getElementById('map2').classList.toggle('map-dark', isDark);
+
+    // Create and add new layers (use 'streets' for dark mode since we apply CSS filters)
+    const actualMapType = mapType === 'dark' ? 'streets' : mapType;
+    l1 = createBaseTileLayer(actualMapType).addTo(map1);
+    l2 = createBaseTileLayer(actualMapType).addTo(map2);
     h1 = h2 = null;
 
     // Force redraw
@@ -314,12 +321,14 @@ function safeLatLngLike(arr) {
 function encodeMapType(mapType) {
     if (mapType === 'streets') return 1;
     if (mapType === 'satellite') return 2;
+    if (mapType === 'dark') return 3;
     return 0;
 }
 
 function decodeMapType(code) {
     if (code === 1) return 'streets';
     if (code === 2) return 'satellite';
+    if (code === 3) return 'dark';
     return 'hybrid';
 }
 

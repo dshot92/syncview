@@ -1653,7 +1653,11 @@ body.info-overlay-open {
     box-shadow: 0 0 0 var(--point-outline) var(--text-black), 0 0 0.3125rem 0.0625rem var(--bg-overlay-light);
 }
 
-/* Gizmo styles - colored circles with icons inside */
+/* Dark mode map tiles - applied to map container when dark mode is active */
+.map-dark .leaflet-tile-pane img,
+.map-dark .leaflet-tile {
+    filter: invert(100%) hue-rotate(180deg) brightness(0.9) contrast(1.1) saturate(0.8);
+}
 .gizmo {
     width: 20px !important;
     height: 20px !important;
