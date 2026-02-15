@@ -3326,57 +3326,115 @@ function exportGeoJSON() {
     }
 
     const features = [];
+    const timestamp = new Date().toISOString();
 
-    // Export reference shape
+    // Export shape1 (reference) - Blue
     if (verticesRef.length > 0) {
         const refCoords = verticesRef.map(v => [v.latlng.lng, v.latlng.lat]);
-        if (mode === 'area' && refCoords.length >= 3) {
-            // Close the polygon
+        const isAreaMode = mode === 'area' && refCoords.length >= 3;
+
+        if (isAreaMode) {
+            // Close the polygon if needed
             if (refCoords[0][0] !== refCoords[refCoords.length - 1][0] ||
                 refCoords[0][1] !== refCoords[refCoords.length - 1][1]) {
                 refCoords.push([...refCoords[0]]);
             }
             features.push({
                 type: 'Feature',
-                properties: { type: 'area', map: 'reference', color: 'blue' },
+                properties: {
+                    name: 'shape1',
+                    type: 'area',
+                    stroke: '#4A90D9',
+                    'stroke-width': 2,
+                    'stroke-opacity': 1,
+                    fill: '#4A90D9',
+                    'fill-opacity': 0.3
+                },
                 geometry: { type: 'Polygon', coordinates: [refCoords] }
             });
         } else if (refCoords.length >= 2) {
             features.push({
                 type: 'Feature',
-                properties: { type: 'line', map: 'reference', color: 'blue' },
+                properties: {
+                    name: 'shape1',
+                    type: 'line',
+                    stroke: '#4A90D9',
+                    'stroke-width': 3,
+                    'stroke-opacity': 1
+                },
                 geometry: { type: 'LineString', coordinates: refCoords }
             });
         }
 
-        // Add points
-        refCoords.forEach((coord, i) => {
+        // Add waypoints for all vertices (exclude closing point for polygons)
+        const waypointCount = isAreaMode ? refCoords.length - 1 : refCoords.length;
+        for (let i = 0; i < waypointCount; i++) {
             features.push({
                 type: 'Feature',
-                properties: { type: 'point', map: 'reference', index: i },
-                geometry: { type: 'Point', coordinates: coord }
+                properties: {
+                    name: `waypoint_${i + 1}`,
+                    type: 'waypoint',
+                    shape: 'shape1',
+                    index: i + 1,
+                    'marker-color': '#4A90D9',
+                    'marker-size': 'medium'
+                },
+                geometry: { type: 'Point', coordinates: refCoords[i] }
             });
-        });
+        }
     }
 
-    // Export overlay shape
+    // Export shape2 (overlay) - Orange
     if (verticesOvl.length > 0) {
         const ovlCoords = verticesOvl.map(v => [v.latlng.lng, v.latlng.lat]);
-        if (mode === 'area' && ovlCoords.length >= 3) {
+        const isAreaMode = mode === 'area' && ovlCoords.length >= 3;
+
+        if (isAreaMode) {
             if (ovlCoords[0][0] !== ovlCoords[ovlCoords.length - 1][0] ||
                 ovlCoords[0][1] !== ovlCoords[ovlCoords.length - 1][1]) {
                 ovlCoords.push([...ovlCoords[0]]);
             }
             features.push({
                 type: 'Feature',
-                properties: { type: 'area', map: 'overlay', color: 'yellow' },
+                properties: {
+                    name: 'shape2',
+                    type: 'area',
+                    stroke: '#F5A623',
+                    'stroke-width': 2,
+                    'stroke-opacity': 1,
+                    fill: '#F5A623',
+                    'fill-opacity': 0.3
+                },
                 geometry: { type: 'Polygon', coordinates: [ovlCoords] }
             });
         } else if (ovlCoords.length >= 2) {
             features.push({
                 type: 'Feature',
-                properties: { type: 'line', map: 'overlay', color: 'yellow' },
+                properties: {
+                    name: 'shape2',
+                    type: 'line',
+                    stroke: '#F5A623',
+                    'stroke-width': 3,
+                    'stroke-opacity': 1
+                },
                 geometry: { type: 'LineString', coordinates: ovlCoords }
+            });
+        }
+
+        // Add waypoints for all vertices (exclude closing point for polygons)
+        const waypointCount = isAreaMode ? ovlCoords.length - 1 : ovlCoords.length;
+        for (let i = 0; i < waypointCount; i++) {
+            features.push({
+                type: 'Feature',
+                properties: {
+                    name: `waypoint_${i + 1}`,
+                    type: 'waypoint',
+                    shape: 'shape2',
+                    index: i + 1,
+                    'marker-color': '#F5A623',
+                    'marker-size': 'medium'
+                },
+                geometry: { type: 'Point', coordinates: ovlCoords[i] }
             });
         }
     }
@@ -3385,8 +3443,9 @@ function exportGeoJSON() {
         type: 'FeatureCollection',
         properties: {
             mode: mode,
-            created: new Date().toISOString(),
-            app: 'SyncView'
+            created: timestamp,
+            app: 'SyncView',
+            description: `SyncView ${mode === 'area' ? 'Area' : 'Line'} measurement export`
         },
         features: features
     };
@@ -3395,7 +3454,7 @@ function exportGeoJSON() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `syncview-${mode}-${new Date().toISOString().split('T')[0]}.geojson`;
+    a.download = `syncview-${mode}-${timestamp.split('T')[0]}.geojson`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
