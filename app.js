@@ -1,3 +1,55 @@
+// Tile Definitions
+const tiles = {
+    satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    hybrid: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    streets: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    dark: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', // Same as streets, CSS will darken
+};
+
+// Constants
+const CONSTANTS = {
+    ZOOM_MIN: 0,
+    ZOOM_MAX: 22,
+    DEFAULT_ZOOM: 12,
+    TOLERANCE_PX: 15,
+    // LABEL_OFFSET_PX: 40,
+    // LABEL_LARGE_OFFSET_PX: 100,
+    GIZMO_RADIUS_PX: 10,
+    GIZMO_OFFSET_PX: 32,
+    MAX_NATIVE_ZOOM: 18,
+    MAX_ZOOM: 20,
+    URL_UPDATE_DELAY: 150,
+    GRID_TARGET_LINES: 6,
+    MARKER_SIZE: 14,
+    MARKER_ANCHOR: 7,
+    LAT_MIN: -85.05112878,
+    LAT_MAX: 85.05112878,
+    LNG_MIN: -180,
+    LNG_MAX: 180
+};
+
+// Default tile layer options - optimized for Google Maps sharpness
+const TILE_LAYER_DEFAULTS = {
+    fadeAnimation: false,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    keepBuffer: 0,
+    maxNativeZoom: 22, // Higher for sharper tiles
+    maxZoom: 22,
+    tileSize: 256,
+    detectRetina: false // Disable retina to prevent upscaling blur
+};
+
+const HYBRID_LAYER_DEFAULTS = {
+    opacity: 0.9,
+    fadeAnimation: false,
+    updateWhenIdle: false,
+    updateWhenZooming: true,
+    keepBuffer: 0,
+    maxNativeZoom: CONSTANTS.MAX_NATIVE_ZOOM,
+    maxZoom: CONSTANTS.MAX_ZOOM
+};
+
 // ============================================================================
 // UNIFIED SHAPE SYSTEM - Using transformation-matrix library
 // ============================================================================
@@ -521,8 +573,16 @@ const shapeSystem = new UnifiedShapeSystem();
 // ============================================================================
 // COMPATIBILITY LAYER - Bridge old variables to new system
 // ============================================================================
-// These getters/setters maintain backward compatibility with existing code
 
+// Prevent context menu globally, only allow on points
+document.addEventListener('contextmenu', function(e) {
+    if (!e.target.classList.contains('handle') && !e.target.classList.contains('ghost-handle')) {
+        e.preventDefault();
+        return false;
+    }
+});
+
+// These getters/setters maintain backward compatibility with existing code
 Object.defineProperty(window, 'masterVertices', {
     get: () => shapeSystem.basePoints.map(p => ({ latlng: p })),
     set: (v) => { shapeSystem.basePoints = (v || []).map(item => item.latlng || item); }
@@ -601,67 +661,6 @@ let updateBridge = null;
 // ============================================================================
 // END UNIFIED SHAPE SYSTEM
 // ============================================================================
-
-// Prevent context menu globally, only allow on points
-document.addEventListener('contextmenu', function(e) {
-    if (!e.target.classList.contains('handle') && !e.target.classList.contains('ghost-handle')) {
-        e.preventDefault();
-        return false;
-    }
-});
-
-// Tile Definitions
-const tiles = {
-    satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
-    hybrid: 'https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
-    streets: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
-    dark: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', // Same as streets, CSS will darken
-};
-
-// Constants
-const CONSTANTS = {
-    ZOOM_MIN: 0,
-    ZOOM_MAX: 22,
-    DEFAULT_ZOOM: 12,
-    TOLERANCE_PX: 15,
-    // LABEL_OFFSET_PX: 40,
-    // LABEL_LARGE_OFFSET_PX: 100,
-    GIZMO_RADIUS_PX: 10,
-    GIZMO_OFFSET_PX: 32,
-    MAX_NATIVE_ZOOM: 18,
-    MAX_ZOOM: 20,
-    URL_UPDATE_DELAY: 150,
-    GRID_TARGET_LINES: 6,
-    MARKER_SIZE: 14,
-    MARKER_ANCHOR: 7,
-    LAT_MIN: -85.05112878,
-    LAT_MAX: 85.05112878,
-    LNG_MIN: -180,
-    LNG_MAX: 180
-};
-
-// Default tile layer options - optimized for Google Maps sharpness
-const TILE_LAYER_DEFAULTS = {
-    fadeAnimation: false,
-    updateWhenIdle: false,
-    updateWhenZooming: true,
-    keepBuffer: 0,
-    maxNativeZoom: 22, // Higher for sharper tiles
-    maxZoom: 22,
-    tileSize: 256,
-    detectRetina: false // Disable retina to prevent upscaling blur
-};
-
-const HYBRID_LAYER_DEFAULTS = {
-    opacity: 0.9,
-    fadeAnimation: false,
-    updateWhenIdle: false,
-    updateWhenZooming: true,
-    keepBuffer: 0,
-    maxNativeZoom: CONSTANTS.MAX_NATIVE_ZOOM,
-    maxZoom: CONSTANTS.MAX_ZOOM
-};
-
 // Create base tile layer for a map
 function createBaseTileLayer(mapType) {
     const layer = L.tileLayer(tiles[mapType], TILE_LAYER_DEFAULTS);
@@ -786,8 +785,8 @@ function bindDragHandlers(marker, markerArray, updateFn, which) {
     });
 }
 
-const map1 = L.map('map1', { zoomSnap: 1, attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], CONSTANTS.DEFAULT_ZOOM);
-const map2 = L.map('map2', { zoomSnap: 1, attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], CONSTANTS.DEFAULT_ZOOM);
+const map1 = L.map('map1', { attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], CONSTANTS.DEFAULT_ZOOM);
+const map2 = L.map('map2', { attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], CONSTANTS.DEFAULT_ZOOM);
 
 // Helper to bind events to both maps
 const bindToBoth = (event, handler) => [map1, map2].forEach(m => m.on(event, handler));
