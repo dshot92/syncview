@@ -785,8 +785,8 @@ function bindDragHandlers(marker, markerArray, updateFn, which) {
     });
 }
 
-const map1 = L.map('map1', { attributionControl: false, zoomControl: false }).setView([40.7128, -74.0060], CONSTANTS.DEFAULT_ZOOM);
-const map2 = L.map('map2', { attributionControl: false, zoomControl: false }).setView([51.5074, -0.1278], CONSTANTS.DEFAULT_ZOOM);
+const map1 = L.map('map1', { attributionControl: false, zoomControl: false, zoomSnap: 0.1, zoomDelta: 0.1 }).setView([40.7128, -74.0060], CONSTANTS.DEFAULT_ZOOM);
+const map2 = L.map('map2', { attributionControl: false, zoomControl: false, zoomSnap: 0.1, zoomDelta: 0.1 }).setView([51.5074, -0.1278], CONSTANTS.DEFAULT_ZOOM);
 
 // Helper to bind events to both maps
 const bindToBoth = (event, handler) => [map1, map2].forEach(m => m.on(event, handler));
