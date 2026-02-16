@@ -1469,6 +1469,13 @@ body.info-overlay-open {
         transform: none;
     }
 
+    /* First map location button - mirrored from second map */
+    .map-wrapper:first-child .tool__location-btn {
+        top: auto;
+        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 1 + var(--tool-offset));
+        left: var(--tool-offset);
+    }
+
     /* Second map location button - under search button */
     .map-wrapper:last-child .tool__location-btn {
         top: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 1 + 0.625rem);
