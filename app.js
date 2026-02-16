@@ -1159,6 +1159,16 @@ function applyDecodedState(state) {
                 );
             }
 
+            // Reconstruct base geometry (masterVertices) from the stored reference points.
+            // URL state stores BOTH point positions AND transforms; masterVertices must remain
+            // the untransformed base geometry to avoid applying transforms twice after reload.
+            const refPtsMerc = pts.map((p) => L.point(toMerc(L.latLng(p[0], p[1]))));
+            const refCentroidMerc = centroidMercFromMerc(refPtsMerc);
+            const refRotation = shapeTransforms.ref.rotation || 0;
+            const refOffsetMerc = shapeTransforms.ref.offsetMerc || L.point(0, 0);
+            const cosInv = Math.cos(-refRotation);
+            const sinInv = Math.sin(-refRotation);
+
             // Create markers directly from stored positions
             const isMap1Ref = refMap === map1;
             
@@ -1168,9 +1178,21 @@ function applyDecodedState(state) {
                 
                 const refLatLng = L.latLng(refPt[0], refPt[1]);
                 const ovlLatLng = L.latLng(ovlPt[0], ovlPt[1]);
-                
+
                 // Update masterVertices (source of truth for legacy system)
-                masterVertices.push({ latlng: refLatLng });
+                // Invert ref transform around the (transformed) centroid, then subtract offset.
+                let baseLatLng = refLatLng;
+                if (refCentroidMerc) {
+                    const pMerc = toMerc(refLatLng);
+                    const dx = pMerc.x - refCentroidMerc.x;
+                    const dy = pMerc.y - refCentroidMerc.y;
+                    const rx = dx * cosInv - dy * sinInv;
+                    const ry = dx * sinInv + dy * cosInv;
+                    const unrotatedMerc = L.point(refCentroidMerc.x + rx, refCentroidMerc.y + ry);
+                    const baseMerc = L.point(unrotatedMerc.x - refOffsetMerc.x, unrotatedMerc.y - refOffsetMerc.y);
+                    baseLatLng = fromMerc(baseMerc);
+                }
+                masterVertices.push({ latlng: baseLatLng });
                 
                 // Create markers
                 if (isMap1Ref) {
