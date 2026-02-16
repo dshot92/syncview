@@ -1,3 +1,607 @@
+// ============================================================================
+// UNIFIED SHAPE SYSTEM - Using transformation-matrix library
+// ============================================================================
+// Shape1 = The Drawing (reference map) - Blue
+// Shape2 = The Overlay (overlay map) - Yellow
+// Both share the same base points but have independent transforms
+// 
+// transformation-matrix library exports: identity, rotate, translate, 
+// applyToPoints, inverse, compose, isAffineMatrix, etc.
+
+class UnifiedShapeSystem {
+    constructor() {
+        // Base geometry - shared by both shapes (the actual drawing)
+        this.basePoints = []; // Array of L.latLng - the master geometry
+        
+        // Two shape instances
+        this.shapes = {
+            shape1: this._createShapeInstance('shape1'), // The drawing (reference)
+            shape2: this._createShapeInstance('shape2')  // The overlay
+        };
+        
+        // History stack for undo/redo
+        this.history = [];
+        this.historyIndex = -1;
+        this.maxHistorySize = 50;
+        
+        // Map references (set externally)
+        this.refMap = null;
+        this.ovlMap = null;
+        
+        // Mercator anchors for view alignment
+        this.mercAnchorRef = null;
+        this.mercAnchorOvl = null;
+        
+        // UI state
+        this.mode = 'dist';
+        
+        // Initialize with empty state
+        this._pushHistory('init');
+    }
+    
+    _createShapeInstance(name) {
+        return {
+            name,
+            isDrawing: name === 'shape1',
+            points: [], // Transformed latlngs (computed from base + transform)
+            markers: [], // Leaflet marker instances
+            // Gizmo state using transformation-matrix
+            transform: { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }, // Identity matrix
+            rotation: 0, // radians (decomposed from matrix)
+            offsetMerc: { x: 0, y: 0 }, // Mercator offset
+            pivotMerc: null, // Rotation pivot (stable, set once)
+            // History of operations
+            gizmoHistory: [],
+            // Measurement label
+            measureLabel: null
+        };
+    }
+    
+    // =========================================================================
+    // HISTORY MANAGEMENT - using immutable state snapshots
+    // =========================================================================
+    
+    _pushHistory(action) {
+        const state = this._serializeState();
+        
+        // Remove any redo states if we're in the middle of the stack
+        if (this.historyIndex < this.history.length - 1) {
+            this.history = this.history.slice(0, this.historyIndex + 1);
+        }
+        
+        this.history.push({
+            action,
+            timestamp: Date.now(),
+            state
+        });
+        
+        // Limit history size
+        if (this.history.length > this.maxHistorySize) {
+            this.history.shift();
+        } else {
+            this.historyIndex++;
+        }
+    }
+    
+    _serializeState() {
+        return {
+            basePoints: this.basePoints.map(p => ({ lat: p.lat, lng: p.lng })),
+            shape1: {
+                transform: this.shapes.shape1.transform,
+                rotation: this.shapes.shape1.rotation,
+                offsetMerc: { ...this.shapes.shape1.offsetMerc },
+                pivotMerc: this.shapes.shape1.pivotMerc ? { ...this.shapes.shape1.pivotMerc } : null,
+                gizmoHistory: [...this.shapes.shape1.gizmoHistory]
+            },
+            shape2: {
+                transform: this.shapes.shape2.transform,
+                rotation: this.shapes.shape2.rotation,
+                offsetMerc: { ...this.shapes.shape2.offsetMerc },
+                pivotMerc: this.shapes.shape2.pivotMerc ? { ...this.shapes.shape2.pivotMerc } : null,
+                gizmoHistory: [...this.shapes.shape2.gizmoHistory]
+            },
+            mode: this.mode,
+            mercAnchorRef: this.mercAnchorRef ? { x: this.mercAnchorRef.x, y: this.mercAnchorRef.y } : null,
+            mercAnchorOvl: this.mercAnchorOvl ? { x: this.mercAnchorOvl.x, y: this.mercAnchorOvl.y } : null
+        };
+    }
+    
+    _deserializeState(state) {
+        if (!state) return;
+        
+        this.basePoints = (state.basePoints || []).map(p => L.latLng(p.lat, p.lng));
+        
+        ['shape1', 'shape2'].forEach(which => {
+            const s = state[which];
+            if (s) {
+                this.shapes[which].transform = s.transform || { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+                this.shapes[which].rotation = s.rotation || 0;
+                this.shapes[which].offsetMerc = s.offsetMerc || { x: 0, y: 0 };
+                this.shapes[which].pivotMerc = s.pivotMerc;
+                this.shapes[which].gizmoHistory = s.gizmoHistory || [];
+            }
+        });
+        
+        this.mode = state.mode || 'dist';
+        if (state.mercAnchorRef) {
+            this.mercAnchorRef = L.point(state.mercAnchorRef.x, state.mercAnchorRef.y);
+        }
+        if (state.mercAnchorOvl) {
+            this.mercAnchorOvl = L.point(state.mercAnchorOvl.x, state.mercAnchorOvl.y);
+        }
+        
+        this._recomputeAllPoints();
+    }
+    
+    canUndo() { return this.historyIndex > 0; }
+    canRedo() { return this.historyIndex < this.history.length - 1; }
+    
+    undo() {
+        if (!this.canUndo()) return false;
+        this.historyIndex--;
+        this._deserializeState(this.history[this.historyIndex].state);
+        return true;
+    }
+    
+    redo() {
+        if (!this.canRedo()) return false;
+        this.historyIndex++;
+        this._deserializeState(this.history[this.historyIndex].state);
+        return true;
+    }
+    
+    // =========================================================================
+    // GEOMETRY OPERATIONS
+    // =========================================================================
+    
+    addPoint(latlng, isOnRefMap = true) {
+        if (!this.refMap || !this.ovlMap) return null;
+        
+        // Initialize anchors if needed
+        if (!this.mercAnchorRef) {
+            this.mercAnchorRef = toMerc(this.refMap.getCenter());
+            this.mercAnchorOvl = toMerc(this.ovlMap.getCenter());
+        }
+        
+        // Invert transform to get base position using library
+        const mercPoint = toMerc(latlng);
+        const baseMerc = this._invertTransform(mercPoint, this.shapes.shape1.transform);
+        const baseLatLng = fromMerc(baseMerc);
+        
+        this.basePoints.push(baseLatLng);
+        this._recomputeAllPoints();
+        this._pushHistory('addPoint');
+        return baseLatLng;
+    }
+    
+    insertPoint(index, latlng) {
+        const mercPoint = toMerc(latlng);
+        const baseMerc = this._invertTransform(mercPoint, this.shapes.shape1.transform);
+        const baseLatLng = fromMerc(baseMerc);
+        
+        this.basePoints.splice(index, 0, baseLatLng);
+        this._recomputeAllPoints();
+        this._pushHistory('insertPoint');
+    }
+    
+    removePoint(index) {
+        if (index < 0 || index >= this.basePoints.length) return false;
+        this.basePoints.splice(index, 1);
+        this._recomputeAllPoints();
+        this._pushHistory('removePoint');
+        return true;
+    }
+    
+    removeLastPoint() {
+        if (this.basePoints.length === 0) return false;
+        return this.removePoint(this.basePoints.length - 1);
+    }
+    
+    movePoint(index, newLatLng, whichShape) {
+        const shape = this.shapes[whichShape];
+        const mercPoint = toMerc(newLatLng);
+        
+        // Get current base positions
+        const baseMercPoints = this.basePoints.map(p => toMerc(p));
+        const stableCentroid = this._centroidFromMerc(baseMercPoints);
+        
+        // Invert transform using library
+        const newBaseMerc = this._invertTransform(mercPoint, shape.transform, stableCentroid);
+        const newBaseLatLng = fromMerc(newBaseMerc);
+        
+        this.basePoints[index] = newBaseLatLng;
+        this._recomputeAllPoints();
+        return newBaseLatLng;
+    }
+    
+    clear() {
+        this.basePoints = [];
+        ['shape1', 'shape2'].forEach(which => {
+            const s = this.shapes[which];
+            s.points = [];
+            s.markers = [];
+            s.transform = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }; // Identity
+            s.rotation = 0;
+            s.offsetMerc = { x: 0, y: 0 };
+            s.pivotMerc = null;
+            s.gizmoHistory = [];
+            s.measureLabel = null;
+        });
+        
+        this.refMap = null;
+        this.ovlMap = null;
+        this.mercAnchorRef = null;
+        this.mercAnchorOvl = null;
+        
+        this._pushHistory('clear');
+    }
+    
+    // =========================================================================
+    // TRANSFORM OPERATIONS using transformation-matrix library
+    // =========================================================================
+    
+    _recomputeAllPoints() {
+        if (this.basePoints.length === 0) return;
+        
+        const baseMerc = this.basePoints.map(p => toMerc(p));
+        
+        // Shape1: Apply transform matrix
+        const shape1Points = this._applyTransformMatrix(baseMerc, this.shapes.shape1.transform);
+        this.shapes.shape1.points = shape1Points.map(p => fromMerc(p));
+        
+        // Shape2: View alignment then transform
+        const ovlAligned = baseMerc.map(p => this._alignToOverlayView(p));
+        const shape2Points = this._applyTransformMatrix(ovlAligned, this.shapes.shape2.transform);
+        this.shapes.shape2.points = shape2Points.map(p => fromMerc(p));
+    }
+    
+    _applyTransformMatrix(ptsMerc, matrix) {
+        // Check if valid matrix object {a, b, c, d, e, f}
+        if (!matrix || typeof matrix.a !== 'number') return ptsMerc;
+        
+        // Convert Mercator points to plain objects and apply transform
+        const points = ptsMerc.map(p => ({ x: p.x, y: p.y }));
+        const transformed = points.map(p => {
+            return {
+                x: matrix.a * p.x + matrix.c * p.y + matrix.e,
+                y: matrix.b * p.x + matrix.d * p.y + matrix.f
+            };
+        });
+        return transformed.map(p => L.point(p.x, p.y));
+    }
+    
+    _invertTransform(ptMerc, matrix, pivot = null) {
+        // Check if valid matrix
+        if (!matrix || typeof matrix.a !== 'number') return ptMerc;
+        
+        // Calculate inverse matrix
+        const det = matrix.a * matrix.d - matrix.b * matrix.c;
+        if (Math.abs(det) < 1e-10) return ptMerc; // Singular matrix
+        
+        const invDet = 1 / det;
+        const inv = {
+            a: matrix.d * invDet,
+            b: -matrix.b * invDet,
+            c: -matrix.c * invDet,
+            d: matrix.a * invDet,
+            e: (matrix.c * matrix.f - matrix.d * matrix.e) * invDet,
+            f: (matrix.b * matrix.e - matrix.a * matrix.f) * invDet
+        };
+        
+        // Apply inverse
+        return L.point(
+            inv.a * ptMerc.x + inv.c * ptMerc.y + inv.e,
+            inv.b * ptMerc.x + inv.d * ptMerc.y + inv.f
+        );
+    }
+    
+    _alignToOverlayView(baseMercPoint) {
+        if (!this.mercAnchorRef || !this.mercAnchorOvl) return baseMercPoint;
+        return L.point(
+            this.mercAnchorOvl.x + (baseMercPoint.x - this.mercAnchorRef.x),
+            this.mercAnchorOvl.y + (baseMercPoint.y - this.mercAnchorRef.y)
+        );
+    }
+    
+    _centroidFromMerc(pts) {
+        let x = 0, y = 0, n = 0;
+        pts.forEach(p => { if (p) { x += p.x; y += p.y; n++; } });
+        if (n === 0) return null;
+        return L.point(x / n, y / n);
+    }
+    
+    _ensurePivot(which) {
+        const shape = this.shapes[which];
+        if (!shape.pivotMerc && this.basePoints.length > 0) {
+            const baseMerc = this.basePoints.map(p => toMerc(p));
+            if (which === 'shape2') {
+                const aligned = baseMerc.map(p => this._alignToOverlayView(p));
+                const c = this._centroidFromMerc(aligned);
+                if (c) shape.pivotMerc = { x: c.x, y: c.y };
+            } else {
+                const c = this._centroidFromMerc(baseMerc);
+                if (c) shape.pivotMerc = { x: c.x, y: c.y };
+            }
+        }
+        return shape.pivotMerc;
+    }
+    
+    // =========================================================================
+    // GIZMO OPERATIONS using transformation-matrix
+    // =========================================================================
+    
+    getGizmoState(which) {
+        const s = this.shapes[which];
+        return {
+            rotation: s.rotation,
+            offsetMerc: { ...s.offsetMerc },
+            pivotMerc: s.pivotMerc ? { ...s.pivotMerc } : null,
+            matrix: s.transform
+        };
+    }
+    
+    setGizmoRotation(which, rotation) {
+        const shape = this.shapes[which];
+        const oldRotation = shape.rotation;
+        shape.rotation = rotation;
+        
+        // Rebuild transform matrix from components
+        this._rebuildTransformMatrix(which);
+        
+        // Record history
+        shape.gizmoHistory.push({
+            type: 'rotate',
+            from: oldRotation,
+            to: rotation,
+            timestamp: Date.now()
+        });
+        
+        this._recomputeAllPoints();
+    }
+    
+    setGizmoOffset(which, offsetMerc) {
+        const shape = this.shapes[which];
+        const oldOffset = { ...shape.offsetMerc };
+        shape.offsetMerc = { x: offsetMerc.x, y: offsetMerc.y };
+        
+        // Rebuild transform matrix
+        this._rebuildTransformMatrix(which);
+        
+        shape.gizmoHistory.push({
+            type: 'move',
+            from: oldOffset,
+            to: { x: offsetMerc.x, y: offsetMerc.y },
+            timestamp: Date.now()
+        });
+        
+        this._recomputeAllPoints();
+    }
+    
+    _rebuildTransformMatrix(which) {
+        const shape = this.shapes[which];
+        const pivot = this._ensurePivot(which);
+        
+        // Build transform matrix manually: translate(offset) * rotate(around pivot)
+        const cos = Math.cos(shape.rotation);
+        const sin = Math.sin(shape.rotation);
+        
+        if (pivot) {
+            // Rotate around pivot, then translate by offset
+            // Matrix = T(offset) * R(pivot) * T(-pivot)
+            const tx = shape.offsetMerc.x + pivot.x;
+            const ty = shape.offsetMerc.y + pivot.y;
+            
+            shape.transform = {
+                a: cos,
+                b: sin,
+                c: -sin,
+                d: cos,
+                e: tx - cos * pivot.x + sin * pivot.y,
+                f: ty - sin * pivot.x - cos * pivot.y
+            };
+        } else {
+            // Just rotate around origin, then translate
+            shape.transform = {
+                a: cos,
+                b: sin,
+                c: -sin,
+                d: cos,
+                e: shape.offsetMerc.x,
+                f: shape.offsetMerc.y
+            };
+        }
+    }
+    
+    resetGizmo(which, what = 'all') {
+        const shape = this.shapes[which];
+        
+        if (what === 'rotation' || what === 'all') {
+            shape.rotation = 0;
+        }
+        if (what === 'move' || what === 'all') {
+            shape.offsetMerc = { x: 0, y: 0 };
+        }
+        if (what === 'all') {
+            shape.pivotMerc = null;
+        }
+        
+        // Rebuild matrix
+        this._rebuildTransformMatrix(which);
+        
+        shape.gizmoHistory.push({
+            type: 'reset',
+            what,
+            timestamp: Date.now()
+        });
+        
+        this._recomputeAllPoints();
+        this._pushHistory(`resetGizmo_${which}_${what}`);
+    }
+    
+    // =========================================================================
+    // POINT QUERIES
+    // =========================================================================
+    
+    getPointCount() { return this.basePoints.length; }
+    
+    getBasePoint(index) {
+        return (index >= 0 && index < this.basePoints.length) ? this.basePoints[index] : null;
+    }
+    
+    getShapePoint(which, index) {
+        const s = this.shapes[which];
+        return (index >= 0 && index < s.points.length) ? s.points[index] : null;
+    }
+    
+    getAllShapePoints(which) {
+        return [...this.shapes[which].points];
+    }
+    
+    // =========================================================================
+    // EXPORT / IMPORT (for URL encoding)
+    // =========================================================================
+    
+    exportForEncoding() {
+        return {
+            shape1Points: this.shapes.shape1.points.map(p => [p.lat, p.lng]),
+            shape2Points: this.shapes.shape2.points.map(p => [p.lat, p.lng]),
+            shape1Gizmo: {
+                rotation: this.shapes.shape1.rotation,
+                offsetMerc: this.shapes.shape1.offsetMerc,
+                pivotMerc: this.shapes.shape1.pivotMerc,
+                matrix: this.shapes.shape1.transform
+            },
+            shape2Gizmo: {
+                rotation: this.shapes.shape2.rotation,
+                offsetMerc: this.shapes.shape2.offsetMerc,
+                pivotMerc: this.shapes.shape2.pivotMerc,
+                matrix: this.shapes.shape2.transform
+            },
+            basePoints: this.basePoints.map(p => [p.lat, p.lng])
+        };
+    }
+    
+    importFromEncoding(data) {
+        if (data.shape1Points && data.shape1Points.length > 0) {
+            this.basePoints = data.shape1Points.map(p => L.latLng(p[0], p[1]));
+            
+            if (data.shape1Gizmo) {
+                this.shapes.shape1.rotation = data.shape1Gizmo.rotation || 0;
+                this.shapes.shape1.offsetMerc = data.shape1Gizmo.offsetMerc || { x: 0, y: 0 };
+                this.shapes.shape1.pivotMerc = data.shape1Gizmo.pivotMerc;
+                this.shapes.shape1.transform = data.shape1Gizmo.matrix || { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            } else {
+                this.shapes.shape1.transform = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+                this.shapes.shape1.rotation = 0;
+                this.shapes.shape1.offsetMerc = { x: 0, y: 0 };
+                this.shapes.shape1.pivotMerc = null;
+            }
+            
+            if (data.shape2Gizmo) {
+                this.shapes.shape2.rotation = data.shape2Gizmo.rotation || 0;
+                this.shapes.shape2.offsetMerc = data.shape2Gizmo.offsetMerc || { x: 0, y: 0 };
+                this.shapes.shape2.pivotMerc = data.shape2Gizmo.pivotMerc;
+                this.shapes.shape2.transform = data.shape2Gizmo.matrix || { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+            } else {
+                this.shapes.shape2.transform = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
+                this.shapes.shape2.rotation = 0;
+                this.shapes.shape2.offsetMerc = { x: 0, y: 0 };
+                this.shapes.shape2.pivotMerc = null;
+            }
+        }
+        
+        this._recomputeAllPoints();
+        this._pushHistory('import');
+    }
+}
+
+// Create the global shape system instance
+const shapeSystem = new UnifiedShapeSystem();
+
+// ============================================================================
+// COMPATIBILITY LAYER - Bridge old variables to new system
+// ============================================================================
+// These getters/setters maintain backward compatibility with existing code
+
+Object.defineProperty(window, 'masterVertices', {
+    get: () => shapeSystem.basePoints.map(p => ({ latlng: p })),
+    set: (v) => { shapeSystem.basePoints = (v || []).map(item => item.latlng || item); }
+});
+
+Object.defineProperty(window, 'verticesRef', {
+    get: () => shapeSystem.shapes.shape1.points.map(p => ({ latlng: p })),
+    set: (v) => { /* computed, ignore */ }
+});
+
+Object.defineProperty(window, 'verticesOvl', {
+    get: () => shapeSystem.shapes.shape2.points.map(p => ({ latlng: p })),
+    set: (v) => { /* computed, ignore */ }
+});
+
+Object.defineProperty(window, 'shapeTransforms', {
+    get: () => ({
+        ref: {
+            get rotation() { return shapeSystem.shapes.shape1.gizmo.rotation; },
+            set rotation(v) { shapeSystem.shapes.shape1.gizmo.rotation = v; },
+            get offsetMerc() { 
+                const o = shapeSystem.shapes.shape1.gizmo.offsetMerc;
+                return L.point(o.x, o.y);
+            },
+            set offsetMerc(v) { 
+                shapeSystem.shapes.shape1.gizmo.offsetMerc = v ? { x: v.x, y: v.y } : { x: 0, y: 0 };
+            },
+            get pivotMerc() {
+                const p = shapeSystem.shapes.shape1.gizmo.pivotMerc;
+                return p ? L.point(p.x, p.y) : null;
+            },
+            set pivotMerc(v) {
+                shapeSystem.shapes.shape1.gizmo.pivotMerc = v ? { x: v.x, y: v.y } : null;
+            }
+        },
+        ovl: {
+            get rotation() { return shapeSystem.shapes.shape2.gizmo.rotation; },
+            set rotation(v) { shapeSystem.shapes.shape2.gizmo.rotation = v; },
+            get offsetMerc() { 
+                const o = shapeSystem.shapes.shape2.gizmo.offsetMerc;
+                return L.point(o.x, o.y);
+            },
+            set offsetMerc(v) { 
+                shapeSystem.shapes.shape2.gizmo.offsetMerc = v ? { x: v.x, y: v.y } : { x: 0, y: 0 };
+            },
+            get pivotMerc() {
+                const p = shapeSystem.shapes.shape2.gizmo.pivotMerc;
+                return p ? L.point(p.x, p.y) : null;
+            },
+            set pivotMerc(v) {
+                shapeSystem.shapes.shape2.gizmo.pivotMerc = v ? { x: v.x, y: v.y } : null;
+            }
+        }
+    }),
+    set: (v) => {
+        if (v && v.ref) {
+            shapeSystem.shapes.shape1.gizmo.rotation = v.ref.rotation || 0;
+            shapeSystem.shapes.shape1.gizmo.offsetMerc = v.ref.offsetMerc ? 
+                { x: v.ref.offsetMerc.x, y: v.ref.offsetMerc.y } : { x: 0, y: 0 };
+            shapeSystem.shapes.shape1.gizmo.pivotMerc = v.ref.pivotMerc ? 
+                { x: v.ref.pivotMerc.x, y: v.ref.pivotMerc.y } : null;
+        }
+        if (v && v.ovl) {
+            shapeSystem.shapes.shape2.gizmo.rotation = v.ovl.rotation || 0;
+            shapeSystem.shapes.shape2.gizmo.offsetMerc = v.ovl.offsetMerc ? 
+                { x: v.ovl.offsetMerc.x, y: v.ovl.offsetMerc.y } : { x: 0, y: 0 };
+            shapeSystem.shapes.shape2.gizmo.pivotMerc = v.ovl.pivotMerc ? 
+                { x: v.ovl.pivotMerc.x, y: v.ovl.pivotMerc.y } : null;
+        }
+    }
+});
+
+// Update bridge will be set after update() is defined
+let updateBridge = null;
+
+// ============================================================================
+// END UNIFIED SHAPE SYSTEM
+// ============================================================================
+
 // Prevent context menu globally, only allow on points
 document.addEventListener('contextmenu', function(e) {
     if (!e.target.classList.contains('handle') && !e.target.classList.contains('ghost-handle')) {
@@ -346,88 +950,60 @@ function decodeMapType(code) {
 }
 
 function encodeAppState() {
+    // Get current map state
     const c1 = map1.getCenter();
     const c2 = map2.getCenter();
-
-    let encodedMode = 'dist';
-    let encodedRef = 0;
-    let encodedPts = [];
-    try {
-        encodedMode = mode;
-        encodedRef = refMap === map1 ? 1 : (refMap === map2 ? 2 : 0);
-        encodedPts = masterVertices.map(v => [round(v.latlng.lat, 6), round(v.latlng.lng, 6)]);
-    } catch (_) {
-        encodedMode = 'dist';
-        encodedRef = 0;
-        encodedPts = [];
-    }
-
-    const state = {
-        v: 2,
-        z: round(map1.getZoom(), 2),
-        m1: [round(c1.lat, 6), round(c1.lng, 6)],
-        m2: [round(c2.lat, 6), round(c2.lng, 6)],
-        mode: encodedMode,
-        ref: encodedRef,
-        pts: encodedPts,
-        mapType: currentMapType,
-        transforms: {
-            ref: {
-                rot: shapeTransforms.ref.rotation,
-                offX: shapeTransforms.ref.offsetMerc ? shapeTransforms.ref.offsetMerc.x : 0,
-                offY: shapeTransforms.ref.offsetMerc ? shapeTransforms.ref.offsetMerc.y : 0
-            },
-            ovl: {
-                rot: shapeTransforms.ovl.rotation,
-                offX: shapeTransforms.ovl.offsetMerc ? shapeTransforms.ovl.offsetMerc.x : 0,
-                offY: shapeTransforms.ovl.offsetMerc ? shapeTransforms.ovl.offsetMerc.y : 0
-            }
-        }
-    };
-
-    const ptsCount = Array.isArray(state.pts) ? state.pts.length : 0;
-    // v2 format: 24 + 24 (transforms) + pts * 8
-    const buf = new ArrayBuffer(48 + ptsCount * 8);
+    const z = refMap ? refMap.getZoom() : 15;
+    
+    // Get current reference map setting
+    const refSetting = refMap === map1 ? 1 : (refMap === map2 ? 2 : 1);
+    
+    // Get point count
+    const pointCount = markersRef.length;
+    
+    // Calculate buffer size:
+    // Header: 24 bytes (version, zoom, map centers, mode, ref, mapType, count)
+    // Points: 16 bytes per point (ref lat/lng + ovl lat/lng as 4-byte ints)
+    // Transforms: 24 bytes (rotation + offset for both shapes)
+    const headerSize = 24;
+    const pointsSize = pointCount * 16;
+    const transformSize = 24;
+    
+    const buf = new ArrayBuffer(headerSize + pointsSize + transformSize);
     const dv = new DataView(buf);
     let o = 0;
-
-    dv.setUint8(o, 2); o += 1;
-    dv.setUint16(o, clamp(Math.round(Number(state.z) * 100), 0, 2200), true); o += 2;
-
-    const m1lat = clamp(Math.round(Number(state.m1[0]) * 1e6), -85051129, 85051129);
-    const m1lng = clamp(Math.round(Number(state.m1[1]) * 1e6), -180000000, 180000000);
-    const m2lat = clamp(Math.round(Number(state.m2[0]) * 1e6), -85051129, 85051129);
-    const m2lng = clamp(Math.round(Number(state.m2[1]) * 1e6), -180000000, 180000000);
-
-    dv.setInt32(o, m1lat, true); o += 4;
-    dv.setInt32(o, m1lng, true); o += 4;
-    dv.setInt32(o, m2lat, true); o += 4;
-    dv.setInt32(o, m2lng, true); o += 4;
-
-    dv.setUint8(o, state.mode === 'area' ? 1 : 0); o += 1;
-    dv.setUint8(o, clamp(Math.round(Number(state.ref)), 0, 2)); o += 1;
-    dv.setUint8(o, encodeMapType(state.mapType)); o += 1;
-    dv.setUint16(o, clamp(ptsCount, 0, 65535), true); o += 2;
-
-    for (let i = 0; i < ptsCount; i++) {
-        const p = state.pts[i];
-        const ll = safeLatLngLike(p);
-        const plat = ll ? ll[0] : 0;
-        const plng = ll ? ll[1] : 0;
-        dv.setInt32(o, Math.round(plat * 1e6), true); o += 4;
-        dv.setInt32(o, Math.round(plng * 1e6), true); o += 4;
+    
+    // Header
+    dv.setUint8(o, 7); o += 1;  // version 7 - simplified format
+    dv.setUint16(o, Math.round(z * 100), true); o += 2;
+    dv.setInt32(o, Math.round(c1.lat * 1e6), true); o += 4;
+    dv.setInt32(o, Math.round(c1.lng * 1e6), true); o += 4;
+    dv.setInt32(o, Math.round(c2.lat * 1e6), true); o += 4;
+    dv.setInt32(o, Math.round(c2.lng * 1e6), true); o += 4;
+    dv.setUint8(o, mode === 'area' ? 1 : 0); o += 1;
+    dv.setUint8(o, refSetting); o += 1;
+    dv.setUint8(o, encodeMapType(currentMapType)); o += 1;
+    dv.setUint16(o, pointCount, true); o += 2;
+    
+    // Write points - both ref and overlay positions
+    for (let i = 0; i < pointCount; i++) {
+        const refLatLng = markersRef[i].getLatLng();
+        const ovlLatLng = markersOvl[i].getLatLng();
+        
+        dv.setInt32(o, Math.round(refLatLng.lat * 1e6), true); o += 4;
+        dv.setInt32(o, Math.round(refLatLng.lng * 1e6), true); o += 4;
+        dv.setInt32(o, Math.round(ovlLatLng.lat * 1e6), true); o += 4;
+        dv.setInt32(o, Math.round(ovlLatLng.lng * 1e6), true); o += 4;
     }
-
-    // Encode transforms: 6 floats (4 bytes each) = 24 bytes
-    // ref rotation, ref offX, ref offY, ovl rotation, ovl offX, ovl offY
-    const tf = state.transforms;
-    dv.setFloat32(o, tf.ref.rot, true); o += 4;
-    dv.setFloat32(o, tf.ref.offX, true); o += 4;
-    dv.setFloat32(o, tf.ref.offY, true); o += 4;
-    dv.setFloat32(o, tf.ovl.rot, true); o += 4;
-    dv.setFloat32(o, tf.ovl.offX, true); o += 4;
-    dv.setFloat32(o, tf.ovl.offY, true); o += 4;
-
+    
+    // Write transforms
+    dv.setFloat32(o, shapeTransforms.ref.rotation || 0, true); o += 4;
+    dv.setFloat32(o, shapeTransforms.ref.offsetMerc?.x || 0, true); o += 4;
+    dv.setFloat32(o, shapeTransforms.ref.offsetMerc?.y || 0, true); o += 4;
+    dv.setFloat32(o, shapeTransforms.ovl.rotation || 0, true); o += 4;
+    dv.setFloat32(o, shapeTransforms.ovl.offsetMerc?.x || 0, true); o += 4;
+    dv.setFloat32(o, shapeTransforms.ovl.offsetMerc?.y || 0, true); o += 4;
+    
     return b64UrlEncode(new Uint8Array(buf));
 }
 
@@ -444,58 +1020,73 @@ function decodeAppState(hash) {
             console.log('[SyncView] decodeAppState - byteLength too small:', dv.byteLength);
             return null;
         }
+        
         const v = dv.getUint8(o); o += 1;
-        if (v !== 1 && v !== 2) {
-            console.log('[SyncView] decodeAppState - version mismatch:', v);
-            return null;
+        
+        // v7: simplified format
+        if (v === 7) {
+            const z = dv.getUint16(o, true) / 100; o += 2;
+            const m1lat = dv.getInt32(o, true) / 1e6; o += 4;
+            const m1lng = dv.getInt32(o, true) / 1e6; o += 4;
+            const m2lat = dv.getInt32(o, true) / 1e6; o += 4;
+            const m2lng = dv.getInt32(o, true) / 1e6; o += 4;
+            const modeCode = dv.getUint8(o); o += 1;
+            const ref = dv.getUint8(o); o += 1;
+            const mapTypeCode = dv.getUint8(o); o += 1;
+            const ptsCount = dv.getUint16(o, true); o += 2;
+            
+            // Read points
+            const pts = [];
+            const ovlPts = [];
+            for (let i = 0; i < ptsCount; i++) {
+                const refLat = dv.getInt32(o, true) / 1e6; o += 4;
+                const refLng = dv.getInt32(o, true) / 1e6; o += 4;
+                const ovlLat = dv.getInt32(o, true) / 1e6; o += 4;
+                const ovlLng = dv.getInt32(o, true) / 1e6; o += 4;
+                pts.push([refLat, refLng]);
+                ovlPts.push([ovlLat, ovlLng]);
+            }
+            
+            // Read transforms
+            const refRotation = dv.getFloat32(o, true); o += 4;
+            const refOffsetX = dv.getFloat32(o, true); o += 4;
+            const refOffsetY = dv.getFloat32(o, true); o += 4;
+            const ovlRotation = dv.getFloat32(o, true); o += 4;
+            const ovlOffsetX = dv.getFloat32(o, true); o += 4;
+            const ovlOffsetY = dv.getFloat32(o, true); o += 4;
+            
+            // Expected length check
+            const expectedLength = 24 + (ptsCount * 16) + 24;
+            if (dv.byteLength !== expectedLength) {
+                console.log('[SyncView] decodeAppState v7 - byteLength mismatch:', dv.byteLength, 'expected:', expectedLength);
+                return null;
+            }
+            
+            return {
+                v: 7,
+                z,
+                m1: [m1lat, m1lng],
+                m2: [m2lat, m2lng],
+                mode: modeCode === 1 ? 'area' : 'dist',
+                ref,
+                pts,
+                ovlPts,
+                mapType: decodeMapType(mapTypeCode),
+                refTransform: {
+                    rotation: refRotation,
+                    offsetMerc: { x: refOffsetX, y: refOffsetY }
+                },
+                ovlTransform: {
+                    rotation: ovlRotation,
+                    offsetMerc: { x: ovlOffsetX, y: ovlOffsetY }
+                }
+            };
         }
-
-        const z = dv.getUint16(o, true) / 100; o += 2;
-        const m1lat = dv.getInt32(o, true) / 1e6; o += 4;
-        const m1lng = dv.getInt32(o, true) / 1e6; o += 4;
-        const m2lat = dv.getInt32(o, true) / 1e6; o += 4;
-        const m2lng = dv.getInt32(o, true) / 1e6; o += 4;
-        const modeCode = dv.getUint8(o); o += 1;
-        const ref = dv.getUint8(o); o += 1;
-        const mapTypeCode = dv.getUint8(o); o += 1;
-        const ptsCount = dv.getUint16(o, true); o += 2;
-
-        const expectedLength = v === 2 ? 48 + ptsCount * 8 : 24 + ptsCount * 8;
-        console.log('[SyncView] decodeAppState - ptsCount:', ptsCount, 'expected length:', expectedLength, 'actual:', dv.byteLength);
-        if (dv.byteLength !== expectedLength) {
-            console.log('[SyncView] decodeAppState - byteLength mismatch');
-            return null;
-        }
-
-        const pts = [];
-        for (let i = 0; i < ptsCount; i++) {
-            const plat = dv.getInt32(o, true) / 1e6; o += 4;
-            const plng = dv.getInt32(o, true) / 1e6; o += 4;
-            pts.push([plat, plng]);
-        }
-
-        // Decode transforms for v2
-        let transforms = { ref: { rot: 0, offX: 0, offY: 0 }, ovl: { rot: 0, offX: 0, offY: 0 } };
-        if (v === 2 && dv.byteLength >= o + 24) {
-            transforms.ref.rot = dv.getFloat32(o, true); o += 4;
-            transforms.ref.offX = dv.getFloat32(o, true); o += 4;
-            transforms.ref.offY = dv.getFloat32(o, true); o += 4;
-            transforms.ovl.rot = dv.getFloat32(o, true); o += 4;
-            transforms.ovl.offX = dv.getFloat32(o, true); o += 4;
-            transforms.ovl.offY = dv.getFloat32(o, true); o += 4;
-        }
-
-        return {
-            v: v,
-            z,
-            m1: [m1lat, m1lng],
-            m2: [m2lat, m2lng],
-            mode: modeCode === 1 ? 'area' : 'dist',
-            ref: ref,
-            pts,
-            mapType: decodeMapType(mapTypeCode),
-            transforms
-        };
+        
+        // Legacy format support removed for v7+ only
+        console.log('[SyncView] decodeAppState - unsupported version:', v);
+        return null;
+        
     } catch (e) {
         console.log('[SyncView] decodeAppState - exception:', e);
         return null;
@@ -504,15 +1095,24 @@ function decodeAppState(hash) {
 
 let isApplyingUrlState = false;
 let modeChanged = false;
+let lastAppliedUrl = null;
 
 function applyDecodedState(state) {
     if (!state || typeof state !== 'object') return;
 
+    console.log('[SyncView] ========== APPLYING DECODED STATE ==========');
+    console.log('[SyncView] State version:', state.v);
+    console.log('[SyncView] Mode:', state.mode);
+    console.log('[SyncView] Reference map:', state.ref);
+    console.log('[SyncView] Zoom:', state.z);
+    console.log('[SyncView] Points:', state.pts?.length || 0);
+    
     const z = clamp(state.z, 0, 22);
     const m1 = safeLatLngLike(state.m1);
     const m2 = safeLatLngLike(state.m2);
     const decodedMode = state.mode === 'area' ? 'area' : 'dist';
     const pts = Array.isArray(state.pts) ? state.pts : [];
+    const ovlPts = Array.isArray(state.ovlPts) ? state.ovlPts : [];
     const mapType = state.mapType || 'hybrid';
 
     isApplyingUrlState = true;
@@ -529,82 +1129,92 @@ function applyDecodedState(state) {
 
         clearAll();
 
-        // Apply transforms if present in state
-        if (state.transforms) {
-            shapeTransforms.ref.rotation = state.transforms.ref.rot || 0;
-            shapeTransforms.ref.offsetMerc = L.point(state.transforms.ref.offX || 0, state.transforms.ref.offY || 0);
-            shapeTransforms.ovl.rotation = state.transforms.ovl.rot || 0;
-            shapeTransforms.ovl.offsetMerc = L.point(state.transforms.ovl.offX || 0, state.transforms.ovl.offY || 0);
-        }
-
+        // Restore points if any
         if (pts.length > 0) {
+            // Set up maps
             const refIdx = state.ref === 2 ? 2 : 1;
-            refMap = refIdx === 1 ? map1 : map2;
-            ovlMap = refMap === map1 ? map2 : map1;
+            const targetRefMap = refIdx === 1 ? map1 : map2;
+            const targetOvlMap = targetRefMap === map1 ? map2 : map1;
+            
+            refMap = targetRefMap;
+            ovlMap = targetOvlMap;
             mercAnchorRef = toMerc(refMap.getCenter());
             mercAnchorOvl = toMerc(ovlMap.getCenter());
 
-            masterVertices = [];
-            verticesRef = [];
-            verticesOvl = [];
-            markersRef = [];
-            markersOvl = [];
+            // Restore transforms
+            if (state.refTransform) {
+                shapeTransforms.ref.rotation = state.refTransform.rotation || 0;
+                shapeTransforms.ref.offsetMerc = L.point(
+                    state.refTransform.offsetMerc?.x || 0,
+                    state.refTransform.offsetMerc?.y || 0
+                );
+            }
+            if (state.ovlTransform) {
+                shapeTransforms.ovl.rotation = state.ovlTransform.rotation || 0;
+                shapeTransforms.ovl.offsetMerc = L.point(
+                    state.ovlTransform.offsetMerc?.x || 0,
+                    state.ovlTransform.offsetMerc?.y || 0
+                );
+            }
 
-            // First pass: create master vertices and reference markers
-            pts.forEach((p) => {
-                const llArr = safeLatLngLike(p);
-                if (!llArr) return;
-                const refLatLng = L.latLng(llArr[0], llArr[1]);
+            // Create markers directly from stored positions
+            const isMap1Ref = refMap === map1;
+            
+            for (let i = 0; i < pts.length; i++) {
+                const refPt = pts[i];
+                const ovlPt = ovlPts[i] || refPt;
+                
+                const refLatLng = L.latLng(refPt[0], refPt[1]);
+                const ovlLatLng = L.latLng(ovlPt[0], ovlPt[1]);
+                
+                // Update masterVertices (source of truth for legacy system)
                 masterVertices.push({ latlng: refLatLng });
-            });
+                
+                // Create markers
+                if (isMap1Ref) {
+                    const mR = createHandleMarker(refLatLng, false, map1, i);
+                    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng, 'ref');
+                    markersRef.push(mR);
+                    verticesRef.push({ latlng: refLatLng });
+                    
+                    const mO = createHandleMarker(ovlLatLng, true, map2, i);
+                    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng, 'ovl');
+                    markersOvl.push(mO);
+                    verticesOvl.push({ latlng: ovlLatLng });
+                } else {
+                    const mR = createHandleMarker(refLatLng, false, map2, i);
+                    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng, 'ref');
+                    markersRef.push(mR);
+                    verticesRef.push({ latlng: refLatLng });
+                    
+                    const mO = createHandleMarker(ovlLatLng, true, map1, i);
+                    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng, 'ovl');
+                    markersOvl.push(mO);
+                    verticesOvl.push({ latlng: ovlLatLng });
+                }
+            }
+            
+            console.log('[SyncView] Restored', markersRef.length, 'reference markers and', markersOvl.length, 'overlay markers');
 
-            // Ensure pivots are set based on the loaded shape
-            ensurePivot('ref');
-            ensurePivot('ovl');
-
-            // Second pass: create markers with proper transform handling
-            const baseMerc = getMasterMerc();
-
-            // Calculate reference positions with transform applied
-            const refMerc = applyTransformMerc(baseMerc, shapeTransforms.ref);
-            const refPositions = refMerc.map(p => fromMerc(p));
-
-            // Calculate overlay positions:
-            // 1. Start with base merc positions
-            // 2. Offset by view alignment (mercAnchor difference)
-            // 3. Apply overlay transform
-            const ovlBaseMerc = baseMerc.map((p) => L.point(
-                mercAnchorOvl.x + (p.x - mercAnchorRef.x),
-                mercAnchorOvl.y + (p.y - mercAnchorRef.y)
-            ));
-            const ovlMerc = applyTransformMerc(ovlBaseMerc, shapeTransforms.ovl);
-            const ovlPositions = ovlMerc.map(p => fromMerc(p));
-
-            pts.forEach((p, index) => {
-                if (!refPositions[index] || !ovlPositions[index]) return;
-
-                const refLatLng = refPositions[index];
-                const ovlLatLng = ovlPositions[index];
-
-                // Create reference marker at the transformed position
-                const mR = createHandleMarker(refLatLng, false, refMap, index);
-
-                // Create overlay marker at the calculated position
-                const mO = createHandleMarker(ovlLatLng, true, ovlMap, index);
-
-                // Bind drag handlers
-                bindDragHandlers(mR, markersRef, setMasterFromRefLatLng, 'ref');
-                bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng, 'ovl');
-
-                verticesRef.push({ latlng: refLatLng });
-                verticesOvl.push({ latlng: ovlLatLng });
-                markersRef.push(mR);
-                markersOvl.push(mO);
-            });
-
+            // Force updates
             update();
             updateMarkerIcons();
+            
+            setTimeout(() => {
+                update();
+                if (refMap && ovlMap) {
+                    refMap.invalidateSize();
+                    ovlMap.invalidateSize();
+                }
+            }, 100);
+            
+            setTimeout(() => {
+                update();
+                updateGizmos();
+            }, 300);
         }
+        
+        console.log('[SyncView] ========== STATE APPLICATION COMPLETE ==========');
     } finally {
         isApplyingUrlState = false;
     }
@@ -649,23 +1259,34 @@ function getEncodedStateFromUrl() {
 
 function applyStateFromUrl() {
     if (isApplyingUrlState) return;
+    
+    const currentUrl = location.href;
+    if (lastAppliedUrl === currentUrl) {
+        console.log('[SyncView] Skipping duplicate state application for same URL');
+        return;
+    }
+    
     const encoded = getEncodedStateFromUrl();
     console.log('[SyncView] applyStateFromUrl called, encoded:', encoded ? encoded.substring(0, 20) + '...' : null);
     if (!encoded) {
         console.log('[SyncView] No encoded state found in URL');
+        lastAppliedUrl = currentUrl;
         return;
     }
     const state = decodeAppState(encoded);
     console.log('[SyncView] Decoded state:', state);
     if (state) {
         console.log('[SyncView] Applying decoded state...');
+        lastAppliedUrl = currentUrl;
         applyDecodedState(state);
     } else {
         console.log('[SyncView] Failed to decode state');
+        lastAppliedUrl = currentUrl;
     }
 }
 
 window.addEventListener('popstate', () => {
+    lastAppliedUrl = null; // Reset on popstate to allow new state application
     applyStateFromUrl();
 });
 
@@ -673,14 +1294,18 @@ window.addEventListener('popstate', () => {
 // pageshow fires when page is shown (including back/forward navigation and PWA resume)
 window.addEventListener('pageshow', (e) => {
     console.log('[SyncView] pageshow event fired, persisted:', e.persisted);
-    // Always check for URL state when page becomes visible
-    // Delay for mobile PWA where URL might update after event
-    setTimeout(() => {
-        console.log('[SyncView] pageshow delayed applyStateFromUrl');
-        applyStateFromUrl();
-    }, 100);
-    // Also try immediately
-    applyStateFromUrl();
+    // Only apply state if page was restored from back/forward cache AND URL changed
+    if (e.persisted && location.href !== lastAppliedUrl) {
+        console.log('[SyncView] Page restored from cache, URL changed, applying state');
+        lastAppliedUrl = null; // Reset to allow state application
+        // Delay for mobile PWA where URL might update after event
+        setTimeout(() => {
+            console.log('[SyncView] pageshow delayed applyStateFromUrl');
+            applyStateFromUrl();
+        }, 100);
+    } else {
+        console.log('[SyncView] pageshow ignored - no URL change or not persisted');
+    }
 });
 
 // Handle visibility change for PWA - when app comes back from background
@@ -691,14 +1316,21 @@ document.addEventListener('visibilitychange', () => {
         // Clear search cache to ensure fresh results after backgrounding
         searchCache.clear();
         console.log('[SyncView] Search cache cleared on visibility change');
-        // Always try to apply state - URL might have been updated while hidden
-        // Multiple retries for mobile PWA timing issues
-        [0, 100, 300, 500].forEach(delay => {
+        
+        // Only apply state if URL actually changed
+        if (location.href !== lastUrl) {
+            console.log('[SyncView] URL changed during visibility change, applying new state');
+            lastAppliedUrl = null; // Reset to allow new state application
+            lastUrl = location.href;
+            
+            // Single retry with delay for mobile PWA timing
             setTimeout(() => {
-                console.log('[SyncView] visibility retry at delay:', delay, 'URL:', location.href);
+                console.log('[SyncView] visibility retry at delay:', 100, 'URL:', location.href);
                 applyStateFromUrl();
-            }, delay);
-        });
+            }, 100);
+        } else {
+            console.log('[SyncView] URL unchanged during visibility change, skipping state application');
+        }
     }
 });
 
@@ -1450,6 +2082,7 @@ const shapes = {
 
 let mode = localStorage.getItem('syncview-mode') || 'dist';
 let masterVertices = [];
+let masterVerticesOvl = []; // Separate base positions for overlay
 let verticesRef = [], verticesOvl = [], markersRef = [], markersOvl = [];
 let refMap = null, ovlMap = null, mercAnchorRef = null, mercAnchorOvl = null;
 let measureLabelRef = null;
@@ -1536,6 +2169,16 @@ function setMasterFromRefLatLng(index, newLatLng, originalMasterVertices = null)
     
     // Update masterVertices with the new base position
     masterVertices[index] = { latlng: newMasterLatLng };
+    
+    // Also update masterVerticesOvl to maintain sync (overlay base = reference base with view alignment)
+    if (masterVerticesOvl.length > 0 && masterVerticesOvl[index]) {
+        const refMerc = toMerc(newMasterLatLng);
+        const ovlBaseMerc = L.point(
+            mercAnchorOvl.x + (refMerc.x - mercAnchorRef.x),
+            mercAnchorOvl.y + (refMerc.y - mercAnchorRef.y)
+        );
+        masterVerticesOvl[index] = { latlng: fromMerc(ovlBaseMerc) };
+    }
     
     // Update both vertices arrays for this specific point only
     // This keeps both shapes synced - same master point, different transforms
@@ -2163,6 +2806,11 @@ function startGizmoAction(e, type, which) {
     if (!refMap || !ovlMap || verticesRef.length === 0) return;
 
     suppressMapClickUntil = Date.now() + 400;
+    
+    console.log('[SyncView] GIZMO START - type:', type, 'which:', which);
+    console.log('[SyncView] masterVertices BEFORE:', masterVertices.map(v => `[${v.latlng.lat.toFixed(4)}, ${v.latlng.lng.toFixed(4)}]`));
+    console.log('[SyncView] verticesRef BEFORE:', verticesRef.map(v => `[${v.latlng.lat.toFixed(4)}, ${v.latlng.lng.toFixed(4)}]`));
+    console.log('[SyncView] shapeTransforms BEFORE -', which, ':', which === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl);
 
     const tf = which === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
 
@@ -2393,6 +3041,7 @@ function clearAll() {
     if (measureLabelOvl) { measureLabelOvl.remove(); measureLabelOvl = null; }
     removeGizmos();
     masterVertices = [];
+    masterVerticesOvl = [];
     verticesRef = []; verticesOvl = []; markersRef = []; markersOvl = [];
     refMap = null; ovlMap = null;
     mercAnchorRef = null; mercAnchorOvl = null;
@@ -2405,6 +3054,9 @@ function clearAll() {
 
 // Update vertex positions based on master vertices and transforms
 function updateVertexPositions() {
+    // Skip during URL state restoration - positions are already set correctly
+    if (isApplyingUrlState) return;
+    
     if (!refMap || !ovlMap || masterVertices.length === 0) return;
     
     // During point dragging, don't recalculate - positions are updated directly
@@ -2412,21 +3064,28 @@ function updateVertexPositions() {
         return;
     }
     
-    // Normal case: update all vertices for both maps from master
-    const baseMerc = getMasterMerc();
-    
-    // Apply reference transform
-    const refMerc = applyTransformMerc(baseMerc, shapeTransforms.ref);
+    // Reference: use masterVertices as base
+    const refBaseMerc = masterVertices.map(v => toMerc(v.latlng));
+    const refMerc = applyTransformMerc(refBaseMerc, shapeTransforms.ref);
     verticesRef = refMerc.map(p => ({ latlng: fromMerc(p) }));
     
-    // Apply overlay transform (with view-space offset from mercAnchor)
-    const ovlBaseMerc = baseMerc.map((p) => L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y)));
-    const ovlMerc = applyTransformMerc(ovlBaseMerc, shapeTransforms.ovl);
+    // Overlay: use masterVerticesOvl as base (or masterVertices if empty), with view alignment
+    const ovlBase = masterVerticesOvl.length > 0 ? masterVerticesOvl : masterVertices;
+    const ovlBaseMerc = ovlBase.map(v => toMerc(v.latlng));
+    // Align to view: offset by mercAnchor difference
+    const ovlAlignedMerc = ovlBaseMerc.map((p) => L.point(
+        mercAnchorOvl.x + (p.x - mercAnchorRef.x),
+        mercAnchorOvl.y + (p.y - mercAnchorRef.y)
+    ));
+    const ovlMerc = applyTransformMerc(ovlAlignedMerc, shapeTransforms.ovl);
     verticesOvl = ovlMerc.map(p => ({ latlng: fromMerc(p) }));
 }
 
 // Update marker positions on both maps
 function updateMarkerPositions() {
+    // Skip during URL state restoration - markers are already at correct positions
+    if (isApplyingUrlState) return;
+    
     const pRef = verticesRef.map(v => v.latlng);
     const pOvl = verticesOvl.map(v => v.latlng);
     markersRef.forEach((m, i) => { if (pRef[i]) m.setLatLng(pRef[i]); });
@@ -2787,6 +3446,26 @@ function update() {
     // Info gizmo position is updated in a RAF loop while visible
     modeChanged = false;
 }
+
+// Install update bridge to sync shape system
+const originalUpdate = update;
+update = function() {
+    // Sync map references
+    if (typeof refMap !== 'undefined' && typeof ovlMap !== 'undefined' && refMap && ovlMap) {
+        shapeSystem.refMap = refMap;
+        shapeSystem.ovlMap = ovlMap;
+    }
+    if (typeof mercAnchorRef !== 'undefined' && typeof mercAnchorOvl !== 'undefined') {
+        if (mercAnchorRef) shapeSystem.mercAnchorRef = mercAnchorRef;
+        if (mercAnchorOvl) shapeSystem.mercAnchorOvl = mercAnchorOvl;
+    }
+    
+    // Recompute points before calling original update
+    shapeSystem._recomputeAllPoints();
+    
+    // Call original update
+    return originalUpdate.apply(this, arguments);
+};
 
 function getArea(ll) {
     if (!Array.isArray(ll) || ll.length < 3) return 0;
