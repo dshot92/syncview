@@ -189,18 +189,21 @@
             </div>
 
             <div class="settings-grid">
-                <div class="settings-item" onclick="toggleUnits()">
-                    <span class="settings-item-label">Units</span>
-                    <span class="settings-item-value" id="settings-unit-value">Metric</span>
-                </div>
-                <div class="settings-item" onclick="toggleVertexNumbers()">
-                    <span class="settings-item-label">Vertex Numbers</span>
-                    <span class="settings-item-value" id="settings-vertex-value">Off</span>
-                </div>
-                <div class="settings-item" onclick="toggleBoundingBox()">
-                    <span class="settings-item-label">Bounding Box</span>
-                    <span class="settings-item-value" id="settings-bbox-value">Off</span>
-                </div>
+                <button class="share-action" onclick="toggleUnits()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+                    Units
+                    <span id="settings-unit-value">Metric</span>
+                </button>
+                <button class="share-action" onclick="toggleVertexNumbers()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                    Vertex Numbers
+                    <span id="settings-vertex-value">Off</span>
+                </button>
+                <button class="share-action" onclick="toggleBoundingBox()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/></svg>
+                    Bounding Box
+                    <span id="settings-bbox-value">Off</span>
+                </button>
             </div>
         </div>
     </div>

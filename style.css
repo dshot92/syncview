@@ -792,11 +792,6 @@ body.info-overlay-open {
     flex-wrap: wrap;
 }
 
-.info-overlay-content .github-link {
-    font-size: 0.6875rem;
-    padding: var(--gap-sm) var(--gap-md);
-}
-
 /* Settings Button */
 .settings-btn {
     grid-area: settings;
@@ -832,34 +827,30 @@ body.info-overlay-open {
     height: var(--ui-icon-size);
 }
 
-/* Settings Overlay */
+/* Settings Grid */
 .settings-grid {
     grid-area: grid;
     display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: var(--gap-md);
     padding: var(--gap-xl);
 }
 
-.settings-item {
-    display: grid;
-    grid-template-columns: 1fr auto;
+.settings-grid .share-action {
+    display: flex;
     align-items: center;
-    gap: var(--gap-md);
-    padding: var(--gap-md);
-    background: rgba(255, 255, 255, 0.05);
-    border: 0.0625rem solid var(--border);
-    border-radius: var(--radius);
+    justify-content: center;
+    gap: var(--gap-sm);
+    padding: 0 var(--gap-md);
+    height: 2.5rem;
+    text-align: left;
 }
 
-.settings-item-label {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-white);
-}
-
-.settings-item-value {
-    font-size: 0.75rem;
+.settings-grid .share-action span {
+    font-size: 0.6875rem;
     color: var(--text-muted);
+    opacity: 0.8;
+    margin-left: auto;
 }
 
 .info-btn {
@@ -1216,11 +1207,6 @@ body.info-overlay-open {
     display: flex;
     gap: var(--gap-sm);
     flex-wrap: wrap;
-}
-
-.info-gizmo-content .github-link {
-    font-size: 0.6875rem;
-    padding: var(--gap-sm) var(--gap-md);
 }
 
 
