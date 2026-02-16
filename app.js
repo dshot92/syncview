@@ -143,28 +143,41 @@ function createMarkerPair(latlng, refMap, ovlMap, index = null) {
     const mO = createHandleMarker(latlng, true, ovlMap, index);
 
     // Bind drag handlers for both markers
-    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng);
-    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng);
+    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng, 'ref');
+    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng, 'ovl');
 
     return { ref: mR, ovl: mO };
 }
 
 // Unified drag handler binding
-function bindDragHandlers(marker, markerArray, updateFn) {
+function bindDragHandlers(marker, markerArray, updateFn, which) {
+    let dragStartMasterVertices = null; // Store original master vertices at drag start
+    
     marker.on('dragstart', () => { 
         isAnyMarkerDragging = true; 
         document.querySelectorAll('.measurement-label').forEach(el => el.classList.add('no-transition'));
+        // Capture which point and map is being dragged
+        dragPointIndex = markerArray.indexOf(marker);
+        dragTargetMap = which;
+        // Store original master vertices at drag start - don't modify during drag
+        dragStartMasterVertices = masterVertices.map(v => ({ latlng: L.latLng(v.latlng) }));
     });
     marker.on('drag', (de) => {
         const i = markerArray.indexOf(marker);
         if (i > -1) {
-            updateFn(i, de.target.getLatLng());
+            // During drag, just move the point in transformed space without updating master
+            updateFn(i, de.target.getLatLng(), dragStartMasterVertices);
             update();
             scheduleUrlUpdate();
         }
     });
     marker.on('dragend', () => { 
         isAnyMarkerDragging = false; 
+        dragCentroidRef = null;
+        dragCentroidOvl = null;
+        dragPointIndex = null;
+        dragTargetMap = null;
+        dragStartMasterVertices = null;
         document.querySelectorAll('.measurement-label').forEach(el => el.classList.remove('no-transition'));
     });
 }
@@ -510,8 +523,8 @@ function applyDecodedState(state) {
                 const mO = createHandleMarker(ovlLatLng, true, ovlMap, index);
                 
                 // Bind drag handlers
-                bindDragHandlers(mR, markersRef, setMasterFromRefLatLng);
-                bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng);
+                bindDragHandlers(mR, markersRef, setMasterFromRefLatLng, 'ref');
+                bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng, 'ovl');
 
                 verticesRef.push({ latlng: refLatLng });
                 verticesOvl.push({ latlng: ovlLatLng });
@@ -1435,40 +1448,64 @@ function getMasterMerc() {
     return masterVertices.map(v => toMerc(v.latlng));
 }
 
-function setMasterFromRefLatLng(index, newLatLng) {
+function setMasterFromRefLatLng(index, newLatLng, originalMasterVertices = null) {
     if (!refMap || !ovlMap || !verticesRef[index] || !verticesOvl[index]) return;
     
     // Convert the new reference latlng back to master coordinates
-    // by inverting the reference transform
     const newRefMerc = toMerc(newLatLng);
-    const baseMercMaster = getMasterMerc();
+    const baseMercMaster = originalMasterVertices 
+        ? originalMasterVertices.map(v => toMerc(v.latlng))
+        : getMasterMerc();
+    
+    // Use centroid from original master vertices (stable during drag)
+    const stableCentroid = centroidMercFromMerc(baseMercMaster);
     
     // Invert the transform to get back to untransformed reference coordinates
-    const invertedMerc = invertTransformMerc(newRefMerc, baseMercMaster, shapeTransforms.ref);
+    const invertedMerc = invertTransformMerc(newRefMerc, baseMercMaster, shapeTransforms.ref, stableCentroid);
     const newMasterLatLng = fromMerc(invertedMerc);
     
     // Update masterVertices with the new base position
     masterVertices[index] = { latlng: newMasterLatLng };
     
-    // Keep the existing transform - updateVertexPositions will apply it consistently
-    // The key is that we updated masterVertices, so the shape stays consistent
+    // Update both vertices arrays for this specific point only
+    // This keeps both shapes synced - same master point, different transforms
+    const updatedBaseMerc = getMasterMerc();
+    
+    // Update reference vertex
+    const refMerc = applyTransformMerc([updatedBaseMerc[index]], shapeTransforms.ref, stableCentroid);
+    verticesRef[index] = { latlng: fromMerc(refMerc[0]) };
+    
+    // Update overlay vertex
+    const ovlBasePt = L.point(
+        mercAnchorOvl.x + (updatedBaseMerc[index].x - mercAnchorRef.x),
+        mercAnchorOvl.y + (updatedBaseMerc[index].y - mercAnchorRef.y)
+    );
+    const ovlCentroid = centroidMercFromMerc(updatedBaseMerc.map((p) => 
+        L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y))
+    ));
+    const ovlMerc = applyTransformMerc([ovlBasePt], shapeTransforms.ovl, ovlCentroid);
+    verticesOvl[index] = { latlng: fromMerc(ovlMerc[0]) };
 }
 
-function setMasterFromOvlLatLng(index, newLatLng) {
+function setMasterFromOvlLatLng(index, newLatLng, originalMasterVertices = null) {
     if (!refMap || !ovlMap || !verticesRef[index] || !verticesOvl[index]) return;
     
     // Convert the new overlay latlng back to master coordinates
-    // by inverting the overlay transform
     const newOvlMerc = toMerc(newLatLng);
-    const baseMercMaster = getMasterMerc();
+    const baseMercMaster = originalMasterVertices 
+        ? originalMasterVertices.map(v => toMerc(v.latlng))
+        : getMasterMerc();
     
     // Get the overlay-specific base (with mercAnchor offset)
     const ovlBaseMerc = baseMercMaster.map((p) => 
         L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y))
     );
     
+    // Use centroid from original overlay base (stable during drag)
+    const stableCentroid = centroidMercFromMerc(ovlBaseMerc);
+    
     // Invert the transform to get back to untransformed overlay coordinates
-    const invertedOvlMerc = invertTransformMerc(newOvlMerc, ovlBaseMerc, shapeTransforms.ovl);
+    const invertedOvlMerc = invertTransformMerc(newOvlMerc, ovlBaseMerc, shapeTransforms.ovl, stableCentroid);
     
     // Now convert back to reference merc (remove the mercAnchor offset)
     const invertedRefMerc = L.point(
@@ -1480,8 +1517,21 @@ function setMasterFromOvlLatLng(index, newLatLng) {
     // Update masterVertices with the base position
     masterVertices[index] = { latlng: newMasterLatLng };
     
-    // Keep the existing overlay transform - updateVertexPositions will apply it consistently
-    // The key is that we updated masterVertices, so the shape stays consistent
+    // Update both vertices arrays for this specific point only
+    const updatedBaseMerc = getMasterMerc();
+    
+    // Update reference vertex
+    const refCentroid = centroidMercFromMerc(updatedBaseMerc);
+    const refMerc = applyTransformMerc([updatedBaseMerc[index]], shapeTransforms.ref, refCentroid);
+    verticesRef[index] = { latlng: fromMerc(refMerc[0]) };
+    
+    // Update overlay vertex
+    const ovlBasePt = L.point(
+        mercAnchorOvl.x + (updatedBaseMerc[index].x - mercAnchorRef.x),
+        mercAnchorOvl.y + (updatedBaseMerc[index].y - mercAnchorRef.y)
+    );
+    const ovlMerc = applyTransformMerc([ovlBasePt], shapeTransforms.ovl, stableCentroid);
+    verticesOvl[index] = { latlng: fromMerc(ovlMerc[0]) };
 }
 
 function getAabb(lls) {
@@ -1669,37 +1719,56 @@ function centroidMercFromMerc(pts) {
     return L.point(x / n, y / n);
 }
 
-function applyTransformMerc(ptsMerc, tf) {
-    const c = centroidMercFromMerc(ptsMerc);
-    if (!c) return [];
-    const pivot = (tf && tf.pivotMerc) ? tf.pivotMerc : c;
+function applyTransformMerc(ptsMerc, tf, stableCentroid) {
+    // Use stored pivot if available, otherwise use centroid
+    // stored pivot is stable and doesn't change when adding/removing points
+    const pivot = tf && tf.pivotMerc ? tf.pivotMerc : (stableCentroid || centroidMercFromMerc(ptsMerc));
+    if (!pivot) return [];
+    
     const a = Number(tf && tf.rotation) || 0;
     const cos = Math.cos(a);
     const sin = Math.sin(a);
     const off = (tf && tf.offsetMerc) ? tf.offsetMerc : L.point(0, 0);
+    
+    // Visual pivot = stored pivot + offset (where the shape actually appears)
+    const visualPivot = L.point(pivot.x + off.x, pivot.y + off.y);
+    
+    // Rotate around visual pivot, not current centroid
     return ptsMerc.map((p) => {
-        const dx = p.x - pivot.x;
-        const dy = p.y - pivot.y;
+        // Transform point: first apply offset to get to visual space, then rotate around visual pivot
+        const visualP = L.point(p.x + off.x, p.y + off.y);
+        const dx = visualP.x - visualPivot.x;
+        const dy = visualP.y - visualPivot.y;
         const rx = dx * cos - dy * sin;
         const ry = dx * sin + dy * cos;
-        return L.point(pivot.x + rx + off.x, pivot.y + ry + off.y);
+        return L.point(visualPivot.x + rx, visualPivot.y + ry);
     });
 }
 
-function invertTransformMerc(pMerc, basePtsMerc, tf) {
-    const c = centroidMercFromMerc(basePtsMerc);
-    if (!c) return pMerc;
-    const pivot = (tf && tf.pivotMerc) ? tf.pivotMerc : c;
+function invertTransformMerc(pMerc, basePtsMerc, tf, stableCentroid) {
+    // Use stored pivot if available, otherwise use centroid
+    const pivot = tf && tf.pivotMerc ? tf.pivotMerc : (stableCentroid || centroidMercFromMerc(basePtsMerc));
+    if (!pivot) return pMerc;
+    
     const a = -(Number(tf && tf.rotation) || 0);
     const cos = Math.cos(a);
     const sin = Math.sin(a);
     const off = (tf && tf.offsetMerc) ? tf.offsetMerc : L.point(0, 0);
-
-    const x = pMerc.x - off.x - pivot.x;
-    const y = pMerc.y - off.y - pivot.y;
-    const rx = x * cos - y * sin;
-    const ry = x * sin + y * cos;
-    return L.point(pivot.x + rx, pivot.y + ry);
+    
+    // Visual pivot = stored pivot + offset
+    const visualPivot = L.point(pivot.x + off.x, pivot.y + off.y);
+    
+    // Inverse: un-rotate around visual pivot, then subtract offset
+    const dx = pMerc.x - visualPivot.x;
+    const dy = pMerc.y - visualPivot.y;
+    const rx = dx * cos - dy * sin;
+    const ry = dx * sin + dy * cos;
+    
+    // After un-rotating, we're at (base_point + offset), so subtract offset
+    const unrotatedX = visualPivot.x + rx;
+    const unrotatedY = visualPivot.y + ry;
+    
+    return L.point(unrotatedX - off.x, unrotatedY - off.y);
 }
 
 function isMarkerBeingDragged(marker) {
@@ -1711,12 +1780,29 @@ function isMarkerBeingDragged(marker) {
 
 // State for tracking marker dragging and label positions
 let isAnyMarkerDragging = false;
+let dragCentroidRef = null;  // Stable centroid for point dragging (reference map)
+let dragCentroidOvl = null;  // Stable centroid for point dragging (overlay map)
+let dragPointIndex = null;   // Which point is being dragged
+let dragTargetMap = null;    // Which map the point is being dragged on ('ref' or 'ovl')
 
 // Shape transforms for rotation and move operations (in Mercator coordinates)
 const shapeTransforms = {
     ref: { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null },
     ovl: { rotation: 0, offsetMerc: L.point(0, 0), pivotMerc: null }
 };
+
+// Initialize or update pivot when shape topology changes
+function ensurePivot(which) {
+    const tf = shapeTransforms[which];
+    // Only set pivot if not already set - keeps it stable during point add/remove
+    if (!tf.pivotMerc) {
+        const baseMerc = which === 'ref' 
+            ? getMasterMerc()
+            : getMasterMerc().map((p) => L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y)));
+        tf.pivotMerc = centroidMercFromMerc(baseMerc);
+    }
+    return tf.pivotMerc;
+}
 
 // Unified gizmo state management
 const GIZMO_STATE = {
@@ -2013,15 +2099,21 @@ function startGizmoAction(e, type, which) {
     if (type === 'rotate') {
         GIZMO_STATE.rotate.active = which;
         GIZMO_STATE.rotate.startRotation = Number(tf.rotation) || 0;
+        // Store original rotation and offset for restoring gizmos
+        GIZMO_STATE.rotate.originalRotation = Number(tf.rotation) || 0;
+        GIZMO_STATE.rotate.originalOffsetMerc = tf.offsetMerc ? L.point(tf.offsetMerc.x, tf.offsetMerc.y) : L.point(0, 0);
 
-        const baseMercMaster = getMasterMerc();
-        const baseMerc = which === 'ref'
-            ? baseMercMaster
-            : baseMercMaster.map((p) => L.point(mercAnchorOvl.x + (p.x - mercAnchorRef.x), mercAnchorOvl.y + (p.y - mercAnchorRef.y)));
+        // Ensure pivot is set (once set, it stays stable during point add/remove)
+        ensurePivot(which);
+        
+        // Use current VISUAL vertex positions to calculate rotation center
+        const visualMerc = which === 'ref'
+            ? verticesRef.map(v => toMerc(v.latlng))
+            : verticesOvl.map(v => toMerc(v.latlng));
 
-        if (!tf.pivotMerc) tf.pivotMerc = centroidMercFromMerc(baseMerc);
-        GIZMO_STATE.rotate.centerMerc = tf.pivotMerc;
-        GIZMO_STATE.rotate.originalMerc = baseMerc;
+        // Always use current AABB center as rotation pivot for gizmo interaction
+        GIZMO_STATE.rotate.centerMerc = centroidMercFromMerc(visualMerc);
+        GIZMO_STATE.rotate.originalMerc = visualMerc;
 
         const startM = toMerc(e.target.getLatLng());
         GIZMO_STATE.rotate.startAngle = Math.atan2(startM.y - GIZMO_STATE.rotate.centerMerc.y, startM.x - GIZMO_STATE.rotate.centerMerc.x);
@@ -2031,6 +2123,8 @@ function startGizmoAction(e, type, which) {
         document.querySelectorAll('.measurement-label').forEach(el => el.classList.add('no-transition'));
         GIZMO_STATE.move.startLatLng = e.target.getLatLng();
         GIZMO_STATE.move.startOffsetMerc = tf.offsetMerc ? L.point(tf.offsetMerc.x, tf.offsetMerc.y) : L.point(0, 0);
+        // Store original rotation for restoring gizmos
+        GIZMO_STATE.move.originalRotation = Number(tf.rotation) || 0;
     }
 }
 
@@ -2168,7 +2262,7 @@ function resetGizmoRotation() {
     if (!gizmoCtxWhich || !refMap) return;
     const tf = gizmoCtxWhich === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
     tf.rotation = 0;
-    tf.pivotMerc = null;
+    tf.pivotMerc = null; // Clear pivot so it recalculates on next use
     update();
     scheduleUrlUpdate();
     showToast(gizmoCtxWhich === 'ref' ? 'Reference rotation reset' : 'Overlay rotation reset');
@@ -2179,6 +2273,7 @@ function resetGizmoMove() {
     if (!gizmoCtxWhich || !refMap) return;
     const tf = gizmoCtxWhich === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
     tf.offsetMerc = L.point(0, 0);
+    tf.pivotMerc = null; // Clear pivot so it recalculates on next use
     update();
     scheduleUrlUpdate();
     showToast(gizmoCtxWhich === 'ref' ? 'Reference move reset' : 'Overlay move reset');
@@ -2190,7 +2285,7 @@ function resetGizmoAll() {
     const tf = gizmoCtxWhich === 'ref' ? shapeTransforms.ref : shapeTransforms.ovl;
     tf.rotation = 0;
     tf.offsetMerc = L.point(0, 0);
-    tf.pivotMerc = null;
+    tf.pivotMerc = null; // Clear pivot so it recalculates on next use
     update();
     scheduleUrlUpdate();
     showToast(gizmoCtxWhich === 'ref' ? 'Reference transforms reset' : 'Overlay transforms reset');
@@ -2242,7 +2337,12 @@ function clearAll() {
 function updateVertexPositions() {
     if (!refMap || !ovlMap || masterVertices.length === 0) return;
     
-    // Get master vertices in Mercator coordinates
+    // During point dragging, don't recalculate - positions are updated directly
+    if (dragTargetMap && dragPointIndex !== null) {
+        return;
+    }
+    
+    // Normal case: update all vertices for both maps from master
     const baseMerc = getMasterMerc();
     
     // Apply reference transform
@@ -2811,6 +2911,13 @@ function handleMapClick(e, src) {
     
     const index = masterVertices.length;
     
+    // Convert clicked lat/lng back to untransformed master coordinates
+    // This ensures new points are added in the correct coordinate system
+    const clickedMerc = toMerc(e.latlng);
+    const baseMercMaster = getMasterMerc();
+    const untransformedMerc = invertTransformMerc(clickedMerc, baseMercMaster, shapeTransforms.ref);
+    const untransformedLatLng = fromMerc(untransformedMerc);
+    
     // Create reference marker at the clicked geo location
     const mR = createHandleMarker(e.latlng, false, refMap, index);
     
@@ -2818,10 +2925,11 @@ function handleMapClick(e, src) {
     const mO = createHandleMarker(ovlLatLng, true, ovlMap, index);
     
     // Bind drag handlers for both markers
-    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng);
-    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng);
+    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng, 'ref');
+    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng, 'ovl');
 
-    masterVertices.push({ latlng: e.latlng });
+    // Store untransformed position in masterVertices
+    masterVertices.push({ latlng: untransformedLatLng });
     verticesRef.push({ latlng: e.latlng });
     verticesOvl.push({ latlng: ovlLatLng });
     markersRef.push(mR);
@@ -2896,6 +3004,13 @@ function insertIntermediatePoint(index, latlng, src) {
     // Convert that same view position to lat/lng on the overlay map
     const ovlLatLng = ovlMap.containerPointToLatLng(containerPoint);
     
+    // Convert the lat/lng back to untransformed master coordinates
+    // This ensures new points are added in the correct coordinate system
+    const clickedMerc = toMerc(latlng);
+    const baseMercMaster = getMasterMerc();
+    const untransformedMerc = invertTransformMerc(clickedMerc, baseMercMaster, shapeTransforms.ref);
+    const untransformedLatLng = fromMerc(untransformedMerc);
+    
     // Create reference marker at the clicked geo location
     const mR = createHandleMarker(latlng, false, refMap, index);
     
@@ -2903,11 +3018,11 @@ function insertIntermediatePoint(index, latlng, src) {
     const mO = createHandleMarker(ovlLatLng, true, ovlMap, index);
     
     // Bind drag handlers for both markers
-    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng);
-    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng);
+    bindDragHandlers(mR, markersRef, setMasterFromRefLatLng, 'ref');
+    bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng, 'ovl');
 
-    // Insert at the specified index
-    masterVertices.splice(index, 0, { latlng: latlng });
+    // Insert at the specified index - store untransformed position
+    masterVertices.splice(index, 0, { latlng: untransformedLatLng });
     verticesRef.splice(index, 0, { latlng: latlng });
     verticesOvl.splice(index, 0, { latlng: ovlLatLng });
     markersRef.splice(index, 0, mR);
