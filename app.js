@@ -25,7 +25,8 @@ const CONSTANTS = {
     LAT_MIN: -85.05112878,
     LAT_MAX: 85.05112878,
     LNG_MIN: -180,
-    LNG_MAX: 180
+    LNG_MAX: 180,
+    STATE_COORD_SCALE: 1e7
 };
 
 // Default tile layer options - optimized for Google Maps sharpness
@@ -953,6 +954,7 @@ function encodeAppState() {
     const c1 = map1.getCenter();
     const c2 = map2.getCenter();
     const z = refMap ? refMap.getZoom() : 15;
+    const coordScale = CONSTANTS.STATE_COORD_SCALE;
     
     // Get current reference map setting
     const refSetting = refMap === map1 ? 1 : (refMap === map2 ? 2 : 1);
@@ -973,12 +975,12 @@ function encodeAppState() {
     let o = 0;
     
     // Header
-    dv.setUint8(o, 7); o += 1;  // version 7 - simplified format
+    dv.setUint8(o, 8); o += 1;  // version 8 - simplified format (higher coord precision)
     dv.setUint16(o, Math.round(z * 100), true); o += 2;
-    dv.setInt32(o, Math.round(c1.lat * 1e6), true); o += 4;
-    dv.setInt32(o, Math.round(c1.lng * 1e6), true); o += 4;
-    dv.setInt32(o, Math.round(c2.lat * 1e6), true); o += 4;
-    dv.setInt32(o, Math.round(c2.lng * 1e6), true); o += 4;
+    dv.setInt32(o, Math.round(c1.lat * coordScale), true); o += 4;
+    dv.setInt32(o, Math.round(c1.lng * coordScale), true); o += 4;
+    dv.setInt32(o, Math.round(c2.lat * coordScale), true); o += 4;
+    dv.setInt32(o, Math.round(c2.lng * coordScale), true); o += 4;
     dv.setUint8(o, mode === 'area' ? 1 : 0); o += 1;
     dv.setUint8(o, refSetting); o += 1;
     dv.setUint8(o, encodeMapType(currentMapType)); o += 1;
@@ -989,10 +991,10 @@ function encodeAppState() {
         const refLatLng = markersRef[i].getLatLng();
         const ovlLatLng = markersOvl[i].getLatLng();
         
-        dv.setInt32(o, Math.round(refLatLng.lat * 1e6), true); o += 4;
-        dv.setInt32(o, Math.round(refLatLng.lng * 1e6), true); o += 4;
-        dv.setInt32(o, Math.round(ovlLatLng.lat * 1e6), true); o += 4;
-        dv.setInt32(o, Math.round(ovlLatLng.lng * 1e6), true); o += 4;
+        dv.setInt32(o, Math.round(refLatLng.lat * coordScale), true); o += 4;
+        dv.setInt32(o, Math.round(refLatLng.lng * coordScale), true); o += 4;
+        dv.setInt32(o, Math.round(ovlLatLng.lat * coordScale), true); o += 4;
+        dv.setInt32(o, Math.round(ovlLatLng.lng * coordScale), true); o += 4;
     }
     
     // Write transforms
@@ -1022,13 +1024,14 @@ function decodeAppState(hash) {
         
         const v = dv.getUint8(o); o += 1;
         
-        // v7: simplified format
-        if (v === 7) {
+        // v7/v8: simplified format
+        if (v === 7 || v === 8) {
+            const coordScale = v === 8 ? CONSTANTS.STATE_COORD_SCALE : 1e6;
             const z = dv.getUint16(o, true) / 100; o += 2;
-            const m1lat = dv.getInt32(o, true) / 1e6; o += 4;
-            const m1lng = dv.getInt32(o, true) / 1e6; o += 4;
-            const m2lat = dv.getInt32(o, true) / 1e6; o += 4;
-            const m2lng = dv.getInt32(o, true) / 1e6; o += 4;
+            const m1lat = dv.getInt32(o, true) / coordScale; o += 4;
+            const m1lng = dv.getInt32(o, true) / coordScale; o += 4;
+            const m2lat = dv.getInt32(o, true) / coordScale; o += 4;
+            const m2lng = dv.getInt32(o, true) / coordScale; o += 4;
             const modeCode = dv.getUint8(o); o += 1;
             const ref = dv.getUint8(o); o += 1;
             const mapTypeCode = dv.getUint8(o); o += 1;
@@ -1038,10 +1041,10 @@ function decodeAppState(hash) {
             const pts = [];
             const ovlPts = [];
             for (let i = 0; i < ptsCount; i++) {
-                const refLat = dv.getInt32(o, true) / 1e6; o += 4;
-                const refLng = dv.getInt32(o, true) / 1e6; o += 4;
-                const ovlLat = dv.getInt32(o, true) / 1e6; o += 4;
-                const ovlLng = dv.getInt32(o, true) / 1e6; o += 4;
+                const refLat = dv.getInt32(o, true) / coordScale; o += 4;
+                const refLng = dv.getInt32(o, true) / coordScale; o += 4;
+                const ovlLat = dv.getInt32(o, true) / coordScale; o += 4;
+                const ovlLng = dv.getInt32(o, true) / coordScale; o += 4;
                 pts.push([refLat, refLng]);
                 ovlPts.push([ovlLat, ovlLng]);
             }
@@ -1057,12 +1060,12 @@ function decodeAppState(hash) {
             // Expected length check
             const expectedLength = 24 + (ptsCount * 16) + 24;
             if (dv.byteLength !== expectedLength) {
-                console.log('[SyncView] decodeAppState v7 - byteLength mismatch:', dv.byteLength, 'expected:', expectedLength);
+                console.log('[SyncView] decodeAppState v' + v + ' - byteLength mismatch:', dv.byteLength, 'expected:', expectedLength);
                 return null;
             }
             
             return {
-                v: 7,
+                v,
                 z,
                 m1: [m1lat, m1lng],
                 m2: [m2lat, m2lng],
