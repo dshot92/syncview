@@ -363,22 +363,35 @@ function encodeAppState() {
     }
 
     const state = {
-        v: 1,
+        v: 2,
         z: round(map1.getZoom(), 2),
         m1: [round(c1.lat, 6), round(c1.lng, 6)],
         m2: [round(c2.lat, 6), round(c2.lng, 6)],
         mode: encodedMode,
         ref: encodedRef,
         pts: encodedPts,
-        mapType: currentMapType
+        mapType: currentMapType,
+        transforms: {
+            ref: {
+                rot: shapeTransforms.ref.rotation,
+                offX: shapeTransforms.ref.offsetMerc ? shapeTransforms.ref.offsetMerc.x : 0,
+                offY: shapeTransforms.ref.offsetMerc ? shapeTransforms.ref.offsetMerc.y : 0
+            },
+            ovl: {
+                rot: shapeTransforms.ovl.rotation,
+                offX: shapeTransforms.ovl.offsetMerc ? shapeTransforms.ovl.offsetMerc.x : 0,
+                offY: shapeTransforms.ovl.offsetMerc ? shapeTransforms.ovl.offsetMerc.y : 0
+            }
+        }
     };
 
     const ptsCount = Array.isArray(state.pts) ? state.pts.length : 0;
-    const buf = new ArrayBuffer(24 + ptsCount * 8);
+    // v2 format: 24 + 24 (transforms) + pts * 8
+    const buf = new ArrayBuffer(48 + ptsCount * 8);
     const dv = new DataView(buf);
     let o = 0;
 
-    dv.setUint8(o, 1); o += 1;
+    dv.setUint8(o, 2); o += 1;
     dv.setUint16(o, clamp(Math.round(Number(state.z) * 100), 0, 2200), true); o += 2;
 
     const m1lat = clamp(Math.round(Number(state.m1[0]) * 1e6), -85051129, 85051129);
@@ -405,6 +418,16 @@ function encodeAppState() {
         dv.setInt32(o, Math.round(plng * 1e6), true); o += 4;
     }
 
+    // Encode transforms: 6 floats (4 bytes each) = 24 bytes
+    // ref rotation, ref offX, ref offY, ovl rotation, ovl offX, ovl offY
+    const tf = state.transforms;
+    dv.setFloat32(o, tf.ref.rot, true); o += 4;
+    dv.setFloat32(o, tf.ref.offX, true); o += 4;
+    dv.setFloat32(o, tf.ref.offY, true); o += 4;
+    dv.setFloat32(o, tf.ovl.rot, true); o += 4;
+    dv.setFloat32(o, tf.ovl.offX, true); o += 4;
+    dv.setFloat32(o, tf.ovl.offY, true); o += 4;
+
     return b64UrlEncode(new Uint8Array(buf));
 }
 
@@ -422,7 +445,7 @@ function decodeAppState(hash) {
             return null;
         }
         const v = dv.getUint8(o); o += 1;
-        if (v !== 1) {
+        if (v !== 1 && v !== 2) {
             console.log('[SyncView] decodeAppState - version mismatch:', v);
             return null;
         }
@@ -437,8 +460,9 @@ function decodeAppState(hash) {
         const mapTypeCode = dv.getUint8(o); o += 1;
         const ptsCount = dv.getUint16(o, true); o += 2;
 
-        console.log('[SyncView] decodeAppState - ptsCount:', ptsCount, 'expected length:', 24 + ptsCount * 8, 'actual:', dv.byteLength);
-        if (dv.byteLength !== 24 + ptsCount * 8) {
+        const expectedLength = v === 2 ? 48 + ptsCount * 8 : 24 + ptsCount * 8;
+        console.log('[SyncView] decodeAppState - ptsCount:', ptsCount, 'expected length:', expectedLength, 'actual:', dv.byteLength);
+        if (dv.byteLength !== expectedLength) {
             console.log('[SyncView] decodeAppState - byteLength mismatch');
             return null;
         }
@@ -450,15 +474,27 @@ function decodeAppState(hash) {
             pts.push([plat, plng]);
         }
 
+        // Decode transforms for v2
+        let transforms = { ref: { rot: 0, offX: 0, offY: 0 }, ovl: { rot: 0, offX: 0, offY: 0 } };
+        if (v === 2 && dv.byteLength >= o + 24) {
+            transforms.ref.rot = dv.getFloat32(o, true); o += 4;
+            transforms.ref.offX = dv.getFloat32(o, true); o += 4;
+            transforms.ref.offY = dv.getFloat32(o, true); o += 4;
+            transforms.ovl.rot = dv.getFloat32(o, true); o += 4;
+            transforms.ovl.offX = dv.getFloat32(o, true); o += 4;
+            transforms.ovl.offY = dv.getFloat32(o, true); o += 4;
+        }
+
         return {
-            v: 1,
+            v: v,
             z,
             m1: [m1lat, m1lng],
             m2: [m2lat, m2lng],
             mode: modeCode === 1 ? 'area' : 'dist',
             ref: ref,
             pts,
-            mapType: decodeMapType(mapTypeCode)
+            mapType: decodeMapType(mapTypeCode),
+            transforms
         };
     } catch (e) {
         console.log('[SyncView] decodeAppState - exception:', e);
@@ -477,7 +513,7 @@ function applyDecodedState(state) {
     const m2 = safeLatLngLike(state.m2);
     const decodedMode = state.mode === 'area' ? 'area' : 'dist';
     const pts = Array.isArray(state.pts) ? state.pts : [];
-    const mapType = state.mapType || 'hybrid'; // Get map type from state, default to hybrid
+    const mapType = state.mapType || 'hybrid';
 
     isApplyingUrlState = true;
     try {
@@ -493,6 +529,14 @@ function applyDecodedState(state) {
 
         clearAll();
 
+        // Apply transforms if present in state
+        if (state.transforms) {
+            shapeTransforms.ref.rotation = state.transforms.ref.rot || 0;
+            shapeTransforms.ref.offsetMerc = L.point(state.transforms.ref.offX || 0, state.transforms.ref.offY || 0);
+            shapeTransforms.ovl.rotation = state.transforms.ovl.rot || 0;
+            shapeTransforms.ovl.offsetMerc = L.point(state.transforms.ovl.offX || 0, state.transforms.ovl.offY || 0);
+        }
+
         if (pts.length > 0) {
             const refIdx = state.ref === 2 ? 2 : 1;
             refMap = refIdx === 1 ? map1 : map2;
@@ -506,22 +550,48 @@ function applyDecodedState(state) {
             markersRef = [];
             markersOvl = [];
 
-            pts.forEach((p, index) => {
+            // First pass: create master vertices and reference markers
+            pts.forEach((p) => {
                 const llArr = safeLatLngLike(p);
                 if (!llArr) return;
                 const refLatLng = L.latLng(llArr[0], llArr[1]);
                 masterVertices.push({ latlng: refLatLng });
+            });
 
-                // Create reference marker at the stored geo location
+            // Ensure pivots are set based on the loaded shape
+            ensurePivot('ref');
+            ensurePivot('ovl');
+
+            // Second pass: create markers with proper transform handling
+            const baseMerc = getMasterMerc();
+
+            // Calculate reference positions with transform applied
+            const refMerc = applyTransformMerc(baseMerc, shapeTransforms.ref);
+            const refPositions = refMerc.map(p => fromMerc(p));
+
+            // Calculate overlay positions:
+            // 1. Start with base merc positions
+            // 2. Offset by view alignment (mercAnchor difference)
+            // 3. Apply overlay transform
+            const ovlBaseMerc = baseMerc.map((p) => L.point(
+                mercAnchorOvl.x + (p.x - mercAnchorRef.x),
+                mercAnchorOvl.y + (p.y - mercAnchorRef.y)
+            ));
+            const ovlMerc = applyTransformMerc(ovlBaseMerc, shapeTransforms.ovl);
+            const ovlPositions = ovlMerc.map(p => fromMerc(p));
+
+            pts.forEach((p, index) => {
+                if (!refPositions[index] || !ovlPositions[index]) return;
+
+                const refLatLng = refPositions[index];
+                const ovlLatLng = ovlPositions[index];
+
+                // Create reference marker at the transformed position
                 const mR = createHandleMarker(refLatLng, false, refMap, index);
-                
-                // Convert reference lat/lng to view position, then to overlay lat/lng
-                const containerPoint = refMap.latLngToContainerPoint(refLatLng);
-                const ovlLatLng = ovlMap.containerPointToLatLng(containerPoint);
-                
-                // Create overlay marker at the corresponding view position
+
+                // Create overlay marker at the calculated position
                 const mO = createHandleMarker(ovlLatLng, true, ovlMap, index);
-                
+
                 // Bind drag handlers
                 bindDragHandlers(mR, markersRef, setMasterFromRefLatLng, 'ref');
                 bindDragHandlers(mO, markersOvl, setMasterFromOvlLatLng, 'ovl');
