@@ -208,7 +208,7 @@
     <div id="info-overlay" class="overlay" style="display:none" role="dialog" aria-modal="true" aria-label="Information">
         <div class="overlay-card" id="info-card">
             <div class="overlay-header">
-                <div class="overlay-title">About</div>
+                <div class="overlay-title">Info</div>
                 <button class="overlay-close" onclick="closeInfoMenu()" aria-label="Close">
                     <img src="images/svgs/clear.svg" width="16" height="16" alt="">
                 </button>
@@ -216,29 +216,6 @@
 
             <div class="info-overlay-content">
                 <div class="info-section">
-                    <h3>Keyboard Shortcuts</h3>
-                    <ul>
-                        <li><strong>L</strong> - Line mode</li>
-                        <li><strong>A</strong> - Area mode</li>
-                        <li><strong>U</strong> - Toggle units (metric/imperial)</li>
-                        <li><strong>V</strong> - Toggle vertex numbers</li>
-                        <li><strong>B</strong> - Toggle bounding box</li>
-                        <li><strong>Delete</strong> - Remove last point</li>
-                        <li><strong>Ctrl+Z</strong> - Undo last point</li>
-                        <li><strong>Escape</strong> - Close overlays / Clear all</li>
-                    </ul>
-                </div>
-                <div class="info-section">
-                    <h3>Using Sync View</h3>
-                    <ul>
-                        <li><strong>Adding Points:</strong> Click on a map to add measurement points</li>
-                        <li><strong>Deleting Points:</strong> Right-click on any point to delete it</li>
-                        <li><strong>Line mode:</strong> Measure distances between points</li>
-                        <li><strong>Area mode:</strong> Measure areas of polygons</li>
-                    </ul>
-                </div>
-                <div class="info-section">
-                    <h3>About</h3>
                     <p>Sync View is a dual-map comparison tool for measuring distances and areas between locations with real-time synchronization.</p>
                 </div>
                 <div class="info-section">
@@ -251,6 +228,19 @@
                             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
                             dshot92
                         </a>
+                    </div>
+                </div>
+                <div class="info-section">
+                    <h3>Keyboard Shortcuts</h3>
+                    <div class="shortcuts-grid">
+                        <div class="shortcut-item"><kbd>L</kbd><span>Line mode</span></div>
+                        <div class="shortcut-item"><kbd>A</kbd><span>Area mode</span></div>
+                        <div class="shortcut-item"><kbd>U</kbd><span>Toggle units</span></div>
+                        <div class="shortcut-item"><kbd>V</kbd><span>Vertex numbers</span></div>
+                        <div class="shortcut-item"><kbd>B</kbd><span>Bounding box</span></div>
+                        <div class="shortcut-item"><kbd>Delete</kbd><span>Remove last point</span></div>
+                        <div class="shortcut-item"><kbd>Ctrl+Z</kbd><span>Undo</span></div>
+                        <div class="shortcut-item"><kbd>Esc</kbd><span>Close / Clear</span></div>
                     </div>
                 </div>
             </div>

@@ -755,7 +755,7 @@ body.info-overlay-open {
 }
 
 .info-overlay-content .info-section h3 {
-    font-size: 0.75rem;
+    font-size: 1rem;
     font-weight: 700;
     color: var(--text-white);
     margin: 0 0 var(--gap-sm) 0;
@@ -769,7 +769,7 @@ body.info-overlay-open {
 }
 
 .info-overlay-content .info-section li {
-    font-size: 0.6875rem;
+    font-size: 1rem;
     line-height: 1.4;
     color: var(--text-muted);
 }
@@ -780,7 +780,7 @@ body.info-overlay-open {
 }
 
 .info-overlay-content .info-section p {
-    font-size: 0.6875rem;
+    font-size: 1rem;
     line-height: 1.4;
     color: var(--text-muted);
     margin: 0;
@@ -1285,19 +1285,20 @@ body.info-overlay-open {
  .github-link {
     display: inline-flex;
     align-items: center;
-    gap: var(--gap-md);
-    padding: var(--gap-md) var(--gap-lg);
+    justify-content: center;
+    gap: var(--gap-sm);
+    padding: 0 var(--gap-md);
+    height: 2.5rem;
     background: var(--bg-body);
     border: 0.0625rem solid var(--border);
-    border-radius: var(--radius);
+    border-radius: 0.75rem;
     color: var(--text-white);
     text-decoration: none;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 800;
     transition: var(--hover-transition);
     flex: 1;
     min-width: 0;
-    justify-content: center;
  }
 
  .github-link:hover {
@@ -1480,20 +1481,6 @@ body.info-overlay-open {
         bottom: var(--tool-offset);
         left: var(--tool-offset);
         transform: none;
-    }
-
-    /* Second map search button - keep consistent placement */
-    .map-wrapper:last-child .tool__search-wrapper {
-        top: var(--tool-offset);
-        bottom: auto;
-        transform: none;
-    }
-
-    /* First map location button - above search button (mirrored) */
-    .map-wrapper:first-child .tool__location-btn {
-        top: auto;
-        bottom: calc((var(--ui-btn-size-sm) + var(--button-gap)) * 1 + var(--tool-offset));
-        left: var(--tool-offset);
     }
 
     /* Second map location button - under search button */
@@ -1767,4 +1754,42 @@ body.info-overlay-open {
 .select-trigger img,
 .overlay-close img {
     filter: brightness(0) invert(1);
+}
+
+/* Keyboard shortcuts grid */
+.shortcuts-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--gap-sm);
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    gap: var(--gap-sm);
+    padding: var(--gap-sm) var(--gap-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+}
+
+.shortcut-item kbd {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    padding: 0.25rem 0.5rem;
+    font-family: var(--font-mono, monospace);
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-white);
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-sm);
+    box-shadow: 0 2px 0 var(--border-color);
+}
+
+.shortcut-item span {
+    font-size: 0.875rem;
+    color: var(--text-muted);
 }
