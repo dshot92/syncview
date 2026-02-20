@@ -849,6 +849,10 @@
                 <span>Show Bounding Box</span>
                 <span id="val-bbox" class="setting-value">Off</span>
             </div>
+            <div class="setting-row" onclick="AppState.toggleDetectRetina()">
+                <span>High-DPI Tiles</span>
+                <span id="val-retina" class="setting-value">On</span>
+            </div>
         </div>
     </div>
 
@@ -1061,10 +1065,9 @@
             minZoom: 1,
             maxZoom: 22,
             tileSize: 256,
-            detectRetina: true,       // use high-DPI tiles on retina screens
         };
-        let tile1 = L.tileLayer(tiles.hybrid, tileOptions).addTo(map1);
-        let tile2 = L.tileLayer(tiles.hybrid, tileOptions).addTo(map2);
+        let tile1 = L.tileLayer(tiles.hybrid, { ...tileOptions, detectRetina: true }).addTo(map1);
+        let tile2 = L.tileLayer(tiles.hybrid, { ...tileOptions, detectRetina: true }).addTo(map2);
 
 
         // ── Real-time simultaneous zoom sync ─────────────────────────────────────
@@ -1159,6 +1162,7 @@
             isDragging: false,
             isRotating: false,
             isDraggingPoint: -1,
+            detectRetina: true,
 
             init(anchor, originMapId) {
                 const compMap = originMapId === 1 ? map2 : map1;
@@ -1180,8 +1184,8 @@
                 map1.removeLayer(tile1); map2.removeLayer(tile2);
 
                 // Create new layers with the new URL
-                tile1 = L.tileLayer(tiles[l], tileOptions).addTo(map1).bringToBack();
-                tile2 = L.tileLayer(tiles[l], tileOptions).addTo(map2).bringToBack();
+                tile1 = L.tileLayer(tiles[l], { ...tileOptions, detectRetina: this.detectRetina }).addTo(map1).bringToBack();
+                tile2 = L.tileLayer(tiles[l], { ...tileOptions, detectRetina: this.detectRetina }).addTo(map2).bringToBack();
 
                 // Force a layout refresh and tile reload
                 map1.invalidateSize({ pan: false }); map2.invalidateSize({ pan: false });
@@ -1217,6 +1221,11 @@
                 this.showBoundingBox = !this.showBoundingBox;
                 document.getElementById('val-bbox').textContent = this.showBoundingBox ? 'On' : 'Off';
                 requestRender();
+            },
+            toggleDetectRetina() {
+                this.detectRetina = !this.detectRetina;
+                document.getElementById('val-retina').textContent = this.detectRetina ? 'On' : 'Off';
+                this.setLayer(document.getElementById('layerMenu').dataset.active);
             },
             clear() {
                 this.groundTruth = null;
@@ -1637,8 +1646,10 @@
                     const vBit = AppState.showVertexNumbers ? 1 : 0;
                     // Bit 5: BBox
                     const bBit = AppState.showBoundingBox ? 1 : 0;
+                    // Bit 6: Detect Retina
+                    const rBit = AppState.detectRetina ? 1 : 0;
 
-                    const flags = (lIdx & 0x03) | ((mBit & 1) << 2) | ((uBit & 1) << 3) | ((vBit & 1) << 4) | ((bBit & 1) << 5);
+                    const flags = (lIdx & 0x03) | ((mBit & 1) << 2) | ((uBit & 1) << 3) | ((vBit & 1) << 4) | ((bBit & 1) << 5) | ((rBit & 1) << 6);
                     this.Bin.wU8(flags);
 
                     // 3. Map 1 State
@@ -1696,6 +1707,8 @@
                     if ((uBit === 1 && AppState.units === 'metric') || (uBit === 0 && AppState.units === 'imperial')) AppState.toggleUnits();
                     if ((vBit === 1 && !AppState.showVertexNumbers) || (vBit === 0 && AppState.showVertexNumbers)) AppState.toggleVertexNumbers();
                     if ((bBit === 1 && !AppState.showBoundingBox) || (bBit === 0 && AppState.showBoundingBox)) AppState.toggleBoundingBox();
+                    const rBit = (flags >> 6) & 1;
+                    if ((rBit === 1 && !AppState.detectRetina) || (rBit === 0 && AppState.detectRetina)) AppState.toggleDetectRetina();
 
                     // Map 1
                     const lat1 = this.Bin.rF32(); const lng1 = this.Bin.rF32();
