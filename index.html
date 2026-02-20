@@ -1977,22 +1977,8 @@
                 el.value = text;
                 document.body.appendChild(el);
                 el.select();
-                try { document.execCommand('copy'); showCopiedFeedback(); } catch (e) { }
+                try { document.execCommand('copy') } catch (e) { }
                 document.body.removeChild(el);
-            }
-
-            function showCopiedFeedback() {
-                const btn = document.querySelector('.bar-btn[onclick="shareCurrentView()"]');
-                if (!btn) return;
-                const img = btn.querySelector('img');
-                const originalSrc = img.src;
-                btn.innerHTML = '<span style="font-size:10px;font-weight:bold;color:var(--accent-blue)">COPIED</span>';
-                setTimeout(() => {
-                    btn.innerHTML = '';
-                    const newImg = document.createElement('img');
-                    newImg.src = originalSrc;
-                    btn.appendChild(newImg);
-                }, 2000);
             }
         }
 
