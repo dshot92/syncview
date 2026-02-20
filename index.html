@@ -851,7 +851,7 @@
             </div>
             <div class="setting-row" onclick="AppState.toggleDetectRetina()">
                 <span>High-DPI Tiles</span>
-                <span id="val-retina" class="setting-value">On</span>
+                <span id="val-retina" class="setting-value">Off</span>
             </div>
         </div>
     </div>
@@ -1163,7 +1163,7 @@
             isRotating: false,
             isDraggingPoint: -1,
             isDragEnd: false,
-            detectRetina: true,
+            detectRetina: false,
 
             init(anchor, originMapId) {
                 const originMap = originMapId === 1 ? map1 : map2;
