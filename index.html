@@ -2125,21 +2125,53 @@
                 document.getElementById('layerMenu').classList.remove('show');
                 document.getElementById('layerBtn').classList.remove('active');
             }
+            // Close search if clicked outside its wrapper
+            [1, 2].forEach(id => {
+                const ctrl = document.getElementById(`search-ctrl${id}`);
+                if (!ctrl || !ctrl.classList.contains('expanded')) return;
+                const wrapper = ctrl.closest('.search-wrapper');
+                if (wrapper && !wrapper.contains(e.target)) {
+                    toggleSearch(id);
+                }
+            });
         });
 
         window.addEventListener('keydown', (e) => {
             const target = e.target.tagName.toLowerCase();
-            if (target === 'input' || target === 'textarea') return;
+            const isInput = target === 'input' || target === 'textarea';
+
+            if (e.key === 'Escape') {
+                let searchWasOpen = false;
+                [1, 2].forEach(id => {
+                    const ctrl = document.getElementById(`search-ctrl${id}`);
+                    if (ctrl && ctrl.classList.contains('expanded')) {
+                        toggleSearch(id);
+                        searchWasOpen = true;
+                    }
+                });
+                if (searchWasOpen) return;
+
+                const openModal = document.querySelector('.modal-overlay.show');
+                if (openModal) {
+                    toggleModal(openModal.id, false);
+                    return;
+                }
+
+                if (!isInput) AppState.clear();
+                else e.target.blur();
+                return;
+            }
+
+            if (isInput) return;
             if (e.key.toLowerCase() === 'l') AppState.setMode('line');
             if (e.key.toLowerCase() === 'a') AppState.setMode('area');
             if (e.key.toLowerCase() === 'u') AppState.toggleUnits();
             if (e.key.toLowerCase() === 'v') AppState.toggleVertexNumbers();
             if (e.key.toLowerCase() === 'b') AppState.toggleBoundingBox();
             if (e.key === 'Delete' || e.key === 'Backspace') AppState.removeLast();
-            if (e.key === 'Escape') {
-                const openModal = document.querySelector('.modal-overlay.show');
-                if (openModal) toggleModal(openModal.id, false);
-                else AppState.clear();
+            if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                AppState.removeLast();
             }
         });
 
