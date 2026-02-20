@@ -905,11 +905,11 @@
         const getCssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 
         class Shape {
-            constructor(anchor, originMapId, comparisonMap) {
+            constructor(anchor, originMapId, initialCompAnchor) {
                 this.origin_map = originMapId;
                 this.origin_anchor = L.latLng(anchor);
-                // Initialize comparison anchor as the center of the comparison map
-                this.comparison_anchor = comparisonMap.getCenter();
+                // Use the provided initial anchor for the comparison map
+                this.comparison_anchor = L.latLng(initialCompAnchor);
                 this.localPoints = [L.point(0, 0)];
                 this.overlayRotation = 0; // radians
             }
@@ -1162,11 +1162,18 @@
             isDragging: false,
             isRotating: false,
             isDraggingPoint: -1,
+            isDragEnd: false,
             detectRetina: true,
 
             init(anchor, originMapId) {
+                const originMap = originMapId === 1 ? map1 : map2;
                 const compMap = originMapId === 1 ? map2 : map1;
-                this.groundTruth = new Shape(anchor, originMapId, compMap);
+
+                // Match screen position for the first point so it appears exactly where clicked relative to the map container
+                const screenPoint = originMap.latLngToContainerPoint(anchor);
+                const initialCompAnchor = compMap.containerPointToLatLng(screenPoint);
+
+                this.groundTruth = new Shape(anchor, originMapId, initialCompAnchor);
                 this.updateUI();
                 requestRender();
             },
@@ -1426,7 +1433,12 @@
                 }).addTo(layer);
 
                 handles.move.on('dragstart', () => AppState.isDragging = true);
-                handles.move.on('dragend', () => { AppState.isDragging = false; requestRender(); });
+                handles.move.on('dragend', () => {
+                    AppState.isDragging = false;
+                    AppState.isDragEnd = true;
+                    setTimeout(() => AppState.isDragEnd = false, 100);
+                    requestRender();
+                });
                 handles.move.on('drag', e => {
                     AppState.groundTruth.setOverlayPosition(e.target.getLatLng());
                     renderAll();
@@ -1453,7 +1465,12 @@
                 }).addTo(layer);
 
                 handles.rotate.on('dragstart', () => AppState.isRotating = true);
-                handles.rotate.on('dragend', () => { AppState.isRotating = false; requestRender(); });
+                handles.rotate.on('dragend', () => {
+                    AppState.isRotating = false;
+                    AppState.isDragEnd = true;
+                    setTimeout(() => AppState.isDragEnd = false, 100);
+                    requestRender();
+                });
 
                 handles.rotate.on('drag', e => {
                     const c = AppState.groundTruth.comparison_anchor;
@@ -1549,11 +1566,19 @@
 
         [map1, map2].forEach((m, i) => {
             m.on('click', e => {
-                if (AppState.groundTruth && AppState.groundTruth.origin_map !== (i + 1)) return;
-                if (!AppState.groundTruth) AppState.init(e.latlng, i + 1);
-                else {
-                    const idx = getInsertIndex(e.latlng, m);
-                    AppState.groundTruth.addPoint(e.latlng, m, idx);
+                if (AppState.isDragEnd || AppState.isDragging || AppState.isRotating) return;
+
+                if (!AppState.groundTruth) {
+                    AppState.init(e.latlng, i + 1);
+                } else {
+                    if (AppState.groundTruth.origin_map === (i + 1)) {
+                        // Origin map: Add or insert a new point
+                        const idx = getInsertIndex(e.latlng, m);
+                        AppState.groundTruth.addPoint(e.latlng, m, idx);
+                    } else {
+                        // Comparison map: Reposition the entire shape reference
+                        AppState.groundTruth.setOverlayPosition(e.latlng);
+                    }
                 }
                 requestRender(); AppState.updateUI();
             });
