@@ -1796,7 +1796,7 @@
             window.history.replaceState({}, '', strUrl);
 
             if (navigator.share) {
-                navigator.share({ title: 'Spatial Size Comparison', url: strUrl }).catch(() => copyToClipboard(strUrl));
+                navigator.share({ title: 'Sync View', url: strUrl }).catch(() => copyToClipboard(strUrl));
             } else {
                 copyToClipboard(strUrl);
             }
