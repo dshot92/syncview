@@ -379,6 +379,11 @@
             padding: 6px;
         }
 
+        .results-list {
+            display: flex;
+            flex-direction: column;
+        }
+
         .result-item {
             padding: 10px 12px;
             cursor: pointer;
@@ -771,6 +776,10 @@
             #map1-wrapper .search-results {
                 top: auto;
                 bottom: 50px;
+                flex-direction: column-reverse;
+            }
+
+            #map1-wrapper .results-list {
                 flex-direction: column-reverse;
             }
 
