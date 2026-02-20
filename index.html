@@ -1055,8 +1055,8 @@
         const map2 = L.map('map2', mapOptions).setView([40.7128, -74.0060], 13);
 
         const tileOptions = {
-            updateWhenZooming: false, // don't request tiles mid-pinch (avoids flicker)
-            updateWhenIdle: true,     // load tiles after panning stops
+            updateWhenZooming: true,  // request tiles during zooming
+            updateWhenIdle: false,    // load tiles immediately
             keepBuffer: 4,            // cache 4 tiles around the viewport
             minZoom: 1,
             maxZoom: 22,
@@ -1176,7 +1176,18 @@
                 requestRender();
             },
             setLayer(l) {
-                tile1.setUrl(tiles[l]); tile2.setUrl(tiles[l]);
+                // Remove old layers to force a clean slate
+                map1.removeLayer(tile1); map2.removeLayer(tile2);
+
+                // Create new layers with the new URL
+                tile1 = L.tileLayer(tiles[l], tileOptions).addTo(map1).bringToBack();
+                tile2 = L.tileLayer(tiles[l], tileOptions).addTo(map2).bringToBack();
+
+                // Force a layout refresh and tile reload
+                map1.invalidateSize({ pan: false }); map2.invalidateSize({ pan: false });
+                map1.setView(map1.getCenter(), map1.getZoom(), { animate: false });
+                map2.setView(map2.getCenter(), map2.getZoom(), { animate: false });
+
                 const menu = document.getElementById('layerMenu');
                 menu.dataset.active = l;
                 document.querySelectorAll('.dropdown-item').forEach(item => {
