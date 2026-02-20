@@ -1487,8 +1487,21 @@
         function format(v) {
             if (v === 0) return '---';
             const isM = AppState.units === 'metric';
-            if (AppState.mode === 'area') return isM ? (v > 1e6 ? (v / 1e6).toFixed(2) + ' km²' : v.toFixed(0) + ' m²') : (v * 1e-6 * 0.3861).toFixed(2) + ' mi²';
-            return isM ? (v > 1000 ? (v / 1000).toFixed(2) + ' km' : v.toFixed(0) + ' m') : (v * 0.000621).toFixed(2) + ' mi';
+            if (AppState.mode === 'area') {
+                if (isM) {
+                    return v >= 1e6 ? (v / 1e6).toFixed(2) + ' km2' : v.toFixed(0) + ' m2';
+                } else {
+                    const yd2 = v * 1.19599;
+                    return yd2 >= 3097600 ? (v * 3.861e-7).toFixed(2) + ' mi2' : yd2.toFixed(0) + ' yd2';
+                }
+            } else {
+                if (isM) {
+                    return v >= 1000 ? (v / 1000).toFixed(2) + ' km' : v.toFixed(0) + ' m';
+                } else {
+                    const yd = v * 1.09361;
+                    return yd >= 1760 ? (v * 0.000621371).toFixed(2) + ' mi' : yd.toFixed(0) + ' yd';
+                }
+            }
         }
 
         function getInsertIndex(latlng, m) {
