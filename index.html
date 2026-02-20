@@ -59,6 +59,7 @@
             --pill-rect-width: 72px;
             --bar-gap: 4px;
             --btn-radius: 16px;
+            --lens-size: 140px;
         }
 
         * {
@@ -795,6 +796,34 @@
                 display: none !important;
             }
         }
+
+        #magnifier {
+            position: fixed;
+            width: var(--lens-size);
+            height: var(--lens-size);
+            border-radius: 50%;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.8), inset 0 0 10px rgba(0, 0, 0, 0.5);
+            z-index: 10000;
+            pointer-events: none;
+            display: none;
+            overflow: hidden;
+            background: #000;
+        }
+
+        #magnifier::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+            z-index: 10001;
+        }
     </style>
 </head>
 
@@ -996,6 +1025,7 @@
         </div>
     </div>
 
+    <div id="magnifier"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
@@ -1268,6 +1298,10 @@
             isDraggingPoint: -1,
             isDragEnd: false,
             detectRetina: false,
+            lensOffset: 40,
+            showLens: true,
+            magnifierMap: null,
+            magnifierTile: null,
 
             init(anchor, originMapId) {
                 const originMap = originMapId === 1 ? map1 : map2;
@@ -1495,16 +1529,27 @@
                     const m = L.marker(p, {
                         icon: L.divIcon({
                             className: 'map-point-icon',
-                            html: AppState.showVertexNumbers ? i + 1 : ''
+                            html: AppState.showVertexNumbers ? i + 1 : '',
+                            iconSize: [20, 20],
+                            iconAnchor: [10, 10]
                         }),
                         draggable: true
                     }).addTo(layer);
 
-                    m.on('dragstart', () => AppState.isDraggingPoint = i);
-                    m.on('dragend', () => { AppState.isDraggingPoint = -1; requestRender(); });
+                    m.on('dragstart', (e) => {
+                        AppState.isDraggingPoint = i;
+                        initMagnifier(map, e.target.getLatLng());
+                    });
+                    m.on('dragend', () => {
+                        AppState.isDraggingPoint = -1;
+                        hideMagnifier();
+                        requestRender();
+                    });
 
                     m.on('drag', e => {
-                        AppState.groundTruth.updatePoint(i, e.target.getLatLng(), map);
+                        const latlng = e.target.getLatLng();
+                        AppState.groundTruth.updatePoint(i, latlng, map);
+                        updateMagnifier(latlng, map);
                         requestRender();
                     });
                     return m;
@@ -1533,10 +1578,17 @@
             if (!handles.move) {
                 handles.move = L.marker(center, {
                     draggable: true,
-                    icon: L.divIcon({ className: 'handle-icon handle-move', html: '<img id="imgblack" src="images/svgs/move.svg">', iconSize: [32, 32] })
+                    icon: L.divIcon({
+                        className: 'handle-icon handle-move',
+                        html: '<img id="imgblack" src="images/svgs/move.svg">',
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16]
+                    })
                 }).addTo(layer);
 
-                handles.move.on('dragstart', () => AppState.isDragging = true);
+                handles.move.on('dragstart', () => {
+                    AppState.isDragging = true;
+                });
                 handles.move.on('dragend', () => {
                     AppState.isDragging = false;
                     AppState.isDragEnd = true;
@@ -1544,7 +1596,8 @@
                     requestRender();
                 });
                 handles.move.on('drag', e => {
-                    AppState.groundTruth.setOverlayPosition(e.target.getLatLng());
+                    const latlng = e.target.getLatLng();
+                    AppState.groundTruth.setOverlayPosition(latlng);
                     renderAll();
                 });
             } else {
@@ -1565,10 +1618,17 @@
             if (!handles.rotate) {
                 handles.rotate = L.marker(handlePos, {
                     draggable: true,
-                    icon: L.divIcon({ className: 'handle-icon handle-rotate', html: '<img id="imgblack" src="images/svgs/rotate.svg">', iconSize: [32, 32] })
+                    icon: L.divIcon({
+                        className: 'handle-icon handle-rotate',
+                        html: '<img id="imgblack" src="images/svgs/rotate.svg">',
+                        iconSize: [32, 32],
+                        iconAnchor: [16, 16]
+                    })
                 }).addTo(layer);
 
-                handles.rotate.on('dragstart', () => AppState.isRotating = true);
+                handles.rotate.on('dragstart', () => {
+                    AppState.isRotating = true;
+                });
                 handles.rotate.on('dragend', () => {
                     AppState.isRotating = false;
                     AppState.isDragEnd = true;
@@ -1577,6 +1637,7 @@
                 });
 
                 handles.rotate.on('drag', e => {
+                    const latlng = e.target.getLatLng();
                     const c = AppState.groundTruth.comparison_anchor;
                     const cPx = map.project(c, map.getZoom());
                     const mPx = map.project(e.target.getLatLng(), map.getZoom());
@@ -1675,13 +1736,14 @@
                 if (!AppState.groundTruth) {
                     AppState.init(e.latlng, i + 1);
                 } else {
+                    const latlng = e.latlng;
                     if (AppState.groundTruth.origin_map === (i + 1)) {
                         // Origin map: Add or insert a new point
-                        const idx = getInsertIndex(e.latlng, m);
-                        AppState.groundTruth.addPoint(e.latlng, m, idx);
+                        const idx = getInsertIndex(latlng, m);
+                        AppState.groundTruth.addPoint(latlng, m, idx);
                     } else {
                         // Comparison map: Reposition the entire shape reference
-                        AppState.groundTruth.setOverlayPosition(e.latlng);
+                        AppState.groundTruth.setOverlayPosition(latlng);
                     }
                 }
                 requestRender(); AppState.updateUI();
@@ -2051,6 +2113,68 @@
                 console.error('Search error:', err);
                 resDiv.innerHTML = '<div class="result-item" style="color:var(--accent-red); cursor:default;">Search error. Check connection.</div>';
             }
+        }
+
+        function initMagnifier(sourceMap, latlng) {
+            if (!AppState.showLens) return;
+            const lens = document.getElementById('magnifier');
+            lens.style.display = 'block';
+
+            if (!AppState.magnifierMap) {
+                AppState.magnifierMap = L.map('magnifier', {
+                    zoomControl: false,
+                    attributionControl: false,
+                    dragging: false,
+                    touchZoom: false,
+                    scrollWheelZoom: false,
+                    doubleClickZoom: false,
+                    boxZoom: false,
+                    inertia: false
+                });
+                const currentLayer = document.getElementById('layerMenu').dataset.active || 'hybrid';
+                AppState.magnifierTile = L.tileLayer(tiles[currentLayer], { ...tileOptions, detectRetina: AppState.detectRetina }).addTo(AppState.magnifierMap);
+            }
+
+            AppState.magnifierMap.invalidateSize({ pan: false });
+
+            // Sync layer
+            const currentLayer = document.getElementById('layerMenu').dataset.active || 'hybrid';
+            if (AppState.magnifierTile.options.detectRetina !== AppState.detectRetina) {
+                AppState.magnifierMap.removeLayer(AppState.magnifierTile);
+                AppState.magnifierTile = L.tileLayer(tiles[currentLayer], { ...tileOptions, detectRetina: AppState.detectRetina }).addTo(AppState.magnifierMap);
+            } else {
+                AppState.magnifierTile.setUrl(tiles[currentLayer]);
+            }
+
+            const targetZoom = Math.min(sourceMap.getZoom() + 2, 22);
+            AppState.magnifierMap.setView(latlng, targetZoom, { animate: false });
+            updateMagnifier(latlng, sourceMap);
+        }
+
+        function updateMagnifier(latlng, sourceMap) {
+            if (!AppState.showLens || !AppState.magnifierMap) return;
+            const lens = document.getElementById('magnifier');
+
+            // Position lens above the touch/point
+            // We want it centered horizontally on the point, and some distance above
+            const p = sourceMap.latLngToContainerPoint(latlng);
+            const mapRect = sourceMap.getContainer().getBoundingClientRect();
+
+            // Adjust for global container offset if any
+            const globalX = p.x + mapRect.left;
+            const globalY = p.y + mapRect.top;
+
+            // Position bubble
+            const lensSize = 140;
+            lens.style.left = (globalX - lensSize / 2) + 'px';
+            lens.style.top = (globalY - lensSize - AppState.lensOffset) + 'px';
+
+            const targetZoom = Math.min(sourceMap.getZoom() + 2, 22);
+            AppState.magnifierMap.setView(latlng, targetZoom, { animate: false });
+        }
+
+        function hideMagnifier() {
+            document.getElementById('magnifier').style.display = 'none';
         }
 
         const debouncedSearch = ((fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; })(handleSearch, 400);
