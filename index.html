@@ -222,6 +222,26 @@
             background-color: var(--accent-red);
         }
 
+        .tool-btn.loading img {
+            display: none;
+        }
+
+        .tool-btn.loading::after {
+            content: '';
+            width: 18px;
+            height: 18px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 0.6s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
         .map-point-icon {
             border: 2px solid var(--shape-outline-color);
             background-color: var(--shape-point-color);
@@ -742,7 +762,7 @@
                         </div>
                         <div id="results1" class="search-results"></div>
                     </div>
-                    <button class="tool-btn" onclick="locateDevice(1)">
+                    <button class="tool-btn" id="locate-btn1" onclick="locateDevice(1)">
                         <img src="images/svgs/device-position.svg" alt="">
                     </button>
                     <button id="back1" class="tool-btn hidden" onclick="AppState.removeLast()">
@@ -776,7 +796,7 @@
                         </div>
                         <div id="results2" class="search-results"></div>
                     </div>
-                    <button class="tool-btn" onclick="locateDevice(2)">
+                    <button class="tool-btn" id="locate-btn2" onclick="locateDevice(2)">
                         <img src="images/svgs/device-position.svg" alt="">
                     </button>
                     <button id="back2" class="tool-btn hidden" onclick="AppState.removeLast()">
@@ -1905,7 +1925,21 @@
         }
 
         const debouncedSearch = ((fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; })(handleSearch, 400);
-        function locateDevice(id) { navigator.geolocation.getCurrentPosition(p => (id === 1 ? map1 : map2).setView([p.coords.latitude, p.coords.longitude], 15)); }
+        function locateDevice(id) {
+            const btn = document.getElementById(`locate-btn${id}`);
+            if (btn) btn.classList.add('loading');
+            navigator.geolocation.getCurrentPosition(
+                p => {
+                    (id === 1 ? map1 : map2).setView([p.coords.latitude, p.coords.longitude], 15);
+                    if (btn) btn.classList.remove('loading');
+                },
+                err => {
+                    console.error(err);
+                    if (btn) btn.classList.remove('loading');
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        }
 
         // Init from URL
         window.addEventListener('load', () => {
