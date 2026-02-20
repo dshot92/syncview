@@ -1967,7 +1967,7 @@
 
         function copyToClipboard(text) {
             if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(text).then(showCopiedFeedback, fallbackCopy);
+                navigator.clipboard.writeText(text).then(fallbackCopy);
             } else {
                 fallbackCopy();
             }
