@@ -36,7 +36,7 @@
             --accent-blue: #3b82f6;
             --accent-yellow: #fbbf24;
             --accent-red: #f43f5e;
-            --text-main: #f8fafc;
+            --text-color: #fff;
             --border: 1px solid rgba(255, 255, 255, 0.1);
             --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
             --radius: 12px;
@@ -83,7 +83,7 @@
             height: 100vh;
             width: 100vw;
             background: var(--bg-deep);
-            color: var(--text-main);
+            color: var(--text-color);
             font-family: 'Inter', system-ui, -apple-system, sans-serif;
             overflow: hidden;
             touch-action: none;
@@ -195,7 +195,7 @@
             background: var(--bg-deep);
             backdrop-filter: blur(10px);
             border: var(--border);
-            color: white;
+            color: var(--text-main);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -255,7 +255,7 @@
             display: flex !important;
             align-items: center;
             justify-content: center;
-            color: white;
+            color: var(--text-main);
             font-size: 10px;
             font-weight: 900;
             text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
@@ -349,7 +349,7 @@
             opacity: 0;
             background: transparent;
             border: none;
-            color: white;
+            color: var(--text-main);
             padding: 0;
             font-size: 14px;
             outline: none;
@@ -383,7 +383,7 @@
             padding: 10px 12px;
             cursor: pointer;
             font-size: 13px;
-            color: rgba(255, 255, 255, 0.7);
+            color: var(--text-main);
             border-radius: calc(var(--btn-radius) - 6px);
             transition: all 0.2s;
         }
@@ -391,7 +391,7 @@
         @media (hover: hover) {
             .result-item:hover {
                 background: rgba(255, 255, 255, 0.05);
-                color: white;
+                color: var(--text-main);
             }
         }
 
@@ -419,7 +419,7 @@
             border-radius: var(--btn-radius);
             background: transparent;
             border: none;
-            color: white;
+            color: var(--text-main);
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -476,7 +476,7 @@
             cursor: pointer;
             border: none;
             background: transparent;
-            color: white;
+            color: var(--text-main);
             transition: color 0.3s;
             position: relative;
             z-index: 1;
@@ -488,7 +488,7 @@
         }
 
         .pill.active {
-            color: #020617;
+            color: var(--bg-deep);
         }
 
         #mode-group[data-mode="area"] .pill-bg {
@@ -530,6 +530,7 @@
             height: 40px;
             padding: 0 16px;
             border-radius: calc(var(--btn-radius) - 4px);
+            color: var(--text-main);
             font-size: 13px;
             font-weight: 500;
             cursor: pointer;
@@ -539,18 +540,16 @@
             position: relative;
             z-index: 1;
             transition: color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            color: rgba(255, 255, 255, 0.7);
         }
 
         @media (hover: hover) {
             .dropdown-item:hover {
-                color: white;
+                color: var(--text-main);
             }
         }
 
         .dropdown-item.active {
             color: var(--bg-deep);
-            font-weight: 700;
         }
 
         .dropdown-highlight {
@@ -607,7 +606,7 @@
             max-width: 480px;
             padding: 24px;
             box-shadow: var(--shadow-lg);
-            color: var(--text-main);
+            color: var(--text-color);
         }
 
         .modal-header {
@@ -645,7 +644,7 @@
             border: var(--border);
             border-radius: var(--btn-radius);
             padding: 10px;
-            color: white;
+            color: var(--text-main);
             text-decoration: none;
             font-size: 14px;
             font-weight: 600;
@@ -715,7 +714,7 @@
             font-size: 13px;
             word-break: break-all;
             margin-bottom: 20px;
-            color: rgba(255, 255, 255, 0.6);
+            color: var(--text-main);
             max-height: 120px;
             overflow-y: auto;
             user-select: text;
@@ -724,7 +723,7 @@
 
         .btn-primary {
             background: var(--accent-blue);
-            color: white;
+            color: var(--text-main);
             border: none;
             border-radius: var(--btn-radius);
             padding: 14px;
@@ -824,6 +823,62 @@
             box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
             z-index: 10001;
         }
+
+        /* REPLACING INLINE STYLES */
+        .modal-header h2 {
+            margin: 0;
+        }
+
+        .modal-header .tool-btn {
+            width: 32px;
+            height: 32px;
+        }
+
+        .info-intro {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 0;
+            color: var(--text-main);
+        }
+
+        .shortcut-title {
+            font-size: 15px;
+            margin-bottom: 12px;
+        }
+
+        .btn-primary img {
+            width: 20px;
+            height: 20px;
+        }
+
+        .qr-status {
+            font-size: 12px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .qr-status.loading {
+            color: var(--accent-blue);
+        }
+
+        .qr-status.error {
+            color: var(--accent-red);
+        }
+
+        .search-status {
+            opacity: 0.6;
+            cursor: default;
+            color: var(--text-main);
+        }
+
+        .search-status.searching {
+            cursor: wait;
+        }
+
+        .search-status.error {
+            color: var(--accent-red);
+            opacity: 1;
+        }
     </style>
 </head>
 
@@ -850,7 +905,14 @@
                                 oninput="debouncedSearch(event, 1)" autocomplete="off" autocorrect="off"
                                 autocapitalize="off" spellcheck="false">
                         </div>
-                        <div id="results1" class="search-results"></div>
+                        <div id="results1" class="search-results">
+                            <div id="status-searching1" class="result-item search-status searching hidden">Searching...
+                            </div>
+                            <div id="status-none1" class="result-item search-status hidden">No results found</div>
+                            <div id="status-error1" class="result-item search-status error hidden">Search error. Check
+                                connection.</div>
+                            <div id="results-list1" class="results-list"></div>
+                        </div>
                     </div>
                     <button class="tool-btn" id="locate-btn1" onclick="locateDevice(1)">
                         <img src="images/svgs/device-position.svg" alt="">
@@ -884,7 +946,14 @@
                                 oninput="debouncedSearch(event, 2)" autocomplete="off" autocorrect="off"
                                 autocapitalize="off" spellcheck="false">
                         </div>
-                        <div id="results2" class="search-results"></div>
+                        <div id="results2" class="search-results">
+                            <div id="status-searching2" class="result-item search-status searching hidden">Searching...
+                            </div>
+                            <div id="status-none2" class="result-item search-status hidden">No results found</div>
+                            <div id="status-error2" class="result-item search-status error hidden">Search error. Check
+                                connection.</div>
+                            <div id="results-list2" class="results-list"></div>
+                        </div>
                     </div>
                     <button class="tool-btn" id="locate-btn2" onclick="locateDevice(2)">
                         <img src="images/svgs/device-position.svg" alt="">
@@ -943,9 +1012,8 @@
     <div id="settings-modal" class="modal-overlay" onclick="toggleModal('settings-modal', false)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h2 style="margin:0">Settings</h2>
-                <button class="tool-btn" style="width:32px;height:32px"
-                    onclick="toggleModal('settings-modal', false)">×</button>
+                <h2>Settings</h2>
+                <button class="tool-btn" onclick="toggleModal('settings-modal', false)">×</button>
             </div>
             <div class="setting-row" onclick="AppState.toggleUnits()">
                 <span>Measurement Units</span>
@@ -970,11 +1038,10 @@
     <div id="info-modal" class="modal-overlay" onclick="toggleModal('info-modal', false)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h2 style="margin:0">Sync View</h2>
-                <button class="tool-btn" style="width:32px;height:32px"
-                    onclick="toggleModal('info-modal', false)">×</button>
+                <h2>Sync View</h2>
+                <button class="tool-btn" onclick="toggleModal('info-modal', false)">×</button>
             </div>
-            <p style="font-size:14px; line-height:1.6; opacity:0.8; margin-bottom: 0;">
+            <p class="info-intro">
                 Sync View is a dual-map comparison tool for measuring distances and areas between locations.
             </p>
 
@@ -989,7 +1056,7 @@
                 </a>
             </div>
 
-            <h3 style="font-size:15px; margin-bottom: 12px;">Keyboard Shortcuts</h3>
+            <h3 class="shortcut-title">Keyboard Shortcuts</h3>
             <div class="shortcut-grid">
                 <div class="shortcut-item"><span class="key">L</span> <span>Line mode</span></div>
                 <div class="shortcut-item"><span class="key">A</span> <span>Area mode</span></div>
@@ -1007,19 +1074,20 @@
     <div id="share-modal" class="modal-overlay" onclick="toggleModal('share-modal', false)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <div class="modal-header">
-                <h2 style="margin:0">Share</h2>
-                <button class="tool-btn" style="width:32px;height:32px"
-                    onclick="toggleModal('share-modal', false)">×</button>
+                <h2>Share</h2>
+                <button class="tool-btn" onclick="toggleModal('share-modal', false)">×</button>
             </div>
 
             <div class="share-qr-container">
+                <div id="qr-loading" class="qr-status loading hidden">GENERATING QR...</div>
+                <div id="qr-error" class="qr-status error hidden">QR Error</div>
                 <div id="qrcode"></div>
             </div>
 
             <div id="share-url" class="share-url-display"></div>
 
             <button class="btn-primary" id="btn-copy-link">
-                <img src="images/svgs/copy.svg" alt="" style="width:20px;height:20px">
+                <img src="images/svgs/copy.svg" alt="">
                 <span>Copy Link</span>
             </button>
         </div>
@@ -1763,7 +1831,8 @@
                 input.focus();
             } else {
                 resDiv.style.display = 'none';
-                resDiv.innerHTML = '';
+                const listDiv = document.getElementById(`results-list${id}`);
+                if (listDiv) listDiv.textContent = '';
                 input.value = '';
             }
         }
@@ -1989,12 +2058,16 @@
 
             // Clear previous QR
             const qrContainer = document.getElementById('qrcode');
+            const qrLoading = document.getElementById('qr-loading');
+            const qrError = document.getElementById('qr-error');
+
             if (qrContainer) {
-                qrContainer.innerHTML = '<div style="color:var(--accent-blue);font-size:12px;font-weight:bold;">GENERATING QR...</div>';
+                qrContainer.textContent = '';
+                qrLoading.classList.remove('hidden');
+                qrError.classList.add('hidden');
 
                 // Defer QR generation to keep modal opening smooth
                 setTimeout(() => {
-                    qrContainer.innerHTML = '';
                     try {
                         new QRCode(qrContainer, {
                             text: url,
@@ -2004,8 +2077,10 @@
                             colorLight: "#ffffff",
                             correctLevel: QRCode.CorrectLevel.M
                         });
+                        qrLoading.classList.add('hidden');
                     } catch (e) {
-                        qrContainer.innerHTML = '<div style="color:var(--accent-red);font-size:12px;">QR Error</div>';
+                        qrLoading.classList.add('hidden');
+                        qrError.classList.remove('hidden');
                     }
                 }, 50);
             }
@@ -2071,10 +2146,28 @@
         async function handleSearch(e, id) {
             const q = e.target.value.trim();
             const resDiv = document.getElementById(`results${id}`);
-            if (q.length < 2) { resDiv.style.display = 'none'; resDiv.innerHTML = ''; return; }
+            const listDiv = document.getElementById(`results-list${id}`);
+            const sSearching = document.getElementById(`status-searching${id}`);
+            const sNone = document.getElementById(`status-none${id}`);
+            const sError = document.getElementById(`status-error${id}`);
+
+            const hideStatus = () => {
+                sSearching.classList.add('hidden');
+                sNone.classList.add('hidden');
+                sError.classList.add('hidden');
+            };
+
+            if (q.length < 2) {
+                resDiv.style.display = 'none';
+                listDiv.textContent = '';
+                hideStatus();
+                return;
+            }
 
             // Show searching state
-            resDiv.innerHTML = '<div class="result-item" style="opacity:0.6; cursor:wait;">Searching...</div>';
+            listDiv.textContent = '';
+            hideStatus();
+            sSearching.classList.remove('hidden');
             resDiv.style.display = 'flex';
 
             try {
@@ -2083,10 +2176,10 @@
                 if (!response.ok) throw new Error('Search failed');
 
                 const data = await response.json();
-                resDiv.innerHTML = '';
+                hideStatus();
 
                 if (!data.features || data.features.length === 0) {
-                    resDiv.innerHTML = '<div class="result-item" style="opacity:0.6; cursor:default;">No results found</div>';
+                    sNone.classList.remove('hidden');
                     return;
                 }
 
@@ -2107,11 +2200,12 @@
                         targetMap.setView([coords[1], coords[0]], 15);
                         toggleSearch(id);
                     };
-                    resDiv.appendChild(d);
+                    listDiv.appendChild(d);
                 });
             } catch (err) {
                 console.error('Search error:', err);
-                resDiv.innerHTML = '<div class="result-item" style="color:var(--accent-red); cursor:default;">Search error. Check connection.</div>';
+                hideStatus();
+                sError.classList.remove('hidden');
             }
         }
 
