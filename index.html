@@ -685,6 +685,65 @@
             display: none !important;
         }
 
+        /* SHARE MODAL STYLING */
+        .share-qr-container {
+            background: white;
+            padding: 16px;
+            border-radius: var(--radius);
+            margin: 20px auto;
+            width: fit-content;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        #qrcode img {
+            filter: none;
+            /* Keep QR code black and white */
+            width: 200px;
+            height: 200px;
+        }
+
+        .share-url-display {
+            background: rgba(255, 255, 255, 0.05);
+            border: var(--border);
+            border-radius: var(--btn-radius);
+            padding: 14px;
+            font-family: monospace;
+            font-size: 13px;
+            word-break: break-all;
+            margin-bottom: 20px;
+            color: rgba(255, 255, 255, 0.6);
+            max-height: 120px;
+            overflow-y: auto;
+            user-select: text;
+            /* Allow users to select the link */
+        }
+
+        .btn-primary {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            border-radius: var(--btn-radius);
+            padding: 14px;
+            font-weight: 700;
+            width: 100%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.3s;
+        }
+
+        @media (hover: hover) {
+            .btn-primary:hover {
+                filter: brightness(1.1);
+                transform: translateY(-2px);
+            }
+        }
+
         @media (max-width: 768px) {
             #app-container {
                 grid-template-columns: 1fr;
@@ -732,7 +791,9 @@
                 --bar-gap: 2px;
             }
 
-
+            #share-modal {
+                display: none !important;
+            }
         }
     </style>
 </head>
@@ -913,7 +974,30 @@
         </div>
     </div>
 
+    <!-- SHARE MODAL -->
+    <div id="share-modal" class="modal-overlay" onclick="toggleModal('share-modal', false)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h2 style="margin:0">Share</h2>
+                <button class="tool-btn" style="width:32px;height:32px"
+                    onclick="toggleModal('share-modal', false)">×</button>
+            </div>
+
+            <div class="share-qr-container">
+                <div id="qrcode"></div>
+            </div>
+
+            <div id="share-url" class="share-url-display"></div>
+
+            <button class="btn-primary" id="btn-copy-link">
+                <img src="images/svgs/copy.svg" alt="" style="width:20px;height:20px">
+                <span>Copy Link</span>
+            </button>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script>
         const tiles = {
             satellite: 'https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
@@ -1804,6 +1888,7 @@
             }
         };
 
+        let qr = null;
         function shareCurrentView() {
             const code = ShareState.encode();
             if (!code) return;
@@ -1815,10 +1900,68 @@
             // Update local history so we don't lose state on refresh
             window.history.replaceState({}, '', strUrl);
 
-            if (navigator.share) {
-                navigator.share({ title: 'Sync View', url: strUrl }).catch(() => copyToClipboard(strUrl));
-            } else {
-                copyToClipboard(strUrl);
+            // Strict detection: if it's mobile AND has navigator.share, ONLY use that.
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                window.matchMedia("(max-width: 768px)").matches;
+
+            if (isMobile) {
+                if (navigator.share) {
+                    navigator.share({ title: 'Sync View', url: strUrl }).catch(() => { });
+                } else {
+                    // Mobile fallback: just copy the link (with the bar-btn feedback)
+                    copyToClipboard(strUrl);
+                }
+                return;
+            }
+
+            // Desktop logic: show custom QR/copy modal
+            openShareModal(strUrl);
+        }
+
+        function openShareModal(url) {
+            // Show modal first for immediate feedback
+            toggleModal('share-modal', true);
+
+            const urlDisplay = document.getElementById('share-url');
+            if (urlDisplay) urlDisplay.innerText = url;
+
+            // Clear previous QR
+            const qrContainer = document.getElementById('qrcode');
+            if (qrContainer) {
+                qrContainer.innerHTML = '<div style="color:var(--accent-blue);font-size:12px;font-weight:bold;">GENERATING QR...</div>';
+
+                // Defer QR generation to keep modal opening smooth
+                setTimeout(() => {
+                    qrContainer.innerHTML = '';
+                    try {
+                        new QRCode(qrContainer, {
+                            text: url,
+                            width: 200,
+                            height: 200,
+                            colorDark: "#000000",
+                            colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.M
+                        });
+                    } catch (e) {
+                        qrContainer.innerHTML = '<div style="color:var(--accent-red);font-size:12px;">QR Error</div>';
+                    }
+                }, 50);
+            }
+
+            const copyBtn = document.getElementById('btn-copy-link');
+            if (copyBtn) {
+                copyBtn.onclick = () => {
+                    copyToClipboard(url);
+                    const span = copyBtn.querySelector('span');
+                    if (span) {
+                        const originalText = span.innerText;
+                        span.innerText = 'COPIED!';
+                        setTimeout(() => {
+                            span.innerText = originalText;
+                            toggleModal('share-modal', false);
+                        }, 1000);
+                    }
+                };
             }
         }
 
