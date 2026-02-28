@@ -1867,10 +1867,12 @@
          *           Bit 3:    Units (0=metric, 1=imperial)
          *           Bit 4:    Vertex Numbers (0=off, 1=on)
          *           Bit 5:    Bounding Box (0=off, 1=on)
-         * [2-9]   - Map 1 State: lat (f32), lng (f32), zoom*100 (u16)
-         * [10-17] - Map 2 State: lat (f32), lng (f32), zoom*100 (u16)
-         * [18]    - Has Shape flag (0=no shape, 1=has shape)
-         * [19+]   - Shape Data (if present):
+         *           Bits 6-7: Reserved
+         * [2-9]   - Reserved buffer (8 bytes for future settings)
+         * [10-17] - Map 1 State: lat (f32), lng (f32), zoom*100 (u16)
+         * [18-25] - Map 2 State: lat (f32), lng (f32), zoom*100 (u16)
+         * [26]    - Has Shape flag (0=no shape, 1=has shape)
+         * [27+]   - Shape Data (if present):
          *           [0]    - Origin map (1 or 2)
          *           [1-8]  - Origin anchor: lat (f32), lng (f32)
          *           [9-16] - Comparison anchor: lat (f32), lng (f32)
@@ -1932,17 +1934,22 @@
                     const flags = (lIdx & 0x03) | ((mBit & 1) << 2) | ((uBit & 1) << 3) | ((vBit & 1) << 4) | ((bBit & 1) << 5);
                     this.Bin.wU8(flags);
 
-                    // 3. Map 1 State
+                    // 3. Reserved buffer (8 bytes for future settings)
+                    for (let i = 0; i < 8; i++) {
+                        this.Bin.wU8(0);
+                    }
+
+                    // 4. Map 1 State
                     const c1 = map1.getCenter();
                     this.Bin.wF32(c1.lat); this.Bin.wF32(c1.lng);
                     this.Bin.wU16(Math.round(map1.getZoom() * 100));
 
-                    // 4. Map 2 State
+                    // 5. Map 2 State
                     const c2 = map2.getCenter();
                     this.Bin.wF32(c2.lat); this.Bin.wF32(c2.lng);
                     this.Bin.wU16(Math.round(map2.getZoom() * 100));
 
-                    // 5. Shape Data
+                    // 6. Shape Data
                     if (AppState.groundTruth) {
                         this.Bin.wU8(1); // Has shape
                         const gt = AppState.groundTruth;
@@ -1971,7 +1978,7 @@
                     this.Bin.initRead(u8);
 
                     const ver = this.Bin.rU8();
-                    if (ver !== 1) { console.warn("Unsupported state version"); return; }
+                    if (ver !== 1) { console.warn("Unsupported state version:", ver); return; }
 
                     const flags = this.Bin.rU8();
                     const lIdx = flags & 0x03;
@@ -1979,6 +1986,9 @@
                     const uBit = (flags >> 3) & 1;
                     const vBit = (flags >> 4) & 1;
                     const bBit = (flags >> 5) & 1;
+
+                    // Skip reserved buffer (8 bytes for future settings)
+                    for (let i = 0; i < 8; i++) this.Bin.rU8();
 
                     // Apply Settings
                     const layerName = layerOrder[lIdx] || 'hybrid';
