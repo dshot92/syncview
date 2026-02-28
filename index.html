@@ -444,6 +444,10 @@
             border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
+        #center-btn1, #center-btn2 {
+            display: none;
+        }
+
 
 
         /* MODE PILLS */
@@ -796,6 +800,14 @@
                 --bar-gap: 2px;
             }
 
+            .global-bar .bar-btn.center-btn {
+                display: none;
+            }
+
+            #center-btn1, #center-btn2 {
+                display: flex;
+            }
+
             #share-modal {
                 display: none !important;
             }
@@ -922,6 +934,9 @@
                     <button class="tool-btn" id="locate-btn1" onclick="locateDevice(1)">
                         <img src="images/svgs/device-position.svg" alt="">
                     </button>
+                    <button id="center-btn1" class="tool-btn hidden" onclick="centerShapes()">
+                        <img src="images/svgs/center.svg" alt="">
+                    </button>
                     <button id="back1" class="tool-btn hidden" onclick="AppState.removeLast()">
                         <img src="images/svgs/back.svg" alt="">
                     </button>
@@ -962,6 +977,9 @@
                     </div>
                     <button class="tool-btn" id="locate-btn2" onclick="locateDevice(2)">
                         <img src="images/svgs/device-position.svg" alt="">
+                    </button>
+                    <button id="center-btn2" class="tool-btn hidden" onclick="centerShapes()">
+                        <img src="images/svgs/center.svg" alt="">
                     </button>
                     <button id="back2" class="tool-btn hidden" onclick="AppState.removeLast()">
                         <img src="images/svgs/back.svg" alt="">
@@ -1006,6 +1024,10 @@
 
         <button class="bar-btn" onclick="shareCurrentView()">
             <img src="images/svgs/share.svg" alt="">
+        </button>
+
+        <button class="bar-btn center-btn" onclick="centerShapes()">
+            <img src="images/svgs/center.svg" alt="">
         </button>
 
         <button class="bar-btn" onclick="toggleModal('info-modal', true)">
@@ -1414,6 +1436,7 @@
                 const om = hasGt ? this.groundTruth.origin_map : 0;
                 [1, 2].forEach(id => {
                     DOM.backBtn[id].classList.toggle('hidden', om !== id);
+                    DOM.centerBtn[id].classList.toggle('hidden', om !== id);
                     DOM.clearBtn[id].classList.toggle('hidden', om !== id);
                     DOM.card[id].classList.toggle('visible', hasGt && this.groundTruth.localPoints.length >= 2);
                     if (hasGt) {
@@ -1445,6 +1468,7 @@
             diff: [null, document.getElementById('diff1'), document.getElementById('diff2')],
             card: [null, document.getElementById('card1'), document.getElementById('card2')],
             backBtn: [null, document.getElementById('back1'), document.getElementById('back2')],
+            centerBtn: [null, document.getElementById('center-btn1'), document.getElementById('center-btn2')],
             clearBtn: [null, document.getElementById('clear1'), document.getElementById('clear2')],
             searchCtrl: [null, document.getElementById('search-ctrl1'), document.getElementById('search-ctrl2')],
             searchIn: [null, document.getElementById('search-in1'), document.getElementById('search-in2')],
@@ -1760,6 +1784,18 @@
                     return yd >= 1760 ? (v * 0.000621371).toFixed(2) + ' mi' : yd.toFixed(0) + ' yd';
                 }
             }
+        }
+
+        function centerShapes() {
+            if (!AppState.groundTruth) return;
+            const pts1 = AppState.groundTruth.getRenderPoints(map1, 1);
+            const pts2 = AppState.groundTruth.getRenderPoints(map2, 2);
+
+            const bounds1 = L.latLngBounds(pts1);
+            const bounds2 = L.latLngBounds(pts2);
+
+            map1.fitBounds(bounds1, { padding: [80, 80], animate: true });
+            map2.fitBounds(bounds2, { padding: [80, 80], animate: true });
         }
 
         function getInsertIndex(latlng, m) {
