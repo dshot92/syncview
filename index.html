@@ -1380,7 +1380,7 @@
                 DOM.dropdownItems.forEach(item => {
                     item.classList.toggle('active', item.getAttribute('data-layer') === l);
                 });
-                setTimeout(() => DOM.layerMenu.classList.remove('show'), 200);
+                setTimeout(() => DOM.layerMenu.classList.remove('show'), 400);
                 DOM.layerBtn.classList.remove('active');
             },
             toggleUnits() {
