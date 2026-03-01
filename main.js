@@ -1280,7 +1280,7 @@ function shareCurrentView() {
 
     if (isMobile) {
         if (navigator.share) {
-            navigator.share({ title: 'Sync View', url: strUrl }).catch(() => { });
+            navigator.share({ url: strUrl }).catch(() => { });
         } else {
             copyToClipboard(strUrl);
         }
