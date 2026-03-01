@@ -656,6 +656,7 @@ function resetLayers() {
  * @type {boolean}
  */
 let renderPending = false;
+let pendingRenderFn = null;
 
 /**
  * Requests a render frame if not already pending.
@@ -667,6 +668,23 @@ function requestRender() {
         renderAll();
         renderPending = false;
     });
+}
+
+/**
+ * Throttled render for continuous operations (drag/rotate).
+ * Batches multiple calls into a single RAF frame.
+ * @param {Function} renderFn - Render function to call
+ */
+function throttledRender(renderFn) {
+    pendingRenderFn = renderFn;
+    if (!renderPending) {
+        renderPending = true;
+        requestAnimationFrame(() => {
+            if (pendingRenderFn) pendingRenderFn();
+            renderPending = false;
+            pendingRenderFn = null;
+        });
+    }
 }
 
 /**
@@ -719,6 +737,62 @@ function renderAll() {
 }
 
 /**
+ * Lightweight render during point dragging - updates both shapes.
+ * Comparison map shape must update since centroid change shifts the anchor.
+ */
+function renderDraggingPoint() {
+    if (!AppState.groundTruth) return;
+
+    const gt = AppState.groundTruth;
+    const om = gt.origin_map;
+    const isArea = AppState.mode === 'area' && gt.localPoints.length > 2;
+    const weight = parseInt(getCssVar('--shape-line-width')) || 3;
+
+    // Update both shapes during point drag (centroid change affects comparison map)
+    [1, 2].forEach(id => {
+        const map = id === 1 ? map1 : map2;
+        const pts = gt.getRenderPoints(map, id);
+        const color = getCssVar(om === id ? '--origin-color' : '--comp-color');
+        mapManagers[id].updateShape(pts, color, isArea, weight);
+    });
+}
+
+/**
+ * Lightweight render during rotation - only updates comparison map shape.
+ * Origin map shape doesn't change during rotation.
+ */
+function renderRotating(map, mapId) {
+    if (!AppState.groundTruth) return;
+
+    const gt = AppState.groundTruth;
+    const om = gt.origin_map;
+    const isArea = AppState.mode === 'area' && gt.localPoints.length > 2;
+    const weight = parseInt(getCssVar('--shape-line-width')) || 3;
+
+    // Only update comparison map shape (the one that rotates)
+    const compId = om === 1 ? 2 : 1;
+    const compMap = om === 1 ? map2 : map1;
+    const compPts = gt.getRenderPoints(compMap, compId);
+    const compColor = getCssVar('--comp-color');
+    mapManagers[compId].updateShape(compPts, compColor, isArea, weight);
+
+    // Update the connecting line between move and rotate handles
+    const mm = mapManagers[compId];
+    const handles = mm.refs.handles;
+    if (handles.line) {
+        const center = gt.comparison_anchor;
+        const mapZoom = compMap.getZoom();
+        const centerPx = compMap.project(center, mapZoom);
+        const rot = gt.overlayRotation;
+        const offsetDist = CONFIG.ROTATE_HANDLE_OFFSET;
+        const rx = Math.sin(rot) * offsetDist;
+        const ry = -Math.cos(rot) * offsetDist;
+        const handlePos = compMap.unproject(centerPx.add(L.point(rx, ry)), mapZoom);
+        handles.line.setLatLngs([center, handlePos]);
+    }
+}
+
+/**
  * Synchronizes markers with shape points.
  * @param {L.LatLng[]} pts - Points to create markers for.
  * @param {L.FeatureGroup} layer - Layer to add markers to.
@@ -753,7 +827,7 @@ function syncMarkers(pts, layer, map) {
                 const latlng = e.target.getLatLng();
                 AppState.groundTruth.updatePoint(i, latlng, map);
                 updateMagnifier(latlng, map);
-                requestRender();
+                throttledRender(renderDraggingPoint);
             });
             return m;
         });
@@ -845,7 +919,7 @@ function syncOverlayHandles(map, layer, mapId) {
             const dy = Math.sin(angle) * offsetDist;
             e.target.setLatLng(map.unproject(cPx.add(L.point(dx, dy)), map.getZoom()));
             AppState.groundTruth.setOverlayRotation(angle + Math.PI / 2);
-            renderAll();
+            throttledRender(() => renderRotating(map, mapId));
         });
     } else if (!AppState.isRotating) {
         handles.rotate.setLatLng(handlePos);
@@ -1401,7 +1475,12 @@ function initMagnifier(sourceMap, latlng) {
             boxZoom: false, inertia: false
         });
         const currentLayer = DOM.layerMenu.dataset.active || 'hybrid';
-        AppState.magnifierTile = L.tileLayer(tiles[currentLayer], { ...tileOptions }).addTo(AppState.magnifierMap);
+        AppState.magnifierTile = L.tileLayer(tiles[currentLayer], {
+            ...tileOptions,
+            updateWhenIdle: false,
+            updateWhenZooming: true,
+            keepBuffer: 8
+        }).addTo(AppState.magnifierMap);
     }
 
     AppState.magnifierMap.invalidateSize({ pan: false });
@@ -1412,6 +1491,9 @@ function initMagnifier(sourceMap, latlng) {
     updateMagnifier(latlng, sourceMap);
 }
 
+let lensRafId = null;
+let pendingLensUpdate = null;
+
 /**
  * Updates magnifier position and zoom level.
  * @param {L.LatLng} latlng - Center position.
@@ -1419,6 +1501,8 @@ function initMagnifier(sourceMap, latlng) {
  */
 function updateMagnifier(latlng, sourceMap) {
     if (!AppState.showLens || !AppState.magnifierMap) return;
+
+    // Update CSS position immediately (cheap)
     const p = sourceMap.latLngToContainerPoint(latlng);
     const mapRect = sourceMap.getContainer().getBoundingClientRect();
     const globalX = p.x + mapRect.left;
@@ -1426,7 +1510,18 @@ function updateMagnifier(latlng, sourceMap) {
     const lensSize = CONFIG.LENS_SIZE;
     DOM.magnifier.style.left = (globalX - lensSize / 2) + 'px';
     DOM.magnifier.style.top = (globalY - lensSize - AppState.lensOffset) + 'px';
-    AppState.magnifierMap.setView(latlng, Math.min(sourceMap.getZoom() + 2, CONFIG.MAX_ZOOM), { animate: false });
+
+    // Batch map view updates using requestAnimationFrame
+    pendingLensUpdate = { latlng, zoom: Math.min(sourceMap.getZoom() + 2, CONFIG.MAX_ZOOM) };
+    if (!lensRafId) {
+        lensRafId = requestAnimationFrame(() => {
+            if (pendingLensUpdate && AppState.magnifierMap) {
+                AppState.magnifierMap.panTo(pendingLensUpdate.latlng, { animate: false, duration: 0 });
+            }
+            lensRafId = null;
+            pendingLensUpdate = null;
+        });
+    }
 }
 
 /**
