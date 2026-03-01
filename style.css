@@ -3,7 +3,6 @@
     --accent-blue: #3b82f6;
     --accent-yellow: #fbbf24;
     --accent-red: #f43f5e;
-    --text-color: #fff;
     --text-main: #fff;
     --border: 1px solid rgba(255, 255, 255, 0.1);
     --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
@@ -28,6 +27,9 @@
     --bar-gap: 4px;
     --btn-radius: 16px;
     --lens-size: 140px;
+
+    /* Transitions */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -51,7 +53,7 @@ html {
     height: 100vh;
     width: 100vw;
     background: var(--bg-deep);
-    color: var(--text-color);
+    color: var(--text-main);
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     overflow: hidden;
     touch-action: none;
@@ -108,7 +110,7 @@ html {
     pointer-events: auto;
     min-width: 110px;
     box-shadow: var(--shadow-lg);
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: var(--transition-smooth);
     opacity: 0;
     transform: translateY(-10px);
     text-align: center;
@@ -166,7 +168,7 @@ img {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: var(--transition-smooth);
     box-shadow: var(--shadow-lg);
     pointer-events: auto;
     padding: 0;
@@ -394,7 +396,7 @@ img {
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: var(--transition-smooth);
     position: relative;
     padding: 0;
 }
@@ -409,10 +411,6 @@ img {
 .bar-btn.active {
     background: rgba(255, 255, 255, 0.1);
     border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-#center-btn1, #center-btn2 {
-    display: flex;
 }
 
 .global-bar .bar-btn.center-btn {
@@ -582,7 +580,7 @@ img {
     max-width: 480px;
     padding: 24px;
     box-shadow: var(--shadow-lg);
-    color: var(--text-color);
+    color: var(--text-main);
 }
 
 .modal-header {

@@ -6,6 +6,21 @@
 // --- Constants ---
 
 /**
+ * Application configuration constants.
+ * @namespace CONFIG
+ */
+const CONFIG = {
+    DEBOUNCE_DELAY: 400,
+    ROTATE_HANDLE_OFFSET: 80,
+    LENS_SIZE: 140,
+    LENS_OFFSET: 40,
+    INSERT_THRESHOLD: 15,
+    MAX_ZOOM: 22,
+    REF_ZOOM: 20,
+    PADDING: [80, 80],
+};
+
+/**
  * Tile layer URLs for different map styles.
  * @type {Object.<string, string>}
  */
@@ -412,7 +427,7 @@ bindZoom(map2, map1);
  * @namespace AppState
  */
 const AppState = {
-    REF_ZOOM: 20,
+    REF_ZOOM: CONFIG.REF_ZOOM,
     groundTruth: null,
     mode: 'line',
     units: 'metric',
@@ -423,7 +438,7 @@ const AppState = {
     isRotating: false,
     isDraggingPoint: -1,
     isDragEnd: false,
-    lensOffset: 40,
+    lensOffset: CONFIG.LENS_OFFSET,
     showLens: true,
     magnifierMap: null,
     magnifierTile: null,
@@ -629,8 +644,7 @@ const DOM = {
  * Resets all map layers and clears markers.
  */
 function resetLayers() {
-    mapManagers[1].clear();
-    mapManagers[2].clear();
+    [1, 2].forEach(id => mapManagers[id].clear());
     AppState.markers = [];
 }
 
@@ -661,46 +675,43 @@ function renderAll() {
     if (!AppState.groundTruth) { resetLayers(); return; }
 
     const gt = AppState.groundTruth;
-    const pts1 = gt.getRenderPoints(map1, 1);
-    const pts2 = gt.getRenderPoints(map2, 2);
     const om = gt.origin_map;
-    const isArea = AppState.mode === 'area' && pts1.length > 2;
+    const isArea = AppState.mode === 'area' && gt.localPoints.length > 2;
     const weight = parseInt(getCssVar('--shape-line-width')) || 3;
 
-    const color1 = getCssVar(om === 1 ? '--origin-color' : '--comp-color');
-    const color2 = getCssVar(om === 2 ? '--origin-color' : '--comp-color');
+    const mapData = [1, 2].map(id => {
+        const map = id === 1 ? map1 : map2;
+        const pts = gt.getRenderPoints(map, id);
+        const color = getCssVar(om === id ? '--origin-color' : '--comp-color');
+        return { id, map, pts, color };
+    });
 
-    mapManagers[1].updateShape(pts1, color1, isArea, weight);
-    mapManagers[2].updateShape(pts2, color2, isArea, weight);
+    mapData.forEach(({ id, pts, color }) => {
+        mapManagers[id].updateShape(pts, color, isArea, weight);
+    });
 
     if (AppState.showBoundingBox) {
-        mapManagers[1].updateBBox(pts1);
-        mapManagers[2].updateBBox(pts2);
+        mapData.forEach(({ id, pts }) => mapManagers[id].updateBBox(pts));
     } else {
-        mapManagers[1].layers.bbox.clearLayers();
-        mapManagers[2].layers.bbox.clearLayers();
-        mapManagers[1].refs.bbox = null;
-        mapManagers[2].refs.bbox = null;
+        [1, 2].forEach(id => {
+            mapManagers[id].layers.bbox.clearLayers();
+            mapManagers[id].refs.bbox = null;
+        });
     }
 
-    const originMap = om === 1 ? map1 : map2;
-    const originMarkers = mapManagers[om].layers.markers;
-    const originPts = om === 1 ? pts1 : pts2;
-    syncMarkers(originPts, originMarkers, originMap);
-    syncOverlayHandles(om === 1 ? map2 : map1, mapManagers[om === 1 ? 2 : 1].layers.handles, om === 1 ? 2 : 1);
+    const originData = mapData.find(d => d.id === om);
+    const compData = mapData.find(d => d.id !== om);
+    syncMarkers(originData.pts, mapManagers[om].layers.markers, originData.map);
+    syncOverlayHandles(compData.map, mapManagers[compData.id].layers.handles, compData.id);
 
-    const val1 = getVal(pts1);
-    const val2 = getVal(pts2);
-    DOM.maps[1].stats.textContent = format(val1);
-    DOM.maps[2].stats.textContent = format(val2);
-
-    const refVal = om === 1 ? val1 : val2;
-    const compVal = om === 1 ? val2 : val1;
-    DOM.maps[om === 1 ? 1 : 2].diff.textContent = '';
+    const [refVal, compVal] = [originData.pts, compData.pts].map(getVal);
+    DOM.maps[om].stats.textContent = format(refVal);
+    DOM.maps[compData.id].stats.textContent = format(compVal);
+    DOM.maps[om].diff.textContent = '';
 
     if (refVal > 0) {
         const pct = ((compVal - refVal) / refVal) * 100;
-        const el = DOM.maps[om === 1 ? 2 : 1].diff;
+        const el = DOM.maps[compData.id].diff;
         el.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
         el.style.color = getCssVar('--comp-color');
     }
@@ -761,7 +772,7 @@ function syncMarkers(pts, layer, map) {
 function syncOverlayHandles(map, layer, mapId) {
     const mm = mapManagers[mapId];
     const handles = mm.refs.handles;
-    const offsetDist = 80;
+    const offsetDist = CONFIG.ROTATE_HANDLE_OFFSET;
 
     if (!AppState.groundTruth) {
         if (handles.move) { layer.clearLayers(); handles.move = handles.rotate = handles.line = null; }
@@ -897,10 +908,11 @@ function format(v) {
  */
 function centerShapes() {
     if (!AppState.groundTruth) return;
-    const pts1 = AppState.groundTruth.getRenderPoints(map1, 1);
-    const pts2 = AppState.groundTruth.getRenderPoints(map2, 2);
-    map1.fitBounds(L.latLngBounds(pts1), { padding: [80, 80], animate: true });
-    map2.fitBounds(L.latLngBounds(pts2), { padding: [80, 80], animate: true });
+    [1, 2].forEach((id, idx) => {
+        const map = id === 1 ? map1 : map2;
+        const pts = AppState.groundTruth.getRenderPoints(map, id);
+        map.fitBounds(L.latLngBounds(pts), { padding: CONFIG.PADDING, animate: true });
+    });
 }
 
 /**
@@ -915,7 +927,7 @@ function getInsertIndex(latlng, m) {
     const pts = shape.getRenderPoints(m, shape.origin_map);
     const clickPx = m.latLngToLayerPoint(latlng);
     let minDist = Infinity, index = -1;
-    const threshold = 15;
+    const threshold = CONFIG.INSERT_THRESHOLD;
     const isArea = AppState.mode === 'area';
     const limit = isArea ? pts.length : pts.length - 1;
     for (let i = 0; i < limit; i++) {
@@ -1000,42 +1012,20 @@ const ShareState = {
         /** @type {number} */
         r_idx: 0,
 
-        /** Resets the write buffer. */
         reset() { this.w = []; },
-        /** Writes an unsigned 8-bit integer.
-         * @param {number} v - Value to write.
-         */
         wU8(v) { this.w.push(v & 0xFF); },
-        /** Writes an unsigned 16-bit integer.
-         * @param {number} v - Value to write.
-         */
         wU16(v) { this.w.push((v >> 8) & 0xFF, v & 0xFF); },
-        /** Writes a 32-bit float.
-         * @param {number} v - Value to write.
-         */
         wF32(v) {
             this.dV.setFloat32(0, v);
             this.w.push(this.dV.getUint8(0), this.dV.getUint8(1), this.dV.getUint8(2), this.dV.getUint8(3));
         },
-        /** Initializes read buffer.
-         * @param {Uint8Array} u8 - Uint8Array to read from.
-         */
         initRead(u8) { this.r_u8 = u8; this.r_idx = 0; },
-        /** Reads an unsigned 8-bit integer.
-         * @returns {number} The read value.
-         */
         rU8() { return this.r_u8[this.r_idx++]; },
-        /** Reads an unsigned 16-bit integer.
-         * @returns {number} The read value.
-         */
         rU16() {
             const v = (this.r_u8[this.r_idx] << 8) | this.r_u8[this.r_idx + 1];
             this.r_idx += 2;
             return v;
         },
-        /** Reads a 32-bit float.
-         * @returns {number} The read value.
-         */
         rF32() {
             this.dV.setUint8(0, this.r_u8[this.r_idx]); this.dV.setUint8(1, this.r_u8[this.r_idx + 1]);
             this.dV.setUint8(2, this.r_u8[this.r_idx + 2]); this.dV.setUint8(3, this.r_u8[this.r_idx + 3]);
@@ -1239,9 +1229,6 @@ function copyToClipboard(text) {
         fallbackCopy();
     }
 
-    /**
-     * Fallback copy using textarea selection for older browsers.
-     */
     function fallbackCopy() {
         const el = document.createElement('textarea');
         el.value = text;
@@ -1254,17 +1241,33 @@ function copyToClipboard(text) {
 
 // --- Global Event Listeners ---
 
-window.addEventListener('click', (e) => {
+/**
+ * Closes layer menu when clicking outside.
+ * @param {MouseEvent} e - Click event.
+ */
+function handleLayerMenuClick(e) {
     if (!e.target.closest('.dropdown-container')) {
         DOM.layerMenu.classList.remove('show');
         DOM.layerBtn.classList.remove('active');
     }
+}
+
+/**
+ * Closes search when clicking outside search wrapper.
+ * @param {MouseEvent} e - Click event.
+ */
+function handleSearchClick(e) {
     [1, 2].forEach(id => {
         const ctrl = DOM.maps[id].searchCtrl;
         if (!ctrl || !ctrl.classList.contains('expanded')) return;
         const wrapper = ctrl.closest('.search-wrapper');
         if (wrapper && !wrapper.contains(e.target)) toggleSearch(id);
     });
+}
+
+window.addEventListener('click', (e) => {
+    handleLayerMenuClick(e);
+    handleSearchClick(e);
 });
 
 window.addEventListener('keydown', (e) => {
@@ -1366,10 +1369,16 @@ async function handleSearch(e, id) {
 }
 
 /**
- * Debounced search function (400ms delay).
+ * Debounced search function.
  * @type {Function}
  */
-const debouncedSearch = ((fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn.apply(this, a), ms); }; })(handleSearch, 400);
+const debouncedSearch = (() => {
+    let timeout;
+    return (event, id) => {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => handleSearch(event, id), CONFIG.DEBOUNCE_DELAY);
+    };
+})();
 
 // --- Magnifier (Lens) Functions ---
 
@@ -1395,7 +1404,7 @@ function initMagnifier(sourceMap, latlng) {
     AppState.magnifierMap.invalidateSize({ pan: false });
     const currentLayer = DOM.layerMenu.dataset.active || 'hybrid';
     AppState.magnifierTile.setUrl(tiles[currentLayer]);
-    const targetZoom = Math.min(sourceMap.getZoom() + 2, 22);
+    const targetZoom = Math.min(sourceMap.getZoom() + 2, CONFIG.MAX_ZOOM);
     AppState.magnifierMap.setView(latlng, targetZoom, { animate: false });
     updateMagnifier(latlng, sourceMap);
 }
@@ -1411,10 +1420,10 @@ function updateMagnifier(latlng, sourceMap) {
     const mapRect = sourceMap.getContainer().getBoundingClientRect();
     const globalX = p.x + mapRect.left;
     const globalY = p.y + mapRect.top;
-    const lensSize = 140;
+    const lensSize = CONFIG.LENS_SIZE;
     DOM.magnifier.style.left = (globalX - lensSize / 2) + 'px';
     DOM.magnifier.style.top = (globalY - lensSize - AppState.lensOffset) + 'px';
-    AppState.magnifierMap.setView(latlng, Math.min(sourceMap.getZoom() + 2, 22), { animate: false });
+    AppState.magnifierMap.setView(latlng, Math.min(sourceMap.getZoom() + 2, CONFIG.MAX_ZOOM), { animate: false });
 }
 
 /**
