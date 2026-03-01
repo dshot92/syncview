@@ -85,7 +85,9 @@ html {
     margin: 0;
     padding: 0;
     height: 100vh;
+    height: 100dvh;
     width: 100vw;
+    width: 100dvw;
     background: var(--bg-deep);
     color: var(--text-main);
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

@@ -1626,3 +1626,24 @@ window.addEventListener('load', () => {
     const code = new URLSearchParams(window.location.search).get('s');
     if (code) setTimeout(() => ShareState.decode(code), 100);
 });
+
+// Handle window resize and browser zoom to ensure maps fill their containers
+let resizeTimeout;
+function handleResize() {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(() => {
+        map1.invalidateSize({ pan: false });
+        map2.invalidateSize({ pan: false });
+    }, 100);
+}
+
+window.addEventListener('resize', handleResize);
+
+// Use ResizeObserver to detect container size changes (e.g., browser zoom)
+const appContainer = document.getElementById('app-container');
+if (appContainer && 'ResizeObserver' in window) {
+    const resizeObserver = new ResizeObserver(() => {
+        handleResize();
+    });
+    resizeObserver.observe(appContainer);
+}

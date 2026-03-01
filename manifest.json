@@ -16,14 +16,14 @@
   "categories": ["utilities", "productivity", "navigation"],
   "screenshots": [
     {
-      "src": "images/screenshot.jpg",
+      "src": "images/screenshot.webp",
       "sizes": "1280x720",
       "type": "image/jpeg",
       "form_factor": "wide",
       "label": "Dual map comparison view"
     },
     {
-      "src": "images/preview.webp",
+      "src": "images/screenshot.webp",
       "sizes": "1200x630",
       "type": "image/webp",
       "form_factor": "narrow",
