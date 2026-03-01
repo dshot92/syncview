@@ -11,8 +11,8 @@
   "handle_links": "preferred",
   "display": "standalone",
   "orientation": "any",
-  "background_color": "#0f172a",
-  "theme_color": "#0f172a",
+  "background_color": "#020617",
+  "theme_color": "#020617",
   "categories": ["utilities", "productivity", "navigation"],
   "screenshots": [
     {

@@ -1,15 +1,14 @@
 :root {
     --bg-deep: #020617;
-    --accent-blue: #3b82f6;
+    --accent-blue: #1878ee;
     --accent-yellow: #fbbf24;
-    --accent-red: #f87171;
+    --accent-red: #ef2929;
     --text-main: #f8fafc;
-    --text-secondary: #94a3b8;
     --border: 1px solid rgba(255, 255, 255, 0.15);
     --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.4);
     --radius: 12px;
-    --origin-color: #60a5fa;
-    --comp-color: #fbbf24;
+    --origin-color: var(--accent-blue);
+    --comp-color: var(--accent-yellow);
 
     /* Shape & Line Variables */
     --shape-line-width: 3;
@@ -199,7 +198,6 @@ img {
     height: 44px;
     border-radius: var(--btn-radius);
     background: var(--bg-deep);
-    backdrop-filter: blur(10px);
     border: var(--border);
     color: var(--text-main);
     cursor: pointer;
@@ -367,7 +365,6 @@ img {
     display: flex;
     align-items: center;
     background: var(--bg-deep);
-    backdrop-filter: blur(10px);
     border: var(--border);
     border-radius: var(--btn-radius);
     height: 44px;
@@ -439,7 +436,6 @@ img {
     width: 280px;
     top: 50px;
     background: var(--bg-deep);
-    backdrop-filter: blur(20px);
     border: var(--border);
     border-radius: var(--btn-radius);
     max-height: 250px;
@@ -496,7 +492,6 @@ img {
     border: var(--border);
     display: flex;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-    backdrop-filter: blur(10px);
     align-items: center;
     gap: var(--bar-gap);
 }
@@ -550,7 +545,7 @@ img {
 .pill-group {
     display: flex;
     position: relative;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--bg-deep);
     border-radius: var(--btn-radius);
     gap: var(--bar-gap);
 }
