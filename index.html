@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport"
-        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+        content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover">
     <meta name="description" content="Synchronized dual-map viewer for comparing locations and distances">
     <meta property="og:type" content="website">
     <meta property="og:title" content="Sync View">
@@ -20,23 +20,64 @@
     <meta name="twitter:description" content="Synchronized dual-map viewer for comparing locations and distances">
     <meta name="twitter:image" content="https://dshot92.github.io/syncview/images/preview.webp">
     <meta name="twitter:image:alt" content="Sync View preview">
-    <meta name="theme-color" content="#020617">
+    <meta name="theme-color" content="#0f172a">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Sync View">
+    
+    <!-- Additional SEO Meta Tags -->
+    <meta name="canonical" content="https://dshot92.github.io/syncview/">
+    <meta name="robots" content="index, follow">
+    <meta name="author" content="dshot92">
+    <meta name="keywords" content="maps, comparison, distance, measurement, GIS, geography, tool">
+    <link rel="canonical" href="https://dshot92.github.io/syncview/">
+    
+    <!-- Performance: Prefetch and Preconnect -->
+    <link rel="prefetch" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" as="script" crossorigin>
+    <link rel="prefetch" href="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" as="script" crossorigin>
     <title>Sync View</title>
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/svg+xml" href="images/icon.svg">
     <link rel="apple-touch-icon" href="images/icon.svg">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+    
+    <!-- Preconnect to external domains -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="preconnect" href="https://mt1.google.com" crossorigin>
+    
+    <!-- DNS prefetch for faster resolution -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    
+    <!-- Preload critical resources -->
+    <link rel="preload" href="style.css" as="style">
+    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" as="style" crossorigin>
+    <link rel="preload" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" as="script" crossorigin>
+    <link rel="preload" href="main.js" as="script">
+    
+    <!-- Google Fonts with display=swap for better performance -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Async CSS loading -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"></noscript>
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    <div id="app-container">
-        <div class="map-wrapper" id="map1-wrapper">
-            <div id="map1" class="map-instance"></div>
+    <!-- Skip to main content link for accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
+    <div id="app-container" role="main" aria-label="Dual map comparison interface">
+        <!-- Anchor for skip link -->
+        <div id="main-content" class="sr-only">Main content start</div>
+        <div class="map-wrapper" id="map1-wrapper" role="region" aria-label="Map 1 - Origin">
+            <div id="map1" class="map-instance" role="application" aria-label="Interactive map 1"></div>
             <div class="overlay-ui">
                 <div class="hud-stack">
                     <div class="hud-card" id="card1">
@@ -47,10 +88,11 @@
                 <div class="toolbar-container">
                     <div class="search-wrapper">
                         <div class="search-control" id="search-ctrl1">
-                            <button class="search-btn-inner" id="search-btn1">
-                                <img src="images/svgs/search.svg" alt="">
+                            <button class="search-btn-inner" id="search-btn1" aria-label="Search location on map 1">
+                                <img src="images/svgs/search.svg" alt="Search" loading="lazy">
                             </button>
                             <input type="text" class="search-input" id="search-in1" placeholder="Search world..."
+                                aria-label="Search location"
                                 oninput="debouncedSearch(event, 1)" autocomplete="off" autocorrect="off"
                                 autocapitalize="off" spellcheck="false">
                         </div>
@@ -63,24 +105,24 @@
                             <div id="results-list1" class="results-list"></div>
                         </div>
                     </div>
-                    <button class="tool-btn" id="locate-btn1">
-                        <img src="images/svgs/device-position.svg" alt="">
+                    <button class="tool-btn" id="locate-btn1" aria-label="Get current location on map 1">
+                        <img src="images/svgs/device-position.svg" alt="Locate" loading="lazy">
                     </button>
-                    <button id="center-btn1" class="tool-btn hidden">
-                        <img src="images/svgs/center.svg" alt="">
+                    <button id="center-btn1" class="tool-btn hidden" aria-label="Center map 1 on shape">
+                        <img src="images/svgs/center.svg" alt="Center" loading="lazy">
                     </button>
-                    <button id="back1" class="tool-btn hidden">
-                        <img src="images/svgs/back.svg" alt="">
+                    <button id="back1" class="tool-btn hidden" aria-label="Undo last point on map 1">
+                        <img src="images/svgs/back.svg" alt="Undo" loading="lazy">
                     </button>
-                    <button id="clear1" class="tool-btn danger hidden">
-                        <img src="images/svgs/clear.svg" alt="">
+                    <button id="clear1" class="tool-btn danger hidden" aria-label="Clear all points on map 1">
+                        <img src="images/svgs/clear.svg" alt="Clear" loading="lazy">
                     </button>
                 </div>
             </div>
         </div>
 
-        <div class="map-wrapper" id="map2-wrapper">
-            <div id="map2" class="map-instance"></div>
+        <div class="map-wrapper" id="map2-wrapper" role="region" aria-label="Map 2 - Comparison">
+            <div id="map2" class="map-instance" role="application" aria-label="Interactive map 2"></div>
             <div class="overlay-ui">
                 <div class="hud-stack">
                     <div class="hud-card" id="card2">
@@ -91,10 +133,11 @@
                 <div class="toolbar-container">
                     <div class="search-wrapper">
                         <div class="search-control" id="search-ctrl2">
-                            <button class="search-btn-inner" id="search-btn2">
-                                <img src="images/svgs/search.svg" alt="">
+                            <button class="search-btn-inner" id="search-btn2" aria-label="Search location on map 2">
+                                <img src="images/svgs/search.svg" alt="Search" loading="lazy">
                             </button>
                             <input type="text" class="search-input" id="search-in2" placeholder="Search world..."
+                                aria-label="Search location"
                                 oninput="debouncedSearch(event, 2)" autocomplete="off" autocorrect="off"
                                 autocapitalize="off" spellcheck="false">
                         </div>
@@ -107,31 +150,31 @@
                             <div id="results-list2" class="results-list"></div>
                         </div>
                     </div>
-                    <button class="tool-btn" id="locate-btn2">
-                        <img src="images/svgs/device-position.svg" alt="">
+                    <button class="tool-btn" id="locate-btn2" aria-label="Get current location on map 2">
+                        <img src="images/svgs/device-position.svg" alt="Locate" loading="lazy">
                     </button>
-                    <button id="center-btn2" class="tool-btn hidden">
-                        <img src="images/svgs/center.svg" alt="">
+                    <button id="center-btn2" class="tool-btn hidden" aria-label="Center map 2 on shape">
+                        <img src="images/svgs/center.svg" alt="Center" loading="lazy">
                     </button>
-                    <button id="back2" class="tool-btn hidden">
-                        <img src="images/svgs/back.svg" alt="">
+                    <button id="back2" class="tool-btn hidden" aria-label="Undo last point on map 2">
+                        <img src="images/svgs/back.svg" alt="Undo" loading="lazy">
                     </button>
-                    <button id="clear2" class="tool-btn danger hidden">
-                        <img src="images/svgs/clear.svg" alt="">
+                    <button id="clear2" class="tool-btn danger hidden" aria-label="Clear all points on map 2">
+                        <img src="images/svgs/clear.svg" alt="Clear" loading="lazy">
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="global-bar">
-        <button class="bar-btn" id="settings-btn">
-            <img src="images/svgs/settings.svg" alt="">
+    <div class="global-bar" role="toolbar" aria-label="Main toolbar">
+        <button class="bar-btn" id="settings-btn" aria-label="Open settings">
+            <img src="images/svgs/settings.svg" alt="Settings" loading="lazy">
         </button>
 
         <div class="dropdown-container">
-            <button class="bar-btn" id="layerBtn">
-                <img src="images/svgs/layers.svg" alt="">
+            <button class="bar-btn" id="layerBtn" aria-label="Change map layer">
+                <img src="images/svgs/layers.svg" alt="Layers" loading="lazy">
             </button>
             <div class="dropdown-menu" id="layerMenu" data-active="hybrid">
                 <div class="dropdown-highlight"></div>
@@ -143,28 +186,29 @@
 
         <div class="pill-group" id="mode-group" data-mode="line">
             <div class="pill-bg"></div>
-            <button id="btnLine" class="pill active">Line</button>
-            <button id="btnArea" class="pill">Area</button>
+            <button id="btnLine" class="pill active" aria-label="Line measurement mode">Line</button>
+            <button id="btnArea" class="pill" aria-label="Area measurement mode">Area</button>
         </div>
 
-        <button class="bar-btn" id="share-btn">
-            <img src="images/svgs/share.svg" alt="">
+        <button class="bar-btn" id="share-btn" aria-label="Share current view">
+            <img src="images/svgs/share.svg" alt="Share" loading="lazy">
         </button>
 
-        <button class="bar-btn center-btn" id="center-global-btn">
-            <img src="images/svgs/center.svg" alt="">
+        <button class="bar-btn center-btn" id="center-global-btn" aria-label="Center both maps on shape">
+            <img src="images/svgs/center.svg" alt="Center both" loading="lazy">
         </button>
 
-        <button class="bar-btn" id="info-btn">
-            <img src="images/svgs/info.svg" alt="">
+        <button class="bar-btn" id="info-btn" aria-label="View information and help">
+            <img src="images/svgs/info.svg" alt="Info" loading="lazy">
         </button>
     </div>
 
-    <div id="settings-modal" class="modal-overlay">
+    <div id="settings-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="settings-title" aria-describedby="settings-desc">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Settings</h2>
-                <button class="tool-btn close-modal">×</button>
+                <h2 id="settings-title">Settings</h2>
+                <p id="settings-desc" class="sr-only">Configure application preferences</p>
+                <button class="tool-btn close-modal" aria-label="Close settings">×</button>
             </div>
             <div class="setting-row" id="row-units">
                 <span>Measurement Units</span>
@@ -181,23 +225,24 @@
         </div>
     </div>
 
-    <div id="info-modal" class="modal-overlay">
+    <div id="info-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="info-title" aria-describedby="info-desc">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Sync View</h2>
-                <button class="tool-btn close-modal">×</button>
+                <h2 id="info-title">Sync View</h2>
+                <p id="info-desc" class="sr-only">Application information and keyboard shortcuts</p>
+                <button class="tool-btn close-modal" aria-label="Close information">×</button>
             </div>
             <p class="info-intro">
                 Sync View is a dual-map comparison tool for measuring distances and areas between locations.
             </p>
 
             <div class="btn-link-group">
-                <a href="https://github.com/dshot92/syncview" target="_blank" class="btn-link">
-                    <img src="images/svgs/github.svg" alt="">
+                <a href="https://github.com/dshot92/syncview" target="_blank" rel="noopener noreferrer" class="btn-link">
+                    <img src="images/svgs/github.svg" alt="GitHub" loading="lazy">
                     Sync View
                 </a>
-                <a href="https://github.com/dshot92" target="_blank" class="btn-link">
-                    <img src="images/svgs/github.svg" alt="">
+                <a href="https://github.com/dshot92" target="_blank" rel="noopener noreferrer" class="btn-link">
+                    <img src="images/svgs/github.svg" alt="GitHub" loading="lazy">
                     dshot92
                 </a>
             </div>
@@ -216,11 +261,12 @@
         </div>
     </div>
 
-    <div id="share-modal" class="modal-overlay">
+    <div id="share-modal" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="share-title" aria-describedby="share-desc">
         <div class="modal-content">
             <div class="modal-header">
-                <h2>Share</h2>
-                <button class="tool-btn close-modal">×</button>
+                <h2 id="share-title">Share</h2>
+                <p id="share-desc" class="sr-only">Share your map view with others via link or QR code</p>
+                <button class="tool-btn close-modal" aria-label="Close share dialog">×</button>
             </div>
 
             <div class="share-qr-container">
@@ -232,7 +278,7 @@
             <div id="share-url" class="share-url-display"></div>
 
             <button class="btn-primary" id="btn-copy-link">
-                <img src="images/svgs/copy.svg" alt="">
+                <img src="images/svgs/copy.svg" alt="Copy" loading="lazy">
                 <span>Copy Link</span>
             </button>
         </div>
@@ -240,8 +286,8 @@
 
     <div id="magnifier"></div>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="main.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
+    <script src="main.js" defer></script>
 </body>
 
 </html>

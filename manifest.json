@@ -1,24 +1,61 @@
 {
-  "name": "Sync View",
+  "name": "Sync View - Dual Map Comparison Tool",
   "short_name": "Sync View",
-  "description": "Synchronized dual-map viewer for comparing locations and distances",
-  "start_url": "/syncview/",
+  "description": "Synchronized dual-map viewer for comparing locations and distances with precision measurement tools",
+  "start_url": "/syncview/?source=pwa",
   "scope": "/syncview/",
+  "id": "/syncview/",
   "launch_handler": {
     "client_mode": ["navigate-existing", "auto"]
   },
   "handle_links": "preferred",
   "display": "standalone",
-  "orientation": "portrait-primary",
-  "background_color": "#020610",
-  "theme_color": "#020610",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "categories": ["utilities", "productivity", "navigation"],
+  "screenshots": [
+    {
+      "src": "images/screenshot.jpg",
+      "sizes": "1280x720",
+      "type": "image/jpeg",
+      "form_factor": "wide",
+      "label": "Dual map comparison view"
+    },
+    {
+      "src": "images/preview.webp",
+      "sizes": "1200x630",
+      "type": "image/webp",
+      "form_factor": "narrow",
+      "label": "Sync View mobile interface"
+    }
+  ],
   "icons": [
     {
       "src": "images/icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "images/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ],
-  "categories": ["utilities", "productivity"]
+  "shortcuts": [
+    {
+      "name": "New Comparison",
+      "short_name": "Compare",
+      "description": "Start a new map comparison",
+      "url": "/syncview/?action=new",
+      "icons": [{ "src": "images/svgs/center.svg", "sizes": "96x96" }]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false,
+  "edge_side_panel": {
+    "preferred_width": 400
+  }
 }

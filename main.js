@@ -309,7 +309,7 @@ const tileOptions = {
     keepBuffer: 4,
     minZoom: 1,
     maxZoom: 22,
-    tileSize: 256,
+    detectRetina: true,
 };
 
 /**
