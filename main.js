@@ -749,12 +749,28 @@ function renderDraggingPoint() {
     const weight = parseInt(getCssVar('--shape-line-width')) || 3;
 
     // Update both shapes during point drag (centroid change affects comparison map)
-    [1, 2].forEach(id => {
+    const mapData = [1, 2].map(id => {
         const map = id === 1 ? map1 : map2;
         const pts = gt.getRenderPoints(map, id);
         const color = getCssVar(om === id ? '--origin-color' : '--comp-color');
         mapManagers[id].updateShape(pts, color, isArea, weight);
+        return { id, pts };
     });
+
+    // Update stats in real-time during drag
+    const originData = mapData.find(d => d.id === om);
+    const compData = mapData.find(d => d.id !== om);
+    const [refVal, compVal] = [originData.pts, compData.pts].map(getVal);
+    DOM.maps[om].stats.textContent = format(refVal);
+    DOM.maps[compData.id].stats.textContent = format(compVal);
+    DOM.maps[om].diff.textContent = '';
+
+    if (refVal > 0) {
+        const pct = ((compVal - refVal) / refVal) * 100;
+        const el = DOM.maps[compData.id].diff;
+        el.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+        el.style.color = getCssVar('--comp-color');
+    }
 }
 
 /**
@@ -775,6 +791,21 @@ function renderRotating(map, mapId) {
     const compPts = gt.getRenderPoints(compMap, compId);
     const compColor = getCssVar('--comp-color');
     mapManagers[compId].updateShape(compPts, compColor, isArea, weight);
+
+    // Update stats in real-time during rotation
+    const originMap = om === 1 ? map1 : map2;
+    const originPts = gt.getRenderPoints(originMap, om);
+    const [refVal, compVal] = [originPts, compPts].map(getVal);
+    DOM.maps[om].stats.textContent = format(refVal);
+    DOM.maps[compId].stats.textContent = format(compVal);
+    DOM.maps[om].diff.textContent = '';
+
+    if (refVal > 0) {
+        const pct = ((compVal - refVal) / refVal) * 100;
+        const el = DOM.maps[compId].diff;
+        el.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+        el.style.color = getCssVar('--comp-color');
+    }
 
     // Update the connecting line between move and rotate handles
     const mm = mapManagers[compId];
