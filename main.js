@@ -18,6 +18,9 @@ const CONFIG = {
     MAX_ZOOM: 22,
     REF_ZOOM: 20,
     PADDING: [80, 80],
+    DEFAULT_CENTER_ZOOM: 13,
+    GEOLOCATION_ZOOM: 15,
+    SEARCH_ZOOM: 15,
 };
 
 /**
@@ -279,13 +282,13 @@ const mapOptions = {
  * First map instance (origin map).
  * @type {L.Map}
  */
-const map1 = L.map('map1', mapOptions).setView([51.505, -0.09], 13);
+const map1 = L.map('map1', mapOptions).setView([51.505, -0.09], CONFIG.DEFAULT_CENTER_ZOOM);
 
 /**
  * Second map instance (comparison map).
  * @type {L.Map}
  */
-const map2 = L.map('map2', mapOptions).setView([40.7128, -74.0060], 13);
+const map2 = L.map('map2', mapOptions).setView([40.7128, -74.0060], CONFIG.DEFAULT_CENTER_ZOOM);
 
 /**
  * Map manager instances for both maps.
@@ -324,74 +327,72 @@ let tile2 = L.tileLayer(tiles.hybrid, { ...tileOptions }).addTo(map2);
 // --- Pinch Zoom Synchronization ---
 
 /**
- * Currently active map during pinch gesture.
- * @type {L.Map|null}
+ * Pinch zoom state machine to prevent race conditions.
+ * @type {Object}
  */
-let activePinchMap = null;
+const PinchState = {
+    activeMap: null,
+    passiveMap: null,
+    passiveBaseZoom: null,
+    justEnded: false,
 
-/**
- * Passive map during pinch gesture.
- * @type {L.Map|null}
- */
-let passivePinchMap = null;
+    /**
+     * Starts a pinch gesture.
+     * @param {L.Map} active - The map being touched.
+     * @param {L.Map} passive - The other map.
+     */
+    start(active, passive) {
+        if (this.activeMap) this.end();
+        this.activeMap = active;
+        this.passiveMap = passive;
+        this.passiveBaseZoom = passive.getZoom();
+        this.activeMap.on('zoom', this.onZoom);
+    },
 
-/**
- * Base zoom level of passive map during pinch.
- * @type {number|null}
- */
-let passiveBaseZoom = null;
+    /**
+     * Handles zoom during active pinch.
+     */
+    onZoom: () => {
+        if (!PinchState.passiveMap) return;
+        const scale = Math.pow(2, PinchState.activeMap.getZoom() - PinchState.passiveBaseZoom);
+        const size = PinchState.passiveMap.getSize();
+        const origin = L.point(size.x / 2, size.y / 2);
+        const offset = origin.subtract(origin.multiplyBy(scale));
+        L.DomUtil.setTransform(PinchState.passiveMap._mapPane, offset, scale);
+    },
 
-/**
- * Flag to indicate pinch just ended.
- * @type {boolean}
- */
-let justEndedPinch = false;
-
-/**
- * Handles zoom synchronization during active pinch.
- */
-function onActiveMapZoom() {
-    if (!passivePinchMap) return;
-    const scale = Math.pow(2, activePinchMap.getZoom() - passiveBaseZoom);
-    const size = passivePinchMap.getSize();
-    const origin = L.point(size.x / 2, size.y / 2);
-    const offset = origin.subtract(origin.multiplyBy(scale));
-    L.DomUtil.setTransform(passivePinchMap._mapPane, offset, scale);
-}
-
-/**
- * Ends the pinch gesture and synchronizes final zoom levels.
- */
-function endPinch() {
-    if (!passivePinchMap) return;
-    activePinchMap.off('zoom', onActiveMapZoom);
-    const passive = passivePinchMap;
-    const active = activePinchMap;
-    L.DomUtil.setTransform(passive._mapPane, L.point(0, 0), 1);
-    passivePinchMap = null;
-    activePinchMap = null;
-    passiveBaseZoom = null;
-    justEndedPinch = true;
-    const finalZoom = active.getZoom();
-    if (Math.abs(passive.getZoom() - finalZoom) > 0.01) {
-        passive.setZoom(finalZoom, { animate: false });
+    /**
+     * Ends the pinch gesture and synchronizes final zoom levels.
+     */
+    end() {
+        if (!PinchState.passiveMap) return;
+        PinchState.activeMap.off('zoom', PinchState.onZoom);
+        const passive = PinchState.passiveMap;
+        const active = PinchState.activeMap;
+        L.DomUtil.setTransform(passive._mapPane, L.point(0, 0), 1);
+        PinchState.activeMap = null;
+        PinchState.passiveMap = null;
+        PinchState.passiveBaseZoom = null;
+        PinchState.justEnded = true;
+        const finalZoom = active.getZoom();
+        if (Math.abs(passive.getZoom() - finalZoom) > 0.01) {
+            passive.setZoom(finalZoom, { animate: false });
+        }
+        setTimeout(() => { PinchState.justEnded = false; }, 50);
     }
-    justEndedPinch = false;
-}
+};
 
 document.getElementById('app-container').addEventListener('touchstart', e => {
     if (e.touches.length === 2) {
-        if (passivePinchMap) endPinch();
         const inMap1 = e.touches[0].target.closest('#map1-wrapper') || e.touches[1].target.closest('#map1-wrapper');
-        activePinchMap = inMap1 ? map1 : map2;
-        passivePinchMap = inMap1 ? map2 : map1;
-        passiveBaseZoom = passivePinchMap.getZoom();
-        activePinchMap.on('zoom', onActiveMapZoom);
+        const active = inMap1 ? map1 : map2;
+        const passive = inMap1 ? map2 : map1;
+        PinchState.start(active, passive);
     }
 }, { passive: true });
 
-document.getElementById('app-container').addEventListener('touchend', endPinch, { passive: true });
-document.getElementById('app-container').addEventListener('touchcancel', endPinch, { passive: true });
+document.getElementById('app-container').addEventListener('touchend', () => PinchState.end(), { passive: true });
+document.getElementById('app-container').addEventListener('touchcancel', () => PinchState.end(), { passive: true });
 
 // --- Fallback Zoom Sync ---
 
@@ -408,7 +409,7 @@ let isSyncing = false;
  */
 function bindZoom(source, target) {
     source.on('zoomend', () => {
-        if (isSyncing || passivePinchMap || justEndedPinch) return;
+        if (isSyncing || PinchState.passiveMap || PinchState.justEnded) return;
         isSyncing = true;
         const z = source.getZoom();
         if (Math.abs(target.getZoom() - z) > 0.01) {
@@ -726,6 +727,7 @@ function renderAll() {
 function syncMarkers(pts, layer, map) {
     if (AppState.markers.length !== pts.length) {
         layer.clearLayers();
+        AppState.markers.forEach(m => m.off()); // Clear old listeners
         AppState.markers = pts.map((p, i) => {
             const m = L.marker(p, {
                 icon: L.divIcon({
@@ -1150,6 +1152,8 @@ const ShareState = {
             }
         } catch (e) {
             console.error("Decoding error:", e);
+            AppState.clear();
+            alert('Failed to load shared view. Starting fresh.');
         }
     }
 };
@@ -1194,7 +1198,7 @@ function openShareModal(url) {
         DOM.qrLoading.classList.remove('hidden');
         DOM.qrError.classList.add('hidden');
 
-        setTimeout(() => {
+        requestAnimationFrame(() => {
             try {
                 new QRCode(DOM.qrcode, { text: url, width: 200, height: 200, colorDark: "#000000", colorLight: "#ffffff", correctLevel: QRCode.CorrectLevel.M });
                 DOM.qrLoading.classList.add('hidden');
@@ -1202,7 +1206,7 @@ function openShareModal(url) {
                 DOM.qrLoading.classList.add('hidden');
                 DOM.qrError.classList.remove('hidden');
             }
-        }, 50);
+        });
     }
 
     if (DOM.btnCopyLink) {
@@ -1356,7 +1360,7 @@ async function handleSearch(e, id) {
             d.className = 'result-item';
             d.textContent = label;
             d.onclick = () => {
-                (id === 1 ? map1 : map2).setView([coords[1], coords[0]], 15);
+                (id === 1 ? map1 : map2).setView([coords[1], coords[0]], CONFIG.SEARCH_ZOOM);
                 toggleSearch(id);
             };
             els.resultsList.appendChild(d);
@@ -1370,15 +1374,14 @@ async function handleSearch(e, id) {
 
 /**
  * Debounced search function.
- * @type {Function}
+ * @param {Event} event - Input event.
+ * @param {number} id - Map ID (1 or 2).
  */
-const debouncedSearch = (() => {
-    let timeout;
-    return (event, id) => {
-        clearTimeout(timeout);
-        timeout = setTimeout(() => handleSearch(event, id), CONFIG.DEBOUNCE_DELAY);
-    };
-})();
+let searchTimeout;
+function debouncedSearch(event, id) {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => handleSearch(event, id), CONFIG.DEBOUNCE_DELAY);
+}
 
 // --- Magnifier (Lens) Functions ---
 
@@ -1444,12 +1447,22 @@ function locateDevice(id) {
     if (btn) btn.classList.add('loading');
     navigator.geolocation.getCurrentPosition(
         p => {
-            (id === 1 ? map1 : map2).setView([p.coords.latitude, p.coords.longitude], 15);
+            (id === 1 ? map1 : map2).setView([p.coords.latitude, p.coords.longitude], CONFIG.GEOLOCATION_ZOOM);
             if (btn) btn.classList.remove('loading');
         },
         err => {
             console.error(err);
-            if (btn) btn.classList.remove('loading');
+            if (btn) {
+                btn.classList.remove('loading');
+                btn.classList.add('error');
+                setTimeout(() => btn.classList.remove('error'), 2000);
+            }
+            const messages = {
+                1: 'Permission denied. Enable location access.',
+                2: 'Position unavailable. Try again.',
+                3: 'Location timeout. Check GPS signal.'
+            };
+            alert(messages[err.code] || 'Unable to get location.');
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -1457,7 +1470,64 @@ function locateDevice(id) {
 
 // --- Initialization ---
 
+/**
+ * Sets up all event listeners for UI elements.
+ */
+function initEventListeners() {
+    // Search buttons
+    document.getElementById('search-btn1')?.addEventListener('click', () => toggleSearch(1));
+    document.getElementById('search-btn2')?.addEventListener('click', () => toggleSearch(2));
+
+    // Locate buttons
+    document.getElementById('locate-btn1')?.addEventListener('click', () => locateDevice(1));
+    document.getElementById('locate-btn2')?.addEventListener('click', () => locateDevice(2));
+
+    // Map control buttons
+    document.getElementById('center-btn1')?.addEventListener('click', centerShapes);
+    document.getElementById('center-btn2')?.addEventListener('click', centerShapes);
+    document.getElementById('back1')?.addEventListener('click', () => AppState.removeLast());
+    document.getElementById('back2')?.addEventListener('click', () => AppState.removeLast());
+    document.getElementById('clear1')?.addEventListener('click', () => AppState.clear());
+    document.getElementById('clear2')?.addEventListener('click', () => AppState.clear());
+
+    // Global bar buttons
+    document.getElementById('settings-btn')?.addEventListener('click', () => toggleModal('settings-modal', true));
+    document.getElementById('layerBtn')?.addEventListener('click', toggleLayerMenu);
+    document.getElementById('btnLine')?.addEventListener('click', () => AppState.setMode('line'));
+    document.getElementById('btnArea')?.addEventListener('click', () => AppState.setMode('area'));
+    document.getElementById('share-btn')?.addEventListener('click', shareCurrentView);
+    document.getElementById('center-global-btn')?.addEventListener('click', centerShapes);
+    document.getElementById('info-btn')?.addEventListener('click', () => toggleModal('info-modal', true));
+
+    // Layer dropdown items
+    document.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const layer = item.getAttribute('data-layer');
+            if (layer) AppState.setLayer(layer);
+        });
+    });
+
+    // Settings rows
+    document.getElementById('row-units')?.addEventListener('click', () => AppState.toggleUnits());
+    document.getElementById('row-vertex')?.addEventListener('click', () => AppState.toggleVertexNumbers());
+    document.getElementById('row-bbox')?.addEventListener('click', () => AppState.toggleBoundingBox());
+
+    // Modal close buttons and overlay clicks
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) toggleModal(modal.id, false);
+        });
+    });
+    document.querySelectorAll('.close-modal').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const modal = btn.closest('.modal-overlay');
+            if (modal) toggleModal(modal.id, false);
+        });
+    });
+}
+
 window.addEventListener('load', () => {
+    initEventListeners();
     const code = new URLSearchParams(window.location.search).get('s');
     if (code) setTimeout(() => ShareState.decode(code), 100);
 });

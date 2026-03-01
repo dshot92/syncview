@@ -205,6 +205,17 @@ img {
     animation: spin 0.6s linear infinite;
 }
 
+.tool-btn.error {
+    background-color: var(--accent-red);
+    animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-3px); }
+    75% { transform: translateX(3px); }
+}
+
 @keyframes spin {
     to {
         transform: rotate(360deg);

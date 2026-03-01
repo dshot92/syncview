@@ -47,7 +47,7 @@
                 <div class="toolbar-container">
                     <div class="search-wrapper">
                         <div class="search-control" id="search-ctrl1">
-                            <button class="search-btn-inner" onclick="toggleSearch(1)">
+                            <button class="search-btn-inner" id="search-btn1">
                                 <img src="images/svgs/search.svg" alt="">
                             </button>
                             <input type="text" class="search-input" id="search-in1" placeholder="Search world..."
@@ -63,16 +63,16 @@
                             <div id="results-list1" class="results-list"></div>
                         </div>
                     </div>
-                    <button class="tool-btn" id="locate-btn1" onclick="locateDevice(1)">
+                    <button class="tool-btn" id="locate-btn1">
                         <img src="images/svgs/device-position.svg" alt="">
                     </button>
-                    <button id="center-btn1" class="tool-btn hidden" onclick="centerShapes()">
+                    <button id="center-btn1" class="tool-btn hidden">
                         <img src="images/svgs/center.svg" alt="">
                     </button>
-                    <button id="back1" class="tool-btn hidden" onclick="AppState.removeLast()">
+                    <button id="back1" class="tool-btn hidden">
                         <img src="images/svgs/back.svg" alt="">
                     </button>
-                    <button id="clear1" class="tool-btn danger hidden" onclick="AppState.clear()">
+                    <button id="clear1" class="tool-btn danger hidden">
                         <img src="images/svgs/clear.svg" alt="">
                     </button>
                 </div>
@@ -91,7 +91,7 @@
                 <div class="toolbar-container">
                     <div class="search-wrapper">
                         <div class="search-control" id="search-ctrl2">
-                            <button class="search-btn-inner" onclick="toggleSearch(2)">
+                            <button class="search-btn-inner" id="search-btn2">
                                 <img src="images/svgs/search.svg" alt="">
                             </button>
                             <input type="text" class="search-input" id="search-in2" placeholder="Search world..."
@@ -107,16 +107,16 @@
                             <div id="results-list2" class="results-list"></div>
                         </div>
                     </div>
-                    <button class="tool-btn" id="locate-btn2" onclick="locateDevice(2)">
+                    <button class="tool-btn" id="locate-btn2">
                         <img src="images/svgs/device-position.svg" alt="">
                     </button>
-                    <button id="center-btn2" class="tool-btn hidden" onclick="centerShapes()">
+                    <button id="center-btn2" class="tool-btn hidden">
                         <img src="images/svgs/center.svg" alt="">
                     </button>
-                    <button id="back2" class="tool-btn hidden" onclick="AppState.removeLast()">
+                    <button id="back2" class="tool-btn hidden">
                         <img src="images/svgs/back.svg" alt="">
                     </button>
-                    <button id="clear2" class="tool-btn danger hidden" onclick="AppState.clear()">
+                    <button id="clear2" class="tool-btn danger hidden">
                         <img src="images/svgs/clear.svg" alt="">
                     </button>
                 </div>
@@ -125,68 +125,67 @@
     </div>
 
     <div class="global-bar">
-        <button class="bar-btn" onclick="toggleModal('settings-modal', true)">
+        <button class="bar-btn" id="settings-btn">
             <img src="images/svgs/settings.svg" alt="">
         </button>
 
         <div class="dropdown-container">
-            <button class="bar-btn" id="layerBtn" onclick="toggleLayerMenu()">
+            <button class="bar-btn" id="layerBtn">
                 <img src="images/svgs/layers.svg" alt="">
             </button>
             <div class="dropdown-menu" id="layerMenu" data-active="hybrid">
                 <div class="dropdown-highlight"></div>
-                <div data-layer="hybrid" class="dropdown-item active" onclick="AppState.setLayer('hybrid')">Hybrid</div>
-                <div data-layer="satellite" class="dropdown-item" onclick="AppState.setLayer('satellite')">Satellite
-                </div>
-                <div data-layer="streets" class="dropdown-item" onclick="AppState.setLayer('streets')">Streets</div>
+                <div data-layer="hybrid" class="dropdown-item active">Hybrid</div>
+                <div data-layer="satellite" class="dropdown-item">Satellite</div>
+                <div data-layer="streets" class="dropdown-item">Streets</div>
             </div>
         </div>
 
         <div class="pill-group" id="mode-group" data-mode="line">
             <div class="pill-bg"></div>
-            <button id="btnLine" class="pill active" onclick="AppState.setMode('line')">Line</button>
-            <button id="btnArea" class="pill" onclick="AppState.setMode('area')">Area</button>
+            <button id="btnLine" class="pill active">Line</button>
+            <button id="btnArea" class="pill">Area</button>
         </div>
 
-        <button class="bar-btn" onclick="shareCurrentView()">
+        <button class="bar-btn" id="share-btn">
             <img src="images/svgs/share.svg" alt="">
         </button>
 
-        <button class="bar-btn center-btn" onclick="centerShapes()">
+        <button class="bar-btn center-btn" id="center-global-btn">
             <img src="images/svgs/center.svg" alt="">
         </button>
 
-        <button class="bar-btn" onclick="toggleModal('info-modal', true)">
+        <button class="bar-btn" id="info-btn">
             <img src="images/svgs/info.svg" alt="">
         </button>
     </div>
 
-    <div id="settings-modal" class="modal-overlay" onclick="toggleModal('settings-modal', false)">
-        <div class="modal-content" onclick="event.stopPropagation()">
+    <div id="settings-modal" class="modal-overlay">
+        <div class="modal-content">
             <div class="modal-header">
                 <h2>Settings</h2>
-                <button class="tool-btn" onclick="toggleModal('settings-modal', false)">×</button>
+                <button class="tool-btn close-modal">×</button>
             </div>
-            <div class="setting-row" onclick="AppState.toggleUnits()">
+            <div class="setting-row" id="row-units">
                 <span>Measurement Units</span>
                 <span id="val-units" class="setting-value">Metric</span>
             </div>
-            <div class="setting-row" onclick="AppState.toggleVertexNumbers()">
+            <div class="setting-row" id="row-vertex">
                 <span>Show Point Numbers</span>
                 <span id="val-vertex" class="setting-value">Off</span>
             </div>
-            <div class="setting-row" onclick="AppState.toggleBoundingBox()">
+            <div class="setting-row" id="row-bbox">
                 <span>Show Bounding Box</span>
                 <span id="val-bbox" class="setting-value">Off</span>
             </div>
         </div>
     </div>
 
-    <div id="info-modal" class="modal-overlay" onclick="toggleModal('info-modal', false)">
-        <div class="modal-content" onclick="event.stopPropagation()">
+    <div id="info-modal" class="modal-overlay">
+        <div class="modal-content">
             <div class="modal-header">
                 <h2>Sync View</h2>
-                <button class="tool-btn" onclick="toggleModal('info-modal', false)">×</button>
+                <button class="tool-btn close-modal">×</button>
             </div>
             <p class="info-intro">
                 Sync View is a dual-map comparison tool for measuring distances and areas between locations.
@@ -217,11 +216,11 @@
         </div>
     </div>
 
-    <div id="share-modal" class="modal-overlay" onclick="toggleModal('share-modal', false)">
-        <div class="modal-content" onclick="event.stopPropagation()">
+    <div id="share-modal" class="modal-overlay">
+        <div class="modal-content">
             <div class="modal-header">
                 <h2>Share</h2>
-                <button class="tool-btn" onclick="toggleModal('share-modal', false)">×</button>
+                <button class="tool-btn close-modal">×</button>
             </div>
 
             <div class="share-qr-container">
