@@ -10,7 +10,7 @@
   },
   "handle_links": "preferred",
   "display": "standalone",
-  "orientation": "portrait",
+  "orientation": "portrait-primary",
   "background_color": "#020617",
   "theme_color": "#020617",
   "categories": ["utilities", "productivity", "navigation"],
