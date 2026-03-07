@@ -2,7 +2,7 @@
   "name": "Sync View - Dual Map Comparison Tool",
   "short_name": "Sync View",
   "description": "Synchronized dual-map viewer for comparing locations and distances with precision measurement tools",
-  "start_url": "/syncview/?source=pwa",
+  "start_url": "/syncview/",
   "scope": "/syncview/",
   "id": "/syncview/",
   "launch_handler": {
