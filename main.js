@@ -232,10 +232,25 @@ class MapManager {
 
         if (!shape || (isArea && !(shape instanceof L.Polygon)) || (!isArea && shape instanceof L.Polygon)) {
             shapes.clearLayers();
-            casing = factory(pts, { color: getCssVar('--shape-outline-color'), weight: weight * 2, fill: false, opacity: 1, interactive: false }).addTo(shapes);
-            shape = factory(pts, { color, weight, fill: isArea, fillColor: color, fillOpacity: 0.25, opacity: 1, interactive: false }).addTo(shapes);
+            casing = factory(pts, { color: getCssVar('--shape-outline-color'), weight: weight * 2, fill: false, opacity: 1, interactive: true }).addTo(shapes);
+            shape = factory(pts, { color, weight, fill: isArea, fillColor: color, fillOpacity: 0.25, opacity: 1, interactive: true }).addTo(shapes);
             this.refs.shape = shape;
             this.refs.casing = casing;
+
+            const setupShapeEvents = (s) => {
+                s.on('mousedown touchstart', (e) => {
+                    const gt = AppState.groundTruth;
+                    if (!gt || gt.origin_map === this.id) return;
+                    L.DomEvent.stopPropagation(e);
+                    AppState.isDragging = true;
+                    this.map.dragging.disable();
+                    this._dragStart = e.latlng;
+                    this._startAnchor = gt.comparison_anchor;
+                    initMagnifier(this.map, e.latlng);
+                });
+            };
+            setupShapeEvents(shape);
+            setupShapeEvents(casing);
         } else {
             shape.setLatLngs(pts);
             casing.setLatLngs(pts);
@@ -875,7 +890,7 @@ function syncMarkers(pts, layer, map) {
                 const latlng = e.target.getLatLng();
                 AppState.groundTruth.updatePoint(i, latlng, map);
                 updateMagnifier(latlng, map);
-                throttledRender(renderDraggingPoint);
+                requestRender();
             });
             return m;
         });
@@ -916,15 +931,21 @@ function syncOverlayHandles(map, layer, mapId) {
             })
         }).addTo(layer);
 
-        handles.move.on('dragstart', () => AppState.isDragging = true);
+        handles.move.on('dragstart', (e) => {
+            AppState.isDragging = true;
+            initMagnifier(map, e.target.getLatLng());
+        });
         handles.move.on('dragend', () => {
             AppState.isDragging = false;
             AppState.isDragEnd = true;
+            hideMagnifier();
             setTimeout(() => AppState.isDragEnd = false, 100);
             requestRender();
         });
         handles.move.on('drag', e => {
-            AppState.groundTruth.setOverlayPosition(e.target.getLatLng());
+            const latlng = e.target.getLatLng();
+            AppState.groundTruth.setOverlayPosition(latlng);
+            updateMagnifier(latlng, map);
             renderAll();
         });
     } else if (!AppState.isDragging) {
@@ -950,10 +971,14 @@ function syncOverlayHandles(map, layer, mapId) {
             })
         }).addTo(layer);
 
-        handles.rotate.on('dragstart', () => AppState.isRotating = true);
+        handles.rotate.on('dragstart', (e) => {
+            AppState.isRotating = true;
+            initMagnifier(map, e.target.getLatLng());
+        });
         handles.rotate.on('dragend', () => {
             AppState.isRotating = false;
             AppState.isDragEnd = true;
+            hideMagnifier();
             setTimeout(() => AppState.isDragEnd = false, 100);
             requestRender();
         });
@@ -965,9 +990,11 @@ function syncOverlayHandles(map, layer, mapId) {
             const angle = Math.atan2(mPx.y - cPx.y, mPx.x - cPx.x);
             const dx = Math.cos(angle) * offsetDist;
             const dy = Math.sin(angle) * offsetDist;
-            e.target.setLatLng(map.unproject(cPx.add(L.point(dx, dy)), map.getZoom()));
+            const latlng = map.unproject(cPx.add(L.point(dx, dy)), map.getZoom());
+            e.target.setLatLng(latlng);
             AppState.groundTruth.setOverlayRotation(angle + Math.PI / 2);
-            throttledRender(() => renderRotating(map, mapId));
+            updateMagnifier(latlng, map);
+            renderAll();
         });
     } else if (!AppState.isRotating) {
         handles.rotate.setLatLng(handlePos);
