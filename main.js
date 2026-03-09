@@ -288,6 +288,8 @@ class MapManager {
 
         if (pts.length < 2) return;
 
+        if (!AppState.showLineLength) return;
+
         const lines = [];
         for (let i = 0; i < pts.length - 1; i++) {
             lines.push([pts[i], pts[i + 1]]);
@@ -517,6 +519,7 @@ const AppState = {
     markers: [],
     showVertexNumbers: true,
     showBoundingBox: false,
+    showLineLength: true,
     isDragging: false,
     isRotating: false,
     isDraggingPoint: -1,
@@ -619,6 +622,21 @@ const AppState = {
     },
 
     /**
+     * Toggles display of line length labels.
+     */
+    toggleLineLength() {
+        this.showLineLength = !this.showLineLength;
+        const val = this.showLineLength ? 'on' : 'off';
+        const toggle = document.getElementById('toggle-line-length');
+        if (toggle) {
+            toggle.setAttribute('data-active', val);
+            const btns = toggle.querySelectorAll('.pill');
+            btns.forEach(b => b.classList.toggle('active', b.getAttribute('data-value') === val));
+        }
+        requestRender();
+    },
+
+    /**
      * Clears the current shape and resets state.
      */
     clear() {
@@ -697,6 +715,7 @@ const DOM = {
     valUnits: document.getElementById('val-units'),
     valVertex: document.getElementById('val-vertex'),
     valBbox: document.getElementById('val-bbox'),
+    valLineLength: document.getElementById('val-line-length'),
     dropdownItems: document.querySelectorAll('.dropdown-item'),
     maps: {
         1: {
@@ -1280,7 +1299,8 @@ const ShareState = {
                 ((AppState.mode === 'area' ? 1 : 0) << 2) |
                 ((AppState.units === 'imperial' ? 1 : 0) << 3) |
                 ((AppState.showVertexNumbers ? 1 : 0) << 4) |
-                ((AppState.showBoundingBox ? 1 : 0) << 5);
+                ((AppState.showBoundingBox ? 1 : 0) << 5) |
+                ((AppState.showLineLength ? 1 : 0) << 6);
             this.Bin.wU8(flags);
 
             for (let i = 0; i < 8; i++) this.Bin.wU8(0);
@@ -1331,6 +1351,7 @@ const ShareState = {
             const uBit = (flags >> 3) & 1;
             const vBit = (flags >> 4) & 1;
             const bBit = (flags >> 5) & 1;
+            const nBit = (flags >> 6) & 1;
 
             for (let i = 0; i < 8; i++) this.Bin.rU8();
 
@@ -1339,6 +1360,7 @@ const ShareState = {
             if ((uBit === 1 && AppState.units === 'metric') || (uBit === 0 && AppState.units === 'imperial')) AppState.toggleUnits();
             if ((vBit === 1 && !AppState.showVertexNumbers) || (vBit === 0 && AppState.showVertexNumbers)) AppState.toggleVertexNumbers();
             if ((bBit === 1 && !AppState.showBoundingBox) || (bBit === 0 && AppState.showBoundingBox)) AppState.toggleBoundingBox();
+            if ((nBit === 1 && !AppState.showLineLength) || (nBit === 0 && AppState.showLineLength)) AppState.toggleLineLength();
 
             map1.setView([this.Bin.rF32(), this.Bin.rF32()], this.Bin.rU16() / 100, { animate: false });
             map2.setView([this.Bin.rF32(), this.Bin.rF32()], this.Bin.rU16() / 100, { animate: false });
@@ -1517,6 +1539,7 @@ window.addEventListener('keydown', (e) => {
     if (key === 'u') AppState.toggleUnits();
     if (key === 'v') AppState.toggleVertexNumbers();
     if (key === 'b') AppState.toggleBoundingBox();
+    if (key === 'n') AppState.toggleLineLength();
     if (e.key === 'Delete' || e.key === 'Backspace') AppState.removeLast();
     if (key === 'z' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
@@ -1743,20 +1766,31 @@ function initEventListeners() {
     });
 
     // Settings toggles
-    ['units', 'vertex', 'bbox'].forEach(type => {
+    ['units', 'vertex', 'bbox', 'line-length'].forEach(type => {
         const toggle = document.getElementById(`toggle-${type}`);
         if (toggle) {
+            // Set initial data-active based on current state
+            const initialVal = type === 'units' ? AppState.units :
+                             type === 'vertex' ? (AppState.showVertexNumbers ? 'on' : 'off') :
+                             type === 'bbox' ? (AppState.showBoundingBox ? 'on' : 'off') :
+                             (AppState.showLineLength ? 'on' : 'off');
+            toggle.setAttribute('data-active', initialVal);
+            const btns = toggle.querySelectorAll('.pill');
+            btns.forEach(b => b.classList.toggle('active', b.getAttribute('data-value') === initialVal));
+
             toggle.querySelectorAll('.pill').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const val = btn.getAttribute('data-value');
                     const currentVal = type === 'units' ? AppState.units :
                                      type === 'vertex' ? (AppState.showVertexNumbers ? 'on' : 'off') :
-                                     (AppState.showBoundingBox ? 'on' : 'off');
+                                     type === 'bbox' ? (AppState.showBoundingBox ? 'on' : 'off') :
+                                     (AppState.showLineLength ? 'on' : 'off');
                     if (val !== currentVal) {
                         if (type === 'units') AppState.toggleUnits();
                         else if (type === 'vertex') AppState.toggleVertexNumbers();
                         else if (type === 'bbox') AppState.toggleBoundingBox();
+                        else if (type === 'line-length') AppState.toggleLineLength();
                     }
                 });
             });
@@ -1772,6 +1806,9 @@ function initEventListeners() {
     });
     document.getElementById('row-bbox')?.addEventListener('click', (e) => {
         if (!e.target.closest('.pill')) AppState.toggleBoundingBox();
+    });
+    document.getElementById('row-line-length')?.addEventListener('click', (e) => {
+        if (!e.target.closest('.pill')) AppState.toggleLineLength();
     });
 
     // Modal close buttons and overlay clicks

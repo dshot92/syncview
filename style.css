@@ -835,8 +835,13 @@ img {
 }
 
 #toggle-vertex[data-active="on"] .pill-bg,
-#toggle-bbox[data-active="on"] .pill-bg {
+#toggle-bbox[data-active="on"] .pill-bg,
+#toggle-line-length[data-active="on"] .pill-bg {
     transform: translateX(calc(var(--pill-rect-width)));
+}
+
+#toggle-line-length[data-active="off"] .pill-bg {
+    transform: translateX(0);
 }
 
 .settings-toggle .pill.active {
