@@ -80,7 +80,8 @@ class Shape {
     }
 
     /**
-     * Shifts the comparison anchor based on centroid change and rotation.
+     * Shifts the comparison anchor based on centroid change and rotation, 
+     * accounting for latitude-based scaling.
      * @param {L.Map} map - Leaflet map instance.
      * @param {L.Point} oldCentroid - Previous centroid.
      * @param {L.Point} newCentroid - New centroid.
@@ -90,8 +91,13 @@ class Shape {
         const rot = this.overlayRotation;
         const sin = Math.sin(rot);
         const cos = Math.cos(rot);
-        const rx = diff.x * cos - diff.y * sin;
-        const ry = diff.x * sin + diff.y * cos;
+
+        // Apply latitude scaling to the displacement as well
+        const latScale = Math.cos(this.origin_anchor.lat * Math.PI / 180) /
+                         Math.cos(this.comparison_anchor.lat * Math.PI / 180);
+
+        const rx = (diff.x * cos - diff.y * sin) * latScale;
+        const ry = (diff.x * sin + diff.y * cos) * latScale;
         const compAnchorPx = map.project(this.comparison_anchor, AppState.REF_ZOOM);
         this.comparison_anchor = map.unproject(compAnchorPx.add(L.point(rx, ry)), AppState.REF_ZOOM);
     }
@@ -139,7 +145,7 @@ class Shape {
     }
 
     /**
-     * Gets rendered points for a specific map with rotation applied.
+     * Gets rendered points for a specific map with rotation and latitude-based scaling applied.
      * @param {L.Map} targetMap - Target Leaflet map.
      * @param {number} targetMapId - Target map ID (1 or 2).
      * @returns {L.LatLng[]} Array of rendered points.
@@ -159,9 +165,14 @@ class Shape {
         const sin = Math.sin(rot);
         const cos = Math.cos(rot);
 
+        // Mercator projection scale factor: 1/cos(lat).
+        // To preserve physical size, we scale by cos(origin_lat) / cos(comparison_lat).
+        const latScale = Math.cos(this.origin_anchor.lat * Math.PI / 180) /
+                         Math.cos(this.comparison_anchor.lat * Math.PI / 180);
+
         return this.localPoints.map(p => {
-            const cx = (p.x - centroid.x) * scale;
-            const cy = (p.y - centroid.y) * scale;
+            const cx = (p.x - centroid.x) * scale * latScale;
+            const cy = (p.y - centroid.y) * scale * latScale;
             const rx = cx * cos - cy * sin;
             const ry = cx * sin + cy * cos;
             return targetMap.unproject(anchorPx.add(L.point(rx, ry)), currentZoom);
