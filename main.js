@@ -823,7 +823,7 @@ function renderAll() {
     syncOverlayHandles(compData.map, mapManagers[compData.id].layers.handles, compData.id);
 
     const [refVal] = [originData.pts].map(getVal);
-    DOM.maps[om].stats.textContent = format(refVal);
+    DOM.maps[om].stats.innerHTML = format(refVal);
     DOM.maps[om].diff.textContent = '';
     DOM.maps[compData.id].card.classList.remove('visible');
 }
@@ -852,7 +852,7 @@ function renderDraggingPoint() {
     // Update stats in real-time during drag
     const originData = mapData.find(d => d.id === om);
     const [refVal] = [originData.pts].map(getVal);
-    DOM.maps[om].stats.textContent = format(refVal);
+    DOM.maps[om].stats.innerHTML = format(refVal);
     DOM.maps[om].diff.textContent = '';
 }
 
@@ -879,7 +879,7 @@ function renderRotating(map, mapId) {
     const originMap = om === 1 ? map1 : map2;
     const originPts = gt.getRenderPoints(originMap, om);
     const [refVal] = [originPts].map(getVal);
-    DOM.maps[om].stats.textContent = format(refVal);
+    DOM.maps[om].stats.innerHTML = format(refVal);
     DOM.maps[om].diff.textContent = '';
 
     // Update the connecting line between move and rotate handles
@@ -1071,7 +1071,12 @@ function getVal(pts) {
         const loc = pts.map(p => ({ x: p.distanceTo(L.latLng(p.lat, ref.lng)) * (p.lng > ref.lng ? 1 : -1), y: p.distanceTo(L.latLng(ref.lat, p.lng)) * (p.lat > ref.lat ? 1 : -1) }));
         let a = 0;
         for (let i = 0; i < loc.length; i++) { let j = (i + 1) % loc.length; a += loc[i].x * loc[j].y - loc[j].x * loc[i].y; }
-        return Math.abs(a) / 2;
+        const area = Math.abs(a) / 2;
+        let perimeter = 0;
+        for (let i = 0; i < pts.length; i++) {
+            perimeter += pts[i].distanceTo(pts[(i + 1) % pts.length]);
+        }
+        return { area, perimeter };
     }
     let d = 0;
     for (let i = 0; i < pts.length - 1; i++) d += pts[i].distanceTo(pts[i + 1]);
@@ -1092,6 +1097,14 @@ function getVal(pts) {
 function format(v, forceLinear = false) {
     if (v === 0) return '---';
     const isM = AppState.units === 'metric';
+    
+    // Handle area mode which now returns { area, perimeter }
+    if (typeof v === 'object' && v !== null && 'area' in v) {
+        const areaStr = format(v.area);
+        const perimeterStr = format(v.perimeter, true);
+        return `${areaStr}<div style="font-size: 0.8em; opacity: 0.8; margin-top: 2px;">${perimeterStr}</div>`;
+    }
+
     if (AppState.mode === 'area' && !forceLinear) {
         if (isM) return v >= 1e6 ? (v / 1e6).toFixed(2) + ' km²' : v.toFixed(0) + ' m²';
         const yd2 = v * 1.19599;
