@@ -215,9 +215,10 @@ class MapManager {
             shapes: L.featureGroup().addTo(map),
             markers: L.featureGroup().addTo(map),
             bbox: L.featureGroup().addTo(map),
-            handles: L.featureGroup().addTo(map)
+            handles: L.featureGroup().addTo(map),
+            labels: L.featureGroup().addTo(map)
         };
-        this.refs = { shape: null, casing: null, bbox: null, handles: { move: null, rotate: null, line: null } };
+        this.refs = { shape: null, casing: null, bbox: null, handles: { move: null, rotate: null, line: null }, labels: [] };
     }
 
     /**
@@ -237,6 +238,11 @@ class MapManager {
      */
     updateShape(pts, color, isArea, weight) {
         if (pts.length < 2) return;
+        
+        // Ensure overlay map always uses comparison color (accent-yellow)
+        const gt = AppState.groundTruth;
+        const finalColor = (gt && this.id !== gt.origin_map) ? getCssVar('--comp-color') : color;
+
         const factory = isArea ? L.polygon : L.polyline;
         const { shapes } = this.layers;
         let { shape, casing } = this.refs;
@@ -244,7 +250,7 @@ class MapManager {
         if (!shape || (isArea && !(shape instanceof L.Polygon)) || (!isArea && shape instanceof L.Polygon)) {
             shapes.clearLayers();
             casing = factory(pts, { color: getCssVar('--shape-outline-color'), weight: weight * 2, fill: false, opacity: 1, interactive: true }).addTo(shapes);
-            shape = factory(pts, { color, weight, fill: isArea, fillColor: color, fillOpacity: 0.25, opacity: 1, interactive: true }).addTo(shapes);
+            shape = factory(pts, { color: finalColor, weight, fill: isArea, fillColor: finalColor, fillOpacity: 0.25, opacity: 1, interactive: true }).addTo(shapes);
             this.refs.shape = shape;
             this.refs.casing = casing;
 
@@ -263,8 +269,60 @@ class MapManager {
         } else {
             shape.setLatLngs(pts);
             casing.setLatLngs(pts);
-            shape.setStyle({ color, fillColor: color });
+            shape.setStyle({ color: finalColor, fillColor: finalColor });
         }
+
+        this.updateLabels(pts, isArea, finalColor);
+    }
+
+    /**
+     * Updates line length labels at midpoints, positioned outside the shape.
+     * @param {L.LatLng[]} pts - Shape points.
+     * @param {boolean} isArea - Whether the shape is a closed area.
+     * @param {string} color - Background color for labels.
+     */
+    updateLabels(pts, isArea, color) {
+        const { labels: labelLayer } = this.layers;
+        labelLayer.clearLayers();
+        this.refs.labels = [];
+
+        if (pts.length < 2) return;
+
+        const lines = [];
+        for (let i = 0; i < pts.length - 1; i++) {
+            lines.push([pts[i], pts[i + 1]]);
+        }
+        if (isArea && pts.length > 2) {
+            lines.push([pts[pts.length - 1], pts[0]]);
+        }
+
+        // Calculate centroid for "outside" positioning if it's an area
+        let centroidPx = null;
+        if (isArea) {
+            let tx = 0, ty = 0;
+            pts.forEach(p => {
+                const px = this.map.latLngToLayerPoint(p);
+                tx += px.x; ty += px.y;
+            });
+            centroidPx = L.point(tx / pts.length, ty / pts.length);
+        }
+
+        lines.forEach(([p1, p2]) => {
+            const midLatLng = L.latLng((p1.lat + p2.lat) / 2, (p1.lng + p2.lng) / 2);
+            const dist = p1.distanceTo(p2);
+            const labelText = format(dist, true);
+
+            const label = L.marker(midLatLng, {
+                icon: L.divIcon({
+                    className: 'line-label-icon',
+                    html: `<div class="line-label" style="background-color: ${color}; border-color: var(--shape-outline-color);">${labelText}</div>`,
+                    iconSize: [0, 0],
+                    iconAnchor: [0, 0]
+                }),
+                interactive: false
+            }).addTo(labelLayer);
+            this.refs.labels.push(label);
+        });
     }
 
     /**
@@ -457,7 +515,7 @@ const AppState = {
     mode: 'line',
     units: 'metric',
     markers: [],
-    showVertexNumbers: false,
+    showVertexNumbers: true,
     showBoundingBox: false,
     isDragging: false,
     isRotating: false,
@@ -764,17 +822,10 @@ function renderAll() {
     syncMarkers(originData.pts, mapManagers[om].layers.markers, originData.map);
     syncOverlayHandles(compData.map, mapManagers[compData.id].layers.handles, compData.id);
 
-    const [refVal, compVal] = [originData.pts, compData.pts].map(getVal);
+    const [refVal] = [originData.pts].map(getVal);
     DOM.maps[om].stats.textContent = format(refVal);
-    DOM.maps[compData.id].stats.textContent = format(compVal);
     DOM.maps[om].diff.textContent = '';
-
-    if (refVal > 0) {
-        const pct = ((compVal - refVal) / refVal) * 100;
-        const el = DOM.maps[compData.id].diff;
-        el.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
-        el.style.color = getCssVar('--comp-color');
-    }
+    DOM.maps[compData.id].card.classList.remove('visible');
 }
 
 /**
@@ -800,18 +851,9 @@ function renderDraggingPoint() {
 
     // Update stats in real-time during drag
     const originData = mapData.find(d => d.id === om);
-    const compData = mapData.find(d => d.id !== om);
-    const [refVal, compVal] = [originData.pts, compData.pts].map(getVal);
+    const [refVal] = [originData.pts].map(getVal);
     DOM.maps[om].stats.textContent = format(refVal);
-    DOM.maps[compData.id].stats.textContent = format(compVal);
     DOM.maps[om].diff.textContent = '';
-
-    if (refVal > 0) {
-        const pct = ((compVal - refVal) / refVal) * 100;
-        const el = DOM.maps[compData.id].diff;
-        el.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
-        el.style.color = getCssVar('--comp-color');
-    }
 }
 
 /**
@@ -836,17 +878,9 @@ function renderRotating(map, mapId) {
     // Update stats in real-time during rotation
     const originMap = om === 1 ? map1 : map2;
     const originPts = gt.getRenderPoints(originMap, om);
-    const [refVal, compVal] = [originPts, compPts].map(getVal);
+    const [refVal] = [originPts].map(getVal);
     DOM.maps[om].stats.textContent = format(refVal);
-    DOM.maps[compId].stats.textContent = format(compVal);
     DOM.maps[om].diff.textContent = '';
-
-    if (refVal > 0) {
-        const pct = ((compVal - refVal) / refVal) * 100;
-        const el = DOM.maps[compId].diff;
-        el.textContent = `${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
-        el.style.color = getCssVar('--comp-color');
-    }
 
     // Update the connecting line between move and rotate handles
     const mm = mapManagers[compId];
@@ -1049,13 +1083,19 @@ function getVal(pts) {
  * @param {number} v - Value to format.
  * @returns {string} Formatted value with units.
  */
-function format(v) {
+/**
+ * Formats a value with units based on current mode and preferences.
+ * @param {number} v - Value to format.
+ * @param {boolean} [forceLinear=false] - If true, force linear units even in area mode.
+ * @returns {string} Formatted value with units.
+ */
+function format(v, forceLinear = false) {
     if (v === 0) return '---';
     const isM = AppState.units === 'metric';
-    if (AppState.mode === 'area') {
-        if (isM) return v >= 1e6 ? (v / 1e6).toFixed(2) + ' km2' : v.toFixed(0) + ' m2';
+    if (AppState.mode === 'area' && !forceLinear) {
+        if (isM) return v >= 1e6 ? (v / 1e6).toFixed(2) + ' km²' : v.toFixed(0) + ' m²';
         const yd2 = v * 1.19599;
-        return yd2 >= 3097600 ? (v * 3.861e-7).toFixed(2) + ' mi2' : yd2.toFixed(0) + ' yd2';
+        return yd2 >= 3097600 ? (v * 3.861e-7).toFixed(2) + ' mi²' : yd2.toFixed(0) + ' yd²';
     } else {
         if (isM) return v >= 1000 ? (v / 1000).toFixed(2) + ' km' : v.toFixed(0) + ' m';
         const yd = v * 1.09361;

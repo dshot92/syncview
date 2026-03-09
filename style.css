@@ -20,6 +20,11 @@
     --bbox-color: var(--accent-red);
     --bbox-width: 1.5;
 
+    /* Label Variables */
+    --label-bg: rgba(15, 23, 42, 0.85);
+    --label-border: rgba(255, 255, 255, 0.2);
+    --label-text: #ffffff;
+
     /* Standardized UI Sizes */
     --pill-height: 44px;
     --pill-width: 44px;
@@ -141,14 +146,13 @@ html {
 }
 
 .hud-card {
-    background: var(--bg-deep);
-    backdrop-filter: blur(12px);
-    border: var(--border);
-    border-radius: var(--btn-radius);
-    padding: 6px 12px;
+    background: #0f172a;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 40px;
+    padding: 8px 24px;
     pointer-events: auto;
-    min-width: 110px;
-    box-shadow: var(--shadow-lg);
+    min-width: 120px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
     transition: var(--transition-smooth);
     opacity: 0;
     transform: translateY(-10px);
@@ -1127,4 +1131,26 @@ img {
 .search-status.error {
     color: var(--accent-red);
     opacity: 1;
+}
+
+/* Line length label styling */
+.line-label-icon {
+    pointer-events: none !important;
+}
+
+.line-label {
+    background: var(--shape-point-color);
+    border: 2px solid var(--shape-outline-color);
+    border-radius: 4px;
+    padding: 2px 6px;
+    color: var(--bg-deep);
+    font-size: 11px;
+    font-weight: 800;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    pointer-events: none;
+    user-select: none;
+    display: inline-block;
+    width: fit-content;
+    transform: translate(-50%, -50%);
 }
