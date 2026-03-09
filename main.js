@@ -249,8 +249,6 @@ class MapManager {
                     initMagnifier(this.map, e.latlng);
                 });
             };
-            setupShapeEvents(shape);
-            setupShapeEvents(casing);
         } else {
             shape.setLatLngs(pts);
             casing.setLatLngs(pts);
@@ -1100,8 +1098,6 @@ function getInsertIndex(latlng, m) {
             AppState.init(e.latlng, i + 1);
         } else if (AppState.groundTruth.origin_map === (i + 1)) {
             AppState.groundTruth.addPoint(e.latlng, m, getInsertIndex(e.latlng, m));
-        } else {
-            AppState.groundTruth.setOverlayPosition(e.latlng);
         }
         requestRender(); AppState.updateUI();
     });
