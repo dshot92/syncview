@@ -494,7 +494,12 @@ const AppState = {
      */
     toggleUnits() {
         this.units = this.units === 'metric' ? 'imperial' : 'metric';
-        DOM.valUnits.textContent = this.units.charAt(0).toUpperCase() + this.units.slice(1);
+        const toggle = document.getElementById('toggle-units');
+        if (toggle) {
+            toggle.setAttribute('data-active', this.units);
+            const btns = toggle.querySelectorAll('.pill');
+            btns.forEach(b => b.classList.toggle('active', b.getAttribute('data-value') === this.units));
+        }
         requestRender();
     },
 
@@ -503,7 +508,13 @@ const AppState = {
      */
     toggleVertexNumbers() {
         this.showVertexNumbers = !this.showVertexNumbers;
-        DOM.valVertex.textContent = this.showVertexNumbers ? 'On' : 'Off';
+        const val = this.showVertexNumbers ? 'on' : 'off';
+        const toggle = document.getElementById('toggle-vertex');
+        if (toggle) {
+            toggle.setAttribute('data-active', val);
+            const btns = toggle.querySelectorAll('.pill');
+            btns.forEach(b => b.classList.toggle('active', b.getAttribute('data-value') === val));
+        }
         this.markers.forEach((m, idx) => {
             m.setIcon(L.divIcon({ className: 'map-point-icon', html: this.showVertexNumbers ? idx + 1 : '' }));
         });
@@ -515,7 +526,13 @@ const AppState = {
      */
     toggleBoundingBox() {
         this.showBoundingBox = !this.showBoundingBox;
-        DOM.valBbox.textContent = this.showBoundingBox ? 'On' : 'Off';
+        const val = this.showBoundingBox ? 'on' : 'off';
+        const toggle = document.getElementById('toggle-bbox');
+        if (toggle) {
+            toggle.setAttribute('data-active', val);
+            const btns = toggle.querySelectorAll('.pill');
+            btns.forEach(b => b.classList.toggle('active', b.getAttribute('data-value') === val));
+        }
         requestRender();
     },
 
@@ -1267,8 +1284,12 @@ const ShareState = {
  * Shares current view by encoding state and opening share dialog.
  */
 function shareCurrentView() {
+    console.log("shareCurrentView triggered");
     const code = ShareState.encode();
-    if (!code) return;
+    if (!code) {
+        console.error("Failed to encode share state");
+        return;
+    }
 
     const url = new URL(window.location.href);
     url.searchParams.set('s', code);
@@ -1295,6 +1316,7 @@ function shareCurrentView() {
  * @param {string} url - URL to share.
  */
 function openShareModal(url) {
+    console.log("openShareModal triggered with URL:", url);
     toggleModal('share-modal', true);
     if (DOM.shareUrl) DOM.shareUrl.innerText = url;
 
@@ -1633,10 +1655,37 @@ function initEventListeners() {
         });
     });
 
+    // Settings toggles
+    ['units', 'vertex', 'bbox'].forEach(type => {
+        const toggle = document.getElementById(`toggle-${type}`);
+        if (toggle) {
+            toggle.querySelectorAll('.pill').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const val = btn.getAttribute('data-value');
+                    const currentVal = type === 'units' ? AppState.units :
+                                     type === 'vertex' ? (AppState.showVertexNumbers ? 'on' : 'off') :
+                                     (AppState.showBoundingBox ? 'on' : 'off');
+                    if (val !== currentVal) {
+                        if (type === 'units') AppState.toggleUnits();
+                        else if (type === 'vertex') AppState.toggleVertexNumbers();
+                        else if (type === 'bbox') AppState.toggleBoundingBox();
+                    }
+                });
+            });
+        }
+    });
+
     // Settings rows
-    document.getElementById('row-units')?.addEventListener('click', () => AppState.toggleUnits());
-    document.getElementById('row-vertex')?.addEventListener('click', () => AppState.toggleVertexNumbers());
-    document.getElementById('row-bbox')?.addEventListener('click', () => AppState.toggleBoundingBox());
+    document.getElementById('row-units')?.addEventListener('click', (e) => {
+        if (!e.target.closest('.pill')) AppState.toggleUnits();
+    });
+    document.getElementById('row-vertex')?.addEventListener('click', (e) => {
+        if (!e.target.closest('.pill')) AppState.toggleVertexNumbers();
+    });
+    document.getElementById('row-bbox')?.addEventListener('click', (e) => {
+        if (!e.target.closest('.pill')) AppState.toggleBoundingBox();
+    });
 
     // Modal close buttons and overlay clicks
     document.querySelectorAll('.modal-overlay').forEach(modal => {

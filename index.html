@@ -212,15 +212,27 @@
             </div>
             <div class="setting-row" id="row-units">
                 <span>Measurement Units</span>
-                <span id="val-units" class="setting-value">Metric</span>
+                <div class="pill-group settings-toggle" id="toggle-units">
+                    <div class="pill-bg"></div>
+                    <button class="pill active" data-value="metric">Metric</button>
+                    <button class="pill" data-value="imperial">Imperial</button>
+                </div>
             </div>
             <div class="setting-row" id="row-vertex">
                 <span>Show Point Numbers</span>
-                <span id="val-vertex" class="setting-value">Off</span>
+                <div class="pill-group settings-toggle" id="toggle-vertex">
+                    <div class="pill-bg"></div>
+                    <button class="pill" data-value="off">Off</button>
+                    <button class="pill active" data-value="on">On</button>
+                </div>
             </div>
             <div class="setting-row" id="row-bbox">
                 <span>Show Bounding Box</span>
-                <span id="val-bbox" class="setting-value">Off</span>
+                <div class="pill-group settings-toggle" id="toggle-bbox">
+                    <div class="pill-bg"></div>
+                    <button class="pill" data-value="off">Off</button>
+                    <button class="pill active" data-value="on">On</button>
+                </div>
             </div>
         </div>
     </div>
