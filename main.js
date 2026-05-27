@@ -417,7 +417,6 @@ let tile2 = L.tileLayer(tiles.hybrid, { ...tileOptions }).addTo(map2);
 const PinchState = {
     activeMap: null,
     passiveMap: null,
-    passiveBaseZoom: null,
     justEnded: false,
 
     /**
@@ -429,20 +428,21 @@ const PinchState = {
         if (this.activeMap) this.end();
         this.activeMap = active;
         this.passiveMap = passive;
-        this.passiveBaseZoom = passive.getZoom();
         this.activeMap.on('zoom', this.onZoom);
     },
 
     /**
      * Handles zoom during active pinch.
+     * Syncs the passive map's zoom without animation.
+     * The passive map's viewreset/move event handles the re-render.
      */
     onZoom: () => {
         if (!PinchState.passiveMap) return;
-        const scale = Math.pow(2, PinchState.activeMap.getZoom() - PinchState.passiveBaseZoom);
-        const size = PinchState.passiveMap.getSize();
-        const origin = L.point(size.x / 2, size.y / 2);
-        const offset = origin.subtract(origin.multiplyBy(scale));
-        L.DomUtil.setTransform(PinchState.passiveMap._mapPane, offset, scale);
+        const passive = PinchState.passiveMap;
+        const active = PinchState.activeMap;
+        const zoom = active.getZoom();
+        if (Math.abs(passive.getZoom() - zoom) < 0.01) return;
+        passive.setZoom(zoom, { animate: false });
     },
 
     /**
@@ -453,15 +453,13 @@ const PinchState = {
         PinchState.activeMap.off('zoom', PinchState.onZoom);
         const passive = PinchState.passiveMap;
         const active = PinchState.activeMap;
-        L.DomUtil.setTransform(passive._mapPane, L.point(0, 0), 1);
-        PinchState.activeMap = null;
-        PinchState.passiveMap = null;
-        PinchState.passiveBaseZoom = null;
-        PinchState.justEnded = true;
         const finalZoom = active.getZoom();
         if (Math.abs(passive.getZoom() - finalZoom) > 0.01) {
             passive.setZoom(finalZoom, { animate: false });
         }
+        PinchState.activeMap = null;
+        PinchState.passiveMap = null;
+        PinchState.justEnded = true;
         setTimeout(() => { PinchState.justEnded = false; }, 50);
     }
 };
@@ -818,10 +816,11 @@ function renderAll() {
 
     const mapData = [1, 2].map(id => {
         const map = id === 1 ? map1 : map2;
+        if (map === PinchState.activeMap) return null;
         const pts = gt.getRenderPoints(map, id);
         const color = getCssVar(om === id ? '--origin-color' : '--comp-color');
         return { id, map, pts, color };
-    });
+    }).filter(Boolean);
 
     mapData.forEach(({ id, pts, color }) => {
         mapManagers[id].updateShape(pts, color, isArea, weight);
@@ -838,13 +837,22 @@ function renderAll() {
 
     const originData = mapData.find(d => d.id === om);
     const compData = mapData.find(d => d.id !== om);
-    syncMarkers(originData.pts, mapManagers[om].layers.markers, originData.map);
-    syncOverlayHandles(compData.map, mapManagers[compData.id].layers.handles, compData.id);
 
-    const [refVal] = [originData.pts].map(getVal);
-    DOM.maps[om].stats.innerHTML = format(refVal);
-    DOM.maps[om].diff.textContent = '';
-    DOM.maps[compData.id].card.classList.remove('visible');
+    if (originData) {
+        syncMarkers(originData.pts, mapManagers[om].layers.markers, originData.map);
+    }
+    if (compData) {
+        syncOverlayHandles(compData.map, mapManagers[compData.id].layers.handles, compData.id);
+    }
+
+    const refMap = originData ? originData.map : (compData ? compData.map : null);
+    if (refMap) {
+        const [refVal] = [originData ? originData.pts : compData.pts].map(getVal);
+        DOM.maps[om].stats.innerHTML = format(refVal);
+        DOM.maps[om].diff.textContent = '';
+        const cid = om === 1 ? 2 : 1;
+        DOM.maps[cid].card.classList.remove('visible');
+    }
 }
 
 /**
@@ -1184,7 +1192,10 @@ function getInsertIndex(latlng, m) {
         }
         requestRender(); AppState.updateUI();
     });
-    m.on('viewreset move', () => requestRender());
+    m.on('viewreset move', () => {
+        if (m._animatingZoom) return;
+        requestRender();
+    });
 });
 
 // --- UI Functions ---
